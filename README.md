@@ -8,8 +8,7 @@
 conda create -n pydeph python=3.8 numpy matplotlib scipy\
 conda activate pydeph\
 2- conda install --channel conda-forge pymatgen
-# if GPU device present
-3- pip install pycuda\
+3- pip install pycuda (if GPU device present)\
 4- pip install h5py\
 5- pip install pyyaml\
 6- pip install mpi4py\
