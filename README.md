@@ -7,7 +7,7 @@
 1- create your own environment\
 conda create -n pydeph python=3.8 numpy matplotlib scipy\
 conda activate pydeph\
-2- conda install --channel conda-forge pymatgen
+2- conda install --channel conda-forge pymatgen\
 3- pip install pycuda (if GPU device present)\
 4- pip install h5py\
 5- pip install pyyaml\
