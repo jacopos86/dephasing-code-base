@@ -1,0 +1,19 @@
+working_dir : /home/jacopo/PROJECTS/dephasing-code-project/examples/NV-diamond
+output_dir : T2-TEST-HFI-STAT
+yaml_pos_file : phonopy_disp.yaml
+grad_info_file : info.yml
+dt : 0.0007
+T : 3.0
+dt_nuc : 0.0007
+T_nuc : 3.0
+nlags : 1000
+nconfig : 9
+nspins : 6
+B0 :
+  - 0.0
+  - 0.0
+  - 10.0
+psi0 :
+  - 1.0+0j
+  - 1.0+0j
+  - 0.0+0j

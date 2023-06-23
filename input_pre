@@ -1,0 +1,14 @@
+# working directory
+working_dir = ./examples/CC-TEST
+# unperturbed data directory
+unpert_data_dir = ./examples/CC-TEST/GS
+# directory first order displacements
+dir_first_order_displ = ./examples/CC-TEST/DISPLACEMENT-FILES-001 ./examples/CC-TEST/DISPLACEMENT-FILES-0001
+# outcar directories
+dir_calc = ./examples/CC-TEST/DISPL-001 ./examples/CC-TEST/DISPL-0001
+# copy folder
+vasp_files_dir = ./examples/CC-TEST/COPY-FOLDER
+# atomic displ
+dx = 0.01 0.001
+dy = 0.01 0.001
+dz = 0.01 0.001

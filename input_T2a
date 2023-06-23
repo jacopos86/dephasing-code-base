@@ -1,0 +1,35 @@
+# working directory
+working_dir = ./examples/NV-diamond
+# directory first order displacements
+dir_first_order_displ = ./examples/NV-diamond/DISPLACEMENT-FILES-01 ./examples/NV-diamond/DISPLACEMENT-FILES-0001
+# outcar directories
+dir_displ_outcars = ./examples/NV-diamond/DISPL-01 ./examples/NV-diamond/DISPL-0001
+# unperturbed data directory
+gs_outcar_dir = ./examples/NV-diamond/GS
+# info gradient file
+grad_info_file = ./examples/NV-diamond/info
+# yaml atomic positions file
+yaml_pos_file = ./examples/NV-diamond/phonopy_disp.yaml
+# HDF5 eigenvector file
+hdf5_eigen_file = ./examples/NV-diamond/mesh.hdf5
+# res dir
+out_res_dir = ./examples/temp
+# out data dir
+out_data_dir = ./examples/NV-diamond
+# displ
+dx = 0.1 0.001
+dy = 0.1 0.001
+dz = 0.1 0.001
+# total time (ps)
+T = 1.0
+# time T2 for ph and at resolved calculations
+T2 = 1.0
+# time interval (ps)
+dt = 0.0007
+# temperature variables (K)
+Tin = 300.0
+Tfin = 300.0
+deltaT = 100.0
+# quantum state 1
+qs1 = 1. 0. 0.
+qs2 = 0. 1. 0.

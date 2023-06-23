@@ -1,0 +1,31 @@
+working_dir : /home/jacopo/PROJECTS/dephasing-code-project/examples/NV-diamond
+output_dir : T2-SP-DEPHDD_TEST
+displ_poscar_dir : 
+  - DISPLACEMENT-FILES-01
+  - DISPLACEMENT-FILES-0001
+displ_2nd_poscar_dir :
+  - DISPLACEMENT-FILES-2NDORDER
+displ_outcar_dir :
+  - DISPL-01
+  - DISPL-0001
+displ_2nd_outcar_dir :
+  - DISPL-2NDORDER
+grad_info_file : info.yml
+unpert_dir :
+  - GS
+yaml_pos_file : phonopy_disp.yaml
+hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
+2nd_order_correct : False
+atom_res : False
+phonon_res : False
+ph_list :
+  - 0
+  - 645
+T :
+  - 3.0
+  - 0.5
+dt : 0.0007
+temperature :
+  - 10.0
+npulses :
+  - 5

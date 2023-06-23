@@ -1,0 +1,23 @@
+# output directory
+out_dir = ./examples/CC/RESULTS-ESL
+# yaml atomic positions file
+yaml_pos_file = ./examples/CC/phonopy_disp.yaml
+# HDF5 eigenvector file
+hdf5_eigen_file = ./examples/CC/mesh.hdf5
+# unpert dirs
+unpert_gs_dir  = ./examples/CC/GS/0
+unpert_exc_dir = ./examples/CC/EXC-SINGL/0
+# force constants files
+forc_const_gs = ./examples/CC/GS/force_constants.hdf5
+forc_const_exc = ./examples/CC/EXC-SINGL/force_constants.hdf5
+# total time (ps)
+T = 5.0
+# time T2 for ph and at resolved calculations
+T2 = 2.5
+# time interval (ps)
+dt = 0.1
+# temperature variables (K)
+Tlist = 300.0 350.0
+# quantum state 1
+qs1 = 1. 0. 0.
+qs2 = 0. 1. 0.

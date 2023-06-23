@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: pydephasing
+Version: 1.0.0
+Summary: The PyDephasing code is designed to compute the inhomogeneous pure dephasing time of spin qubits and the excitonic dephasing time. It takes in input data from VASP and phonopy and it works as a post-processing tool for this data.
+Home-page: 
+Author: Jacopo Simoni
+Author-email: jsimoni@lbl.gov
+License: gpl-3.0
+Keywords: inhomogeneous dephasing,zero field splitting,excitonic gap,hyperfine interaction,DFT
+License-File: LICENSE.txt

@@ -1,0 +1,32 @@
+# working directory
+working_dir = ./examples/NV-diamond
+# output directory
+output_dir = ./examples/NV-diamond/HFI-CALC-STAT
+# unperturbed data directory
+unpert_data_dir = ./examples/NV-diamond/GS
+# yaml atomic positions file
+yaml_pos_file = ./examples/NV-diamond/phonopy_disp.yaml
+# HDF5 eigenvector file
+hdf5_eigen_file = ./examples/NV-diamond/mesh.hdf5
+# total time (ps)
+T = 1.0
+# time interval (ps)
+dt = 0.0007
+# nucl. spin time (mu sec)
+T_mus = 1.0
+# dt (mu sec)
+dt_mus = 0.0007
+# quantum state 1
+qs1 = 1. 0. 0.
+qs2 = 0. 1. 0.
+# temperature
+T_K = 10.0
+# n. config.
+nconfig = 2
+# n. spins
+nspins = 3
+# applied B field (G)
+B0 = 0. 0. 10.0
+# initial state
+psi0 = 1. 1. 0.
+nlags2 = 1000
