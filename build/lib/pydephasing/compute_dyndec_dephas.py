@@ -133,12 +133,12 @@ def compute_homo_dyndec_dephas():
     #
     # compute acf over local (q,l) list
     acf.compute_acf_dyndec(wq, wu, u, qpts, nat, Fax, Faxby, ql_list)
-    sys.exit()
     #
     # collect data from processes
     if mpi.size > 1:
-        acf.collect_acf_from_processes(nat)
+        acf.collect_acfdd_from_processes(nat)
     mpi.comm.Barrier()
+    sys.exit()
     # prepare data arrays
     T2_obj = T2i_ofT(nat)
     Delt_obj= Delta_ofT(nat)

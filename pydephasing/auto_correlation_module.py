@@ -190,6 +190,7 @@ class acf_ph_deph(object):
     def compute_acf_Vph1_atphr(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
         if p.ph_resolved:
             self.acf_phr_sp = np.zeros((p.nt2,p.nphr,p.ntmp), dtype=np.complex128)
+            self.acf_wql_sp = np.zeros((p.nt2,p.nwbn,p.ntmp), dtype=np.complex128)
         if p.at_resolved:
             self.acf_atr_sp = np.zeros((p.nt2,nat,p.ntmp), dtype=np.complex128)
         if not p.ph_resolved and not p.at_resolved:
@@ -217,9 +218,12 @@ class acf_ph_deph(object):
                     for jax in range(3*nat):
                         # (eV^2) units
                         # ph. resolved
-                        if p.ph_resolved and il in p.phm_list:
-                            iph = p.phm_list.index(il)
-                            self.acf_phr_sp[:,iph,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                        if p.ph_resolved:
+                            ii = p.wql_grid[iq,il]
+                            self.acf_wql_sp[:,ii,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,iph,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
                         # at. resolved
                         if p.at_resolved:
                             ia = atoms.index_to_ia_map[jax] - 1
@@ -374,7 +378,7 @@ class acf_ph_deph(object):
                 for jax in range(3*nat):
                     F_lqlqp[:] += Fjax_lqlqp[jax,:]
                 # update acf - dyndec
-                self.compute_dkt0_acf_Vph2(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp, w_k)
+                #self.compute_dkt0_acf_Vph2(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp, w_k)
                 plt.xlim([0.,.3])
                 plt.plot(p.time[:], self.acfdd_sp[:,0].real)
                 if mpi.rank == mpi.root:
@@ -391,9 +395,12 @@ class acf_ph_deph(object):
         # ph / at resolved
         if p.ph_resolved:
             self.acf_phr = np.zeros((p.nt2, p.nphr, p.ntmp), dtype=type(self.acf_phr_sp[0,0,0]))
+            self.acf_wql = np.zeros((p.nt2, p.nwbn, p.ntmp), dtype=type(self.acf_wql_sp[0,0,0]))
             for iT in range(p.ntmp):
                 for iph in range(p.nphr):
                     self.acf_phr[:,iph,iT] = mpi.collect_time_array(self.acf_phr_sp[:,iph,iT])
+                for iwb in range(p.nwbn):
+                    self.acf_wql[:,iwb,iT] = mpi.collect_time_array(self.acf_wql_sp[:,iwb,iT])
         if p.at_resolved:
             self.acf_atr = np.zeros((p.nt2, nat, p.ntmp), dtype=type(self.acf_atr_sp[0,0,0]))
             for iT in range(p.ntmp):
@@ -407,6 +414,8 @@ class acf_ph_deph(object):
                 assert np.fabs(self.Delta_2[iT]/self.acf[0,iT].real - 1.0) < eps
             if mpi.rank == mpi.root:
                 log.info("Delta^2 TEST PASSED")
+    def collect_acfdd_from_processes(self, nat):
+        pass
     # extract dephasing parameters
     # from acf
     def extract_dephas_data(self, T2_obj, Delt_obj, tauc_obj, iT, lw_obj=None):

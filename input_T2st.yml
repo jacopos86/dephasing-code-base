@@ -1,4 +1,4 @@
-working_dir : /home/jacopo/PROJECTS/dephasing-code-project/examples/NV-diamond
+working_dir : /home/jacopo/PROJECTS/dephasing-code-base/examples/NV-diamond
 output_dir : T2-TEST-HFI-STAT
 yaml_pos_file : phonopy_disp.yaml
 grad_info_file : info.yml

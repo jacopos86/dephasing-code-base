@@ -127,6 +127,8 @@ class data_input():
                 stph = data['ph_list'][0]
                 self.nphr = data['ph_list'][1]
                 self.phm_list = list(np.arange(stph, self.nphr+stph))
+            if 'nwbn' in data:
+                self.nwbn = data['nwbn']
         # time variables
         if 'T' in data:
             # in ps units
@@ -338,5 +340,31 @@ class data_input():
             x = it_seq[it0]
             self.it0_seq[it0] = x[0]
             self.it1_seq[it0] = x[-1]+1
+    #
+    # set wql grid -> ph. res.
+    #
+    def set_wql_grid(self, wu, nq, nat):
+        max_freq = np.max(wu)
+        # THz
+        min_freq = np.inf
+        nphm = 3*nat
+        for iq in range(nq):
+            wuq = wu[iq]
+            for iph in range(nphm):
+                if wuq[iph] < min_freq and wuq[iph] > self.min_freq:
+                    min_freq = wuq[iph]
+        max_freq += min_freq / 10.
+        dw = (max_freq - min_freq) / self.nwbn
+        # wql grid
+        self.wql_grid = np.zeros((nq, nphm), dtype=int)
+        self.wql_freq = np.zeros(self.nwbn, dtype=int)
+        for iq in range(nq):
+            wuq = wu[iq]
+            for iph in range(nphm):
+                if wuq[iph] > self.min_freq:
+                    ii = int(np.floor((wuq[iph]-min_freq)/dw))
+                    self.wql_grid[iq,iph] = ii
+                    # wql freq.
+                    self.wql_freq[ii] += 1
 # input parameters object
 p = data_input()

@@ -16,6 +16,7 @@ from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.ph_ampl_module import PhononAmplitude
 from pydephasing.auto_correlation_module import acf_ph_deph
 from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT
+import sys
 #
 def compute_homo_dephas():
     # main driver code for the calculation of dephasing time
@@ -113,6 +114,10 @@ def compute_homo_dephas():
         # eV / ang^2
     else:
         Faxby = None
+    # set q pts. grid
+    if p.ph_resolved:
+        p.set_wql_grid(wu, nq, nat)
+    sys.exit()
     #
     # prepare calculation over q pts.
     # and ph. modes

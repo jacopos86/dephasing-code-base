@@ -1,4 +1,4 @@
-working_dir : /home/jacopo/PROJECTS/dephasing-code-project/examples/NV-diamond
+working_dir : /home/jacopo/PROJECTS/dephasing-code-base/examples/NV-diamond
 output_dir : T2-SP-DEPHDD_TEST
 displ_poscar_dir : 
   - DISPLACEMENT-FILES-01
