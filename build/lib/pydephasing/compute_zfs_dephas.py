@@ -117,7 +117,6 @@ def compute_homo_dephas():
     # set q pts. grid
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)
-    sys.exit()
     #
     # prepare calculation over q pts.
     # and ph. modes
@@ -203,10 +202,22 @@ def compute_homo_dephas():
                     ft_phr[:,iph,0] = ft_iph[0][:]
                     ft_phr[:,iph,1] = ft_iph[1][:]
             ft_phr = mpi.collect_array(ft_phr)
+            # local wql grid list
+            local_wql_list = mpi.split_list(np.arange(0, p.nwbn, 1))
+            # run over modes
+            ft_wql = np.zeros((p.nt2,p.nwbn,2))
+            for iwb in local_wql_list:
+                # compute acf + T2 times + print acf data
+                ft_ii = acf.extract_dephas_data_wql(T2_obj, Delt_obj, tauc_obj, iwb, iT)
+                if ft_ii is not None:
+                    ft_wql[:,iwb,0] = ft_ii[0][:]
+                    ft_wql[:,iwb,1] = ft_ii[1][:]
+            ft_wql = mpi.collect_array(ft_wql)
             # collect data into single proc.
             T2_obj.collect_phr_from_other_proc(iT)
             Delt_obj.collect_phr_from_other_proc(iT)
             tauc_obj.collect_phr_from_other_proc(iT)
+            
         #
         # print acf
         if mpi.rank == mpi.root:

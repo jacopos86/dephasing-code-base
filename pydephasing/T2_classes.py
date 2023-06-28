@@ -13,6 +13,7 @@ class T2i_ofT:
             self.T2s_atr = np.zeros((2,nat,p.ntmp))
         if p.ph_resolved:
             self.T2s_phr = np.zeros((2,len(p.phm_list),p.ntmp))
+            self.T2s_wql = np.zeros((2,p.nwbn,p.ntmp))
     def get_T2_sec(self):
         return self.T2_sec
     def set_T2(self, iT, T2i):
@@ -33,12 +34,21 @@ class T2i_ofT:
         # sec
     def get_T2_phr_sec(self):
         return self.T2s_phr
+    def get_T2_wql_sec(self):
+        return self.T2s_wql
     def set_T2_phr(self, iph, iT, T2pi):
         for ic in range(2):
             if T2pi[ic] == 0.:
                 self.T2s_phr[ic,iph,iT] = np.inf
             else:
                 self.T2s_phr[:,iph,iT] = 1./T2pi[:] * 1.E-12
+        # sec
+    def set_T2_wql(self, iwb, iT, T2pi):
+        for ic in range(2):
+            if T2pi[ic] == 0.:
+                self.T2s_wql[ic,iwb,iT] = np.inf
+            else:
+                self.T2s_wql[:,iwb,iT] = 1./T2pi[:] * 1.E-12
         # sec
     def collect_atr_from_other_proc(self, iT):
         T2s_atr_full = mpi.collect_array(self.T2s_atr[:,:,iT])
@@ -76,6 +86,7 @@ class Delta_ofT:
             self.Delt_atr = np.zeros((nat,p.ntmp))
         if p.ph_resolved:
             self.Delt_phr = np.zeros((len(p.phm_list),p.ntmp))
+            self.Delt_wql = np.zeros((p.nwbn,p.ntmp))
     def get_Delt(self):
         return self.Delt
     def set_Delt(self, iT, D2):
@@ -87,8 +98,12 @@ class Delta_ofT:
         self.Delt_atr[ia,iT] = np.sqrt(D2)
     def get_Delt_phr(self):
         return self.Delt_phr
+    def get_Delt_wql(self):
+        return self.Delt_wql
     def set_Delt_phr(self, iph, iT, D2):
         self.Delt_phr[iph,iT] = np.sqrt(D2)
+    def set_Delt_wql(self, iwb, iT, D2):
+        self.Delt_wql[iwb,iT] = np.sqrt(D2)
     def collect_atr_from_other_proc(self, iT):
         Delt_atr_full = mpi.collect_array(self.Delt_atr[:,iT])
         self.Delt_atr[:,iT] = 0.
@@ -121,6 +136,7 @@ class tauc_ofT:
             self.tauc_atr = np.zeros((2,nat,p.ntmp))
         if p.ph_resolved:
             self.tauc_phr = np.zeros((2,len(p.phm_list),p.ntmp))
+            self.tauc_wql = np.zeros((2,p.nwbn,p.ntmp))
     def set_tauc(self, iT, tau_c):
         self.tauc_ps[:,iT] = tau_c[:]
         # ps units
@@ -134,8 +150,13 @@ class tauc_ofT:
     def set_tauc_phr(self, iph, iT, tau_cp):
         self.tauc_phr[:,iph,iT] = tau_cp[:]
         # ps units
+    def set_tauc_wql(self, iwb, iT, tau_cp):
+        self.tauc_wql[:,iwb,iT] = tau_cp[:]
+        # ps units
     def get_tauc_phr(self):
         return self.tauc_phr
+    def get_tauc_wql(self):
+        return self.tauc_wql
     def collect_atr_from_other_proc(self, iT):
         tauc_atr_full = mpi.collect_array(self.tauc_atr[:,:,iT])
         self.tauc_atr[:,:,iT] = 0.
@@ -167,6 +188,7 @@ class lw_ofT:
             self.lw_atr = np.zeros((2,nat,p.ntmp))
         if p.ph_resolved:
             self.lw_phr = np.zeros((2,len(p.phm_list),p.ntmp))
+            self.lw_wql = np.zeros((2,p.nwb,p.ntmp))
     def set_lw(self, iT, T2i):
         self.lw_eV[:,iT] = 2.*np.pi*hbar*T2i[:]
     def get_lw(self):
@@ -177,8 +199,12 @@ class lw_ofT:
         return self.lw_atr
     def set_lw_phr(self, iph, iT, T2pi):
         self.lw_phr[:,iph,iT] = 2.*np.pi*hbar*T2pi[:]
+    def set_lw_wql(self, iwb, iT, T2pi):
+        self.lw_wql[:,iwb,iT] = 2.*np.pi*hbar*T2pi[:]
     def get_lw_phr(self):
         return self.lw_phr
+    def get_lw_wql(self):
+        return self.lw_wql
     def collect_atr_from_other_proc(self, iT):
         lw_atr_full = mpi.collect_array(self.lw_atr[:,:,iT])
         self.lw_atr[:,:,iT] = 0.
@@ -187,6 +213,10 @@ class lw_ofT:
         lw_phr_full = mpi.collect_array(self.lw_phr[:,:,iT])
         self.lw_phr[:,:,iT] = 0.
         self.lw_phr[:,:,iT] = lw_phr_full[:,:]
+        # wql
+        lw_wql_full = mpi.collect_array(self.lw_wql[:,:,iT])
+        self.lw_wql[:,:,iT] = 0.
+        self.lw_wql[:,:,iT] = lw_wql_full[:,:]
 #
 # ext. function : print dephasing data
 #
@@ -244,6 +274,13 @@ def print_dephas_data_phr(T2_obj, tauc_obj, Delt_obj, lw_obj=None):
     deph_dict['w_ql'] = wiph
     if lw_obj != None:
         deph_dict['lw_eV'] = lw_obj.get_lw_phr()
+    # wql data
+    deph_dict['wql_bins'] = p.wql_grid
+    deph_dict['T2_bins'] = T2_obj.get_T2_wql_sec()
+    deph_dict['Delt_bins'] = Delt_obj.get_Delt_wql()
+    deph_dict['tauc_bins'] = tauc_obj.get_tauc_wql()
+    if lw_obj != None:
+        deph_dict['lw_eV_bins'] = lw_obj.get_lw_wql()
     # write yaml file
     namef = "T2-phr-data.yml"
     with open(p.write_dir+'/'+namef, 'w') as out_file:

@@ -219,7 +219,7 @@ class acf_ph_deph(object):
                         # (eV^2) units
                         # ph. resolved
                         if p.ph_resolved:
-                            ii = p.wql_grid[iq,il]
+                            ii = p.wql_grid_index[iq,il]
                             self.acf_wql_sp[:,ii,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
                             if il in p.phm_list:
                                 iph = p.phm_list.index(il)
@@ -400,7 +400,8 @@ class acf_ph_deph(object):
                 for iph in range(p.nphr):
                     self.acf_phr[:,iph,iT] = mpi.collect_time_array(self.acf_phr_sp[:,iph,iT])
                 for iwb in range(p.nwbn):
-                    self.acf_wql[:,iwb,iT] = mpi.collect_time_array(self.acf_wql_sp[:,iwb,iT])
+                    if p.wql_freq[iwb] > 0:
+                        self.acf_wql[:,iwb,iT] = mpi.collect_time_array(self.acf_wql_sp[:,iwb,iT]) / p.wql_freq[iwb]
         if p.at_resolved:
             self.acf_atr = np.zeros((p.nt2, nat, p.ntmp), dtype=type(self.acf_atr_sp[0,0,0]))
             for iT in range(p.ntmp):
@@ -460,6 +461,26 @@ class acf_ph_deph(object):
                 lw_obj.set_lw_phr(iph, iT, T2_inv)
         return ft
     #
+    def extract_dephas_data_wql(self, T2_obj, Delt_obj, tauc_obj, iwb, iT, lw_obj=None):
+        # Delta^2
+        D2 = self.acf_wql[0,iwb,iT].real
+        Ct = np.zeros(p.nt2)
+        if np.abs(D2) == 0.:
+            pass
+        else:
+            for t in range(p.nt2):
+                Ct[t] = self.acf_wql[t,iwb,iT].real / D2
+        # extract T2 time
+        T2 = T2_eval()
+        tau_c, T2_inv, ft = T2.extract_T2(p.time2, Ct, D2)
+        # store data into objects
+        if tau_c is not None and T2_inv is not None:
+            T2_obj.set_T2_wql(iwb, iT, T2_inv)
+            tauc_obj.set_tauc_wql(iwb, iT, tau_c)
+            Delt_obj.set_Delt_wql(iwb, iT, D2)
+            if lw_obj is not None:
+                lw_obj.set_lw_wql(iwb, iT, T2_inv)
+        return ft
     def extract_dephas_data_atr(self, T2_obj, Delt_obj, tauc_obj, ia, iT, lw_obj=None):
         # Delta^2
         D2 = self.acf_atr[0,ia,iT].real
@@ -750,8 +771,11 @@ class CPU_acf_ph_deph(acf_ph_deph):
                         ft[:] = A_ph1[iT] * exp_iwt[:] * exp_iwpt[:] + A_ph2[iT] * exp_iwt[:].conjugate() * exp_iwpt[:].conjugate() + A_ph3[iT] * exp_iwt[:] * exp_iwpt[:].conjugate() * exp_int[:]
                         # (eV^2) units
                         for jax in range(3*nat):
-                            if p.ph_resolved and il in p.phm_list:
-                                self.acf_phr_sp[:,iph,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_lqlqp[jax,iqlp] * Fjax_lqlqp[jax,iqlp].conjugate()
+                            if p.ph_resolved:
+                                ii = p.wql_grid_index[iq,il]
+                                self.acf_wql_sp[:,ii,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_lqlqp[jax,iqlp] * Fjax_lqlqp[jax,iqlp].conjugate()
+                                if il in p.phm_list:
+                                    self.acf_phr_sp[:,iph,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_lqlqp[jax,iqlp] * Fjax_lqlqp[jax,iqlp].conjugate()
                             if p.at_resolved:
                                 ia = atoms.index_to_ia_map[jax] - 1
                                 self.acf_atr_sp[:,ia,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_lqlqp[jax,iqlp] * Fjax_lqlqp[jax,iqlp].conjugate()
@@ -928,6 +952,7 @@ class GPU_acf_ph_deph(acf_ph_deph):
             mod = SourceModule(gpu_src)
             compute_acf_phr = mod.get_function("compute_acf_Vsph2")
             iph = p.phm_list.index(il)
+            ii = p.wql_grid_index[iq,il]
             # split second modes on the grid
             qlp_gpu, init_gpu, lgth_gpu = gpu.split_data_on_grid(range(len(qlp_list)))
         #
@@ -1006,7 +1031,7 @@ class GPU_acf_ph_deph(acf_ph_deph):
                                 for a in range(ia0, min(ia1,nat)):
                                     self.acf_atr_sp[t,a,iT] += acf[t-t0,a-ia0]
                             ia0 = ia1
-                    if p.ph_resolved and il in p.phm_list:
+                    if p.ph_resolved:
                         acf = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         compute_acf_phr(cuda.In(w_qp), cuda.In(wuq), cuda.In(exp_iwt), cuda.In(exp_int),
                             cuda.In(time), cuda.In(F_lqp), cuda.In(Alqp), cuda.In(qlp_gpu), cuda.In(init_gpu),
@@ -1014,7 +1039,10 @@ class GPU_acf_ph_deph(acf_ph_deph):
                             self.toler, t_size, cuda.Out(acf), block=gpu.block, grid=gpu.grid)
                         acf = gpu.recover_data_from_grid(acf)
                         for t in range(t0, min(t1,p.nt2)):
-                            self.acf_phr_sp[t,iph,iT] += acf[t-t0]
+                            self.acf_wql_sp[t,ii,iT] += acf[t-t0]
+                        if il in p.phm_list:
+                            for t in range(t0, min(t1,p.nt2)):
+                                self.acf_phr_sp[t,iph,iT] += acf[t-t0]
                     t0 = t1
 #
 # auto-correlation HFI static

@@ -355,15 +355,18 @@ class data_input():
                     min_freq = wuq[iph]
         max_freq += min_freq / 10.
         dw = (max_freq - min_freq) / self.nwbn
-        # wql grid
-        self.wql_grid = np.zeros((nq, nphm), dtype=int)
+        self.wql_grid = np.zeros(self.nwbn)
+        for iwb in range(self.nwbn):
+            self.wql_grid[iwb] = min_freq + iwb * dw
+        # wql grid index
+        self.wql_grid_index = np.zeros((nq, nphm), dtype=int)
         self.wql_freq = np.zeros(self.nwbn, dtype=int)
         for iq in range(nq):
             wuq = wu[iq]
             for iph in range(nphm):
                 if wuq[iph] > self.min_freq:
                     ii = int(np.floor((wuq[iph]-min_freq)/dw))
-                    self.wql_grid[iq,iph] = ii
+                    self.wql_grid_index[iq,iph] = ii
                     # wql freq.
                     self.wql_freq[ii] += 1
 # input parameters object
