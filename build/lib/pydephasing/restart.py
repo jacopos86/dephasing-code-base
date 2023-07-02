@@ -32,10 +32,29 @@ def restart_calculation(restart_file):
         namef = p.write_dir + "/acf-atr-aver.npy"
         acf_atr_aver = np.load(namef)
         acf_data.append(acf_atr_aver)
-    if p.ph_resolved:
-        namef = p.write_dir + "/acf-phr-aver.npy"
-        acf_phr_aver = np.load(namef)
-        acf_data.append(acf_phr_aver)
+        if p.ph_resolved and p.nphr == 0:
+            namef = p.write_dir + "/acf-wql-aver.npy"
+            acf_wql_aver = np.load(namef)
+            acf_data.append(acf_wql_aver)
+        elif p.ph_resolved and p.nphr > 0:
+            namef = p.write_dir + "/acf-wql-aver.npy"
+            acf_wql_aver = np.load(namef)
+            acf_data.append(acf_wql_aver)
+            namef = p.write_dir + "/acf-phr-aver.npy"
+            acf_phr_aver = np.load(namef)
+            acf_data.append(acf_phr_aver)
+    else:
+        if p.ph_resolved and p.nphr == 0:
+            namef = p.write_dir + "/acf-wql-aver.npy"
+            acf_wql_aver = np.load(namef)
+            acf_data.append(acf_wql_aver)
+        elif p.ph_resolved and p.nphr > 0:
+            namef = p.write_dir + "/acf-wql-aver.npy"
+            acf_wql_aver = np.load(namef)
+            acf_data.append(acf_wql_aver)
+            namef = p.write_dir + "/acf-phr-aver.npy"
+            acf_phr_aver = np.load(namef)
+            acf_data.append(acf_phr_aver)
     # return data
     return ic0, T2_list, Delt_list, tauc_list, acf_data
 # save data on file
@@ -53,12 +72,23 @@ def save_data(ic, T2_list, Delt_list, tauc_list, acf_data):
     if p.at_resolved:
         namef = p.write_dir + "/acf-atr-aver"
         np.save(namef, acf_data[1])
-    if p.ph_resolved and len(acf_data) == 2:
-        namef = p.write_dir + "/acf-phr-aver"
-        np.save(namef, acf_data[1])
-    elif p.ph_resolved and len(acf_data) == 3:
-        namef = p.write_dir + "/acf-phr-aver"
-        np.save(namef, acf_data[2])
+        if p.ph_resolved and len(acf_data) == 3:
+            namef = p.write_dir + "/acf-wql-aver"
+            np.save(namef, acf_data[2])
+        elif p.ph_resolved and len(acf_data) == 4:
+            namef = p.write_dir + "/acf-wql-aver"
+            np.save(namef, acf_data[2])
+            namef = p.write_dir + "/acf-phr-aver"
+            np.save(namef, acf_data[3])
+    else:
+        if p.ph_resolved and len(acf_data) == 2:
+            namef = p.write_dir + "/acf-wql-aver"
+            np.save(namef, acf_data[1])
+        elif p.ph_resolved and len(acf_data) == 3:
+            namef = p.write_dir + "/acf-wql-aver"
+            np.save(namef, acf_data[1])
+            namef = p.write_dir + "/acf-phr-aver"
+            np.save(namef, acf_data[2])
     # save data
     with open(restart_file, 'w') as out_file:
         yaml.dump(dict, out_file)

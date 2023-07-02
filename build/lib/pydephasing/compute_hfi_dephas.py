@@ -101,6 +101,10 @@ def compute_hfi_dephas():
     mpi.comm.Barrier()
     # set auto correlation function
     ql_list = mpi.split_ph_modes(nq, 3*nat)
+    # set wql grid
+    if p.ph_resolved:
+        p.set_wql_grid(wu, nq, nat)
+    # auto correlation function
     acf = acf_ph_deph().generate_instance()
     # set average T2 / D^2 / tau_c
     T2_obj_aver = T2i_ofT(nat)
@@ -119,16 +123,25 @@ def compute_hfi_dephas():
         if p.at_resolved:
             acf_atr_aver = np.zeros((p.nt2,nat,p.ntmp), dtype=np.complex128)
         if p.ph_resolved:
-            acf_phr_aver = np.zeros((p.nt2,p.nphr,p.ntmp), dtype=np.complex128)
+            acf_wql_aver = np.zeros((p.nt2,p.nwbn,p.ntmp), dtype=np.complex128)
+            if p.nphr > 0:
+                acf_phr_aver = np.zeros((p.nt2,p.nphr,p.ntmp), dtype=np.complex128)
     else:
         ic0, T2_list, Delt_list, tauc_list, acf_data = restart_calculation(restart_file)
         acf_aver = acf_data[0]
         if p.at_resolved:
             acf_atr_aver = acf_data[1]
-        if p.ph_resolved and len(acf_data) == 2:
-            acf_phr_aver = acf_data[1]
-        elif p.ph_resolved and len(acf_data) == 3:
-            acf_phr_aver = acf_data[2]
+            if p.ph_resolved and len(acf_data) == 3:
+                acf_wql_aver = acf_data[2]
+            elif p.ph_resolved and len(acf_data) == 4:
+                acf_wql_aver = acf_data[2]
+                acf_phr_aver = acf_data[3]
+        else:
+            if p.ph_resolved and len(acf_data) == 2:
+                acf_wql_aver = acf_data[1]
+            elif p.ph_resolved and len(acf_data) == 3:
+                acf_wql_aver = acf_data[1]
+                acf_phr_aver = acf_data[2]
     #
     # run over different configurations
     for ic in range(ic0, p.nconf):
@@ -157,7 +170,9 @@ def compute_hfi_dephas():
         if p.at_resolved:
             acf_atr_aver[:,:,:] += acf.acf_atr[:,:,:]
         if p.ph_resolved:
-            acf_phr_aver[:,:,:] += acf.acf_phr[:,:,:]
+            acf_wql_aver[:,:,:] += acf.acf_wql[:,:,:]
+            if p.nphr > 0:
+                acf_phr_aver[:,:,:] += acf.acf_phr[:,:,:]
         # prepare data arrays
         T2_obj = T2i_ofT(nat)
         Delt_obj = Delta_ofT(nat)
@@ -194,6 +209,7 @@ def compute_hfi_dephas():
             # if ph. resolved calc.
             #
             ft_phr = None
+            ft_wql = None
             if p.ph_resolved:
                 # make local list of modes
                 local_ph_list = mpi.split_list(p.phm_list)
@@ -207,6 +223,17 @@ def compute_hfi_dephas():
                         ft_phr[:,iph,0] = ft_iph[0][:]
                         ft_phr[:,iph,1] = ft_iph[1][:]
                 ft_phr = mpi.collect_array(ft_phr)
+                # local wql grid list
+                local_wql_list = mpi.split_list(np.arange(0, p.nwbn, 1))
+                # run over modes
+                ft_wql = np.zeros((p.nt2,p.nwbn,2))
+                for iwb in local_wql_list:
+                    # compute acf + T2 times + print acf data
+                    ft_ii = acf.extract_dephas_data_wql(T2_obj, Delt_obj, tauc_obj, iwb, iT)
+                    if ft_ii is not None:
+                        ft_wql[:,iwb,0] = ft_ii[0][:]
+                        ft_wql[:,iwb,1] = ft_ii[1][:]
+                ft_wql = mpi.collect_array(ft_wql)
                 # collect data into single proc.
                 T2_obj.collect_phr_from_other_proc(iT)
                 Delt_obj.collect_phr_from_other_proc(iT)
@@ -214,7 +241,7 @@ def compute_hfi_dephas():
             #
             # print acf
             if mpi.rank == mpi.root:
-                acf.print_autocorrel_data_spinconf(ft_inp, ft_atr, ft_phr, ic+1, iT)
+                acf.print_autocorrel_data_spinconf(ft_inp, ft_atr, ft_wql, ft_phr, ic+1, iT)
         # wait
         mpi.comm.Barrier()
         T2_list.append(T2_obj)
@@ -228,6 +255,7 @@ def compute_hfi_dephas():
             if p.at_resolved:
                 acf_data.append(acf_atr_aver)
             if p.ph_resolved:
+                acf_data.append(acf_wql_aver)
                 acf_data.append(acf_phr_aver)
             save_data(ic, T2_list, Delt_list, tauc_list, acf_data)
         mpi.comm.Barrier()
@@ -242,6 +270,8 @@ def compute_hfi_dephas():
     if p.ph_resolved:
         acf_phr_aver[:,:,:] = acf_phr_aver[:,:,:] / p.nconf
         acf.acf_phr[:,:,:] = acf_phr_aver[:,:,:]
+        acf_wql_aver[:,:,:] = acf_wql_aver[:,:,:] / p.nconf
+        acf.acf_wql[:,:,:] = acf_wql_aver[:,:,:]
     # run over T
     for iT in range(p.ntmp):
         # extract dephasing data
@@ -271,6 +301,7 @@ def compute_hfi_dephas():
         # if ph. resolved calc.
         #
         ft_phr = None
+        ft_wql = None
         if p.ph_resolved:
             # run over modes
             ft_phr = np.zeros((p.nt2,p.nphr,2))
@@ -282,6 +313,17 @@ def compute_hfi_dephas():
                     ft_phr[:,iph,0] = ft_iph[0][:]
                     ft_phr[:,iph,1] = ft_iph[1][:]
             ft_phr = mpi.collect_array(ft_phr)
+            # local wql grid list
+            local_wql_list = mpi.split_list(np.arange(0, p.nwbn, 1))
+            # run over modes
+            ft_wql = np.zeros((p.nt2,p.nwbn,2))
+            for iwb in local_wql_list:
+                # compute acf + T2 times + print acf data
+                ft_ii = acf.extract_dephas_data_wql(T2_obj, Delt_obj, tauc_obj, iwb, iT)
+                if ft_ii is not None:
+                    ft_wql[:,iwb,0] = ft_ii[0][:]
+                    ft_wql[:,iwb,1] = ft_ii[1][:]
+            ft_wql = mpi.collect_array(ft_wql)
             # collect data into single proc.
             T2_obj_aver.collect_phr_from_other_proc(iT)
             Delt_obj_aver.collect_phr_from_other_proc(iT)
@@ -289,7 +331,7 @@ def compute_hfi_dephas():
         #
         # print acf
         if mpi.rank == mpi.root:
-            acf.print_autocorrel_data_spinconf(ft_inp, ft_atr, ft_phr, 0, iT)
+            acf.print_autocorrel_data_spinconf(ft_inp, ft_atr, ft_wql, ft_phr, 0, iT)
         mpi.comm.Barrier()
     # append average data
     T2_list.append(T2_obj_aver)

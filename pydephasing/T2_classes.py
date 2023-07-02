@@ -58,6 +58,10 @@ class T2i_ofT:
         T2s_phr_full = mpi.collect_array(self.T2s_phr[:,:,iT])
         self.T2s_phr[:,:,iT] = 0.
         self.T2s_phr[:,:,iT] = T2s_phr_full[:,:]
+        # wql
+        T2s_wql_full = mpi.collect_array(self.T2s_wql[:,:,iT])
+        self.T2s_wql[:,:,iT] = 0.
+        self.T2s_wql[:,:,iT] = T2s_wql_full[:,:]
 # T2 inverse class
 class T2i_inhom:
     # T2i is in ps^-1
@@ -112,6 +116,10 @@ class Delta_ofT:
         Delt_phr_full = mpi.collect_array(self.Delt_phr[:,iT])
         self.Delt_phr[:,iT] = 0.
         self.Delt_phr[:,iT] = Delt_phr_full[:]
+        # wql
+        Delt_wql_full = mpi.collect_array(self.Delt_wql[:,iT])
+        self.Delt_wql[:,iT] = 0.
+        self.Delt_wql[:,iT] = Delt_wql_full[:]
 # Delta inhom class
 class Delta_inhom:
     # Delta is in eV
@@ -165,6 +173,10 @@ class tauc_ofT:
         tauc_phr_full = mpi.collect_array(self.tauc_phr[:,:,iT])
         self.tauc_phr[:,:,iT] = 0.
         self.tauc_phr[:,:,iT] = tauc_phr_full[:,:]
+        # wql
+        tauc_wql_full = mpi.collect_array(self.tauc_wql[:,:,iT])
+        self.tauc_wql[:,:,iT] = 0.
+        self.tauc_wql[:,:,iT] = tauc_wql_full[:,:]
 # tauc class inhom
 class tauc_inhom:
     # tauc is in ps
@@ -188,7 +200,7 @@ class lw_ofT:
             self.lw_atr = np.zeros((2,nat,p.ntmp))
         if p.ph_resolved:
             self.lw_phr = np.zeros((2,len(p.phm_list),p.ntmp))
-            self.lw_wql = np.zeros((2,p.nwb,p.ntmp))
+            self.lw_wql = np.zeros((2,p.nwbn,p.ntmp))
     def set_lw(self, iT, T2i):
         self.lw_eV[:,iT] = 2.*np.pi*hbar*T2i[:]
     def get_lw(self):

@@ -1,4 +1,4 @@
-working_dir : /home/jacopo/PROJECTS/dephasing-code-project/examples/GCB
+working_dir : /home/jacopo/PROJECTS/dephasing-code-base/examples/GCB
 output_dir : T2-TEST-E
 unpert_dir :
   - GS
@@ -6,9 +6,10 @@ unpert_dir :
 yaml_pos_file : phonopy_disp.yaml
 hd5_eigen_file : mesh.hdf5
 grad_info_file : info.yml
-2nd_order_correct : True
-atom_res : True
+2nd_order_correct : False
+atom_res : False
 phonon_res : True
+nwbn : 30
 ph_list :
   - 5
   - 2

@@ -73,6 +73,10 @@ def compute_homo_exc_dephas():
     assert len(qpts) == nq
     assert len(u) == nq
     mpi.comm.Barrier()
+    # q pts. grid
+    if p.ph_resolved:
+        p.set_wql_grid(wu, nq, nat)
+    #
     # set auto correlation function
     ql_list = mpi.split_ph_modes(nq, 3*nat)
     #
@@ -120,6 +124,7 @@ def compute_homo_exc_dephas():
         # if ph. resolved calc.
         #
         ft_phr = None
+        ft_wql = None
         if p.ph_resolved:
             # make local list of modes
             local_ph_list = mpi.split_list(p.phm_list)
@@ -133,6 +138,17 @@ def compute_homo_exc_dephas():
                     ft_phr[:,iph,0] = ft_iph[0][:]
                     ft_phr[:,iph,1] = ft_iph[1][:]
             ft_phr = mpi.collect_array(ft_phr)
+            # local wql grid list
+            local_wql_list = mpi.split_list(np.arange(0, p.nwbn, 1))
+            # run over modes
+            ft_wql = np.zeros((p.nt2,p.nwbn,2))
+            for iwb in local_wql_list:
+                # compute acf + T2 times + print acf data
+                ft_ii = acf.extract_dephas_data_wql(T2_obj, Delt_obj, tauc_obj, iwb, iT, lw_obj)
+                if ft_ii is not None:
+                    ft_wql[:,iwb,0] = ft_ii[0][:]
+                    ft_wql[:,iwb,1] = ft_ii[1][:]
+            ft_wql = mpi.collect_array(ft_wql)
             # collect data into singl. proc.
             T2_obj.collect_phr_from_other_proc(iT)
             Delt_obj.collect_phr_from_other_proc(iT)
@@ -141,7 +157,7 @@ def compute_homo_exc_dephas():
         #
         # print acf
         if mpi.rank == mpi.root:
-            acf.print_autocorrel_data(ft_inp, ft_atr, ft_phr, iT)
+            acf.print_autocorrel_data(ft_inp, ft_atr, ft_wql, ft_phr, iT)
         # wait processes
         mpi.comm.Barrier()
     return T2_obj, Delt_obj, tauc_obj, lw_obj

@@ -502,7 +502,7 @@ class acf_ph_deph(object):
                 lw_obj.set_lw_atr(ia, iT, T2_inv)
         return ft
     # print acf data
-    def print_autocorrel_data(self, ft, ft_atr, ft_phr, iT):
+    def print_autocorrel_data(self, ft, ft_atr, ft_wql, ft_phr, iT):
         # Delta^2
         D2 = self.acf[0,iT].real
         Ct = np.zeros(p.nt)
@@ -546,8 +546,23 @@ class acf_ph_deph(object):
             if log.level <= logging.INFO:
                 namef = self.write_dir + "/acf-data-phr-iT" + str(iT+1) + ".yml"
                 print_acf_dict(p.time2, Ct, ft_phr, namef)
+        # wql data
+        if ft_wql is not None and p.ph_resolved:
+            Ct = np.zeros((p.nt2,p.nwbn))
+            # run over iph
+            for iwb in range(p.nwbn):
+                D2 = self.acf_wql[0,iwb,iT].real
+                if np.abs(D2) == 0.:
+                    pass
+                else:
+                    for t in range(p.nt2):
+                        Ct[t,iwb] = self.acf_wql[t,iwb,iT].real / D2
+            # write data on file
+            if log.level <= logging.INFO:
+                namef = self.write_dir + "/acf-data-wql-iT" + str(iT+1) + ".yml"
+                print_acf_dict(p.time2, Ct, ft_wql, namef)
     #
-    def print_autocorrel_data_spinconf(self, ft, ft_atr, ft_phr, ic, iT):
+    def print_autocorrel_data_spinconf(self, ft, ft_atr, ft_wql, ft_phr, ic, iT):
         # Delta^2
         D2 = self.acf[0,iT].real
         Ct = np.zeros(p.nt)
@@ -591,6 +606,21 @@ class acf_ph_deph(object):
             if log.level <= logging.INFO:
                 namef = self.write_dir + "/acf-data-phr-ic" + str(ic) + "-iT" + str(iT+1) + ".yml"
                 print_acf_dict(p.time2, Ct, ft_phr, namef)
+        # wql data
+        if ft_wql is not None and p.ph_resolved:
+            Ct = np.zeros((p.nt2,p.nwbn))
+            # run over iph
+            for iwb in range(p.nwbn):
+                D2 = self.acf_wql[0,iwb,iT].real
+                if np.abs(D2) == 0.:
+                    pass
+                else:
+                    for t in range(p.nt2):
+                        Ct[t,iwb] = self.acf_wql[t,iwb,iT].real / D2
+            # write data on file
+            if log.level <= logging.INFO:
+                namef = self.write_dir + "/acf-data-wql-ic" + str(ic) + "-iT" + str(iT+1) + ".yml"
+                print_acf_dict(p.time2, Ct, ft_wql, namef)
     #
     # print function dynamical decoupling
     def print_autocorrel_data_dyndec(self, ft, iw, iT):
@@ -728,6 +758,8 @@ class CPU_acf_ph_deph(acf_ph_deph):
             return
         if p.ph_resolved and il in p.phm_list:
             iph = p.phm_list.index(il)
+        if p.ph_resolved:
+            ii = p.wql_grid_index[iq,il]
         # compute acf
         wuq = wu[iq]
         Eql = wuq[il] * THz_to_ev
@@ -772,7 +804,6 @@ class CPU_acf_ph_deph(acf_ph_deph):
                         # (eV^2) units
                         for jax in range(3*nat):
                             if p.ph_resolved:
-                                ii = p.wql_grid_index[iq,il]
                                 self.acf_wql_sp[:,ii,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_lqlqp[jax,iqlp] * Fjax_lqlqp[jax,iqlp].conjugate()
                                 if il in p.phm_list:
                                     self.acf_phr_sp[:,iph,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_lqlqp[jax,iqlp] * Fjax_lqlqp[jax,iqlp].conjugate()
@@ -947,11 +978,12 @@ class GPU_acf_ph_deph(acf_ph_deph):
             gpu_src = Path('./pydephasing/gpu_source/compute_acf_Vsph2_atr.cu').read_text()
             mod = SourceModule(gpu_src)
             compute_acf_atr = mod.get_function("compute_acf_Vsph2_atr")
-        if p.ph_resolved and il in p.phm_list:
+        if p.ph_resolved:
             gpu_src = Path('./pydephasing/gpu_source/compute_acf_Vsph2.cu').read_text()
             mod = SourceModule(gpu_src)
             compute_acf_phr = mod.get_function("compute_acf_Vsph2")
-            iph = p.phm_list.index(il)
+            if il in p.phm_list:
+                iph = p.phm_list.index(il)
             ii = p.wql_grid_index[iq,il]
             # split second modes on the grid
             qlp_gpu, init_gpu, lgth_gpu = gpu.split_data_on_grid(range(len(qlp_list)))
@@ -981,7 +1013,7 @@ class GPU_acf_ph_deph(acf_ph_deph):
                     for jax in range(3*nat):
                         Fjax_lqp[ind] = Fjax_lqlqp[jax,iqlp]
                         ind += 1
-            if p.ph_resolved and il in p.phm_list:
+            if p.ph_resolved:
                 F_lqp = np.zeros(len(qlp_list), dtype=np.complex128)
                 for jax in range(3*nat):
                     F_lqp[:] += Fjax_lqlqp[jax,:]

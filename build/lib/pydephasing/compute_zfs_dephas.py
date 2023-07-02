@@ -189,6 +189,7 @@ def compute_homo_dephas():
         # if ph. resolved calc.
         #
         ft_phr = None
+        ft_wql = None
         if p.ph_resolved:
             # make local list of modes
             local_ph_list = mpi.split_list(p.phm_list)
@@ -217,11 +218,10 @@ def compute_homo_dephas():
             T2_obj.collect_phr_from_other_proc(iT)
             Delt_obj.collect_phr_from_other_proc(iT)
             tauc_obj.collect_phr_from_other_proc(iT)
-            
         #
         # print acf
         if mpi.rank == mpi.root:
-            acf.print_autocorrel_data(ft_inp, ft_atr, ft_phr, iT)
+            acf.print_autocorrel_data(ft_inp, ft_atr, ft_wql, ft_phr, iT)
         # wait all processes
         mpi.comm.Barrier()
     return T2_obj, Delt_obj, tauc_obj
