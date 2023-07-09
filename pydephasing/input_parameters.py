@@ -154,6 +154,8 @@ class data_input():
         # dynamical decoupling -> number of pulses
         if 'npulses' in data:
             self.n_pulses = data['npulses']
+        if 'nw' in data:
+            self.nw = data['nw']
         # deph. function parameters
         if 'maxiter' in data:
             self.maxiter = int(data['maxiter'])
@@ -327,19 +329,12 @@ class data_input():
     def set_dyndec_param(self, wu):
         # compute minimal time interval
         # dtm = 1 / max_freq / 2
-        max_freq = np.max(wu)
+        max_freq = np.max(wu) / 3.
         # THz
-        dtm = 1./max_freq/2
-        # ps
-        self.nt0 = int(self.time[-1] / dtm)
-        it_seq = np.array_split(range(self.nt), self.nt0)
-        self.it0_seq = [None]*self.nt0
-        self.it1_seq = [None]*self.nt0
-        # build time sequences
-        for it0 in range(self.nt0):
-            x = it_seq[it0]
-            self.it0_seq[it0] = x[0]
-            self.it1_seq[it0] = x[-1]+1
+        dw = max_freq / (self.nw - 1)
+        self.wg = np.zeros(self.nw)
+        self.wg = np.arange(0., max_freq, dw)
+        self.wg = self.wg * 2.*np.pi
     #
     # set wql grid -> ph. res.
     #

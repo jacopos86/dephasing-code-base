@@ -13,10 +13,8 @@ from pydephasing.atomic_list_struct import atoms
 from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononDephClass, SpinPhononRelaxClass
 from pydephasing.extract_ph_data import extract_ph_data
-from pydephasing.ph_ampl_module import PhononAmplitude
 from pydephasing.auto_correlation_module import acf_ph_deph
-from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT
-import sys
+from pydephasing.T2_classes import T2i_dd_ofT, Delta_dd_ofT, tauc_dd_ofT
 #
 def compute_homo_dyndec_dephas():
     # main driver code for the calculation of dephasing time
@@ -119,10 +117,6 @@ def compute_homo_dyndec_dephas():
         Faxby = None
     # set up acf object
     acf = acf_ph_deph().generate_instance()
-    # deph. data lists
-    T2_list = []
-    Delt_list = []
-    tauc_list = []
     #
     # prepare calculation over q pts.
     # and ph. modes
@@ -130,37 +124,42 @@ def compute_homo_dyndec_dephas():
     ql_list = mpi.split_ph_modes(nq, 3*nat)
     # set dyndec parameters
     p.set_dyndec_param(wu)
+    npl = len(p.n_pulses)
+    sys.exit()
     #
     # compute acf over local (q,l) list
     acf.compute_acf_dyndec(wq, wu, u, qpts, nat, Fax, Faxby, ql_list)
     #
     # collect data from processes
     if mpi.size > 1:
-        acf.collect_acfdd_from_processes(nat)
+        acf.collect_acfdd_from_processes()
     mpi.comm.Barrier()
-    sys.exit()
     # prepare data arrays
-    T2_obj = T2i_ofT(nat)
-    Delt_obj= Delta_ofT(nat)
-    tauc_obj= tauc_ofT(nat)
+    T2_obj = T2i_dd_ofT()
+    Delt_obj= Delta_dd_ofT()
+    tauc_obj= tauc_dd_ofT()
     # run over temperature list
     for iT in range(p.ntmp):
-        # extract dephasing data
-        ft = acf.extract_dephas_data(T2_obj, Delt_obj, tauc_obj, iT)
-        ft_inp = np.zeros((p.nt,2))
-        ft_inp[:,0] = ft[0][:]
-        ft_inp[:,1] = ft[1][:]
-        #
-        # print acf
+        # local pulse list
+        local_pulse_list = mpi.split_list(np.arange(0, npl, 1))
+        for ipl in local_pulse_list:
+            # extract dephasing data
+            ft = acf.extract_dephas_data_dyndec(T2_obj, Delt_obj, tauc_obj, iT, ipl)
+            ft_inp = np.zeros((p.nt,2))
+            ft_inp[:,0] = ft[0][:]
+            ft_inp[:,1] = ft[1][:]
+            #
+            # print acf
+            if mpi.rank == mpi.root:
+                acf.print_autocorrel_data_dyndec(ft, ipl, iT)
+        # wait all processes
+        mpi.comm.Barrier()
+        # collect data
+        T2_obj.collect_from_other_proc(iT)
+        tauc_obj.collect_from_other_proc(iT)
+        Delt_obj.collect_from_other_proc(iT)
         if mpi.rank == mpi.root:
-            acf.print_autocorrel_data_dyndec(ft_inp, iw, iT)
-    # wait all processes
-    mpi.comm.Barrier()
-    T2_list.append(T2_obj)
-    Delt_list.append(Delt_obj)
-    tauc_list.append(tauc_obj)
-    if mpi.rank == mpi.root:
-        log.warning("iw: " + str(iw+1) + " -> completed")
+            log.warning("iT: " + str(iT+1) + " -> completed")
     # wait
     mpi.comm.Barrier()
     return T2_obj, Delt_obj, tauc_obj

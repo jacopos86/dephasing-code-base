@@ -53,11 +53,15 @@ class acf_ph_deph(object):
         # auto correlation functions
         self.acf     = None
         self.acf_phr = None
+        self.acf_wql = None
         self.acf_atr = None
+        self.acfdd   = None
         # local proc. acf
         self.acf_sp     = None
         self.acf_phr_sp = None
+        self.acf_wql_sp = None
         self.acf_atr_sp = None
+        self.acfdd_sp   = None
         # Delta^2
         self.Delta_2 = None
     def generate_instance(self):
@@ -415,8 +419,14 @@ class acf_ph_deph(object):
                 assert np.fabs(self.Delta_2[iT]/self.acf[0,iT].real - 1.0) < eps
             if mpi.rank == mpi.root:
                 log.info("Delta^2 TEST PASSED")
-    def collect_acfdd_from_processes(self, nat):
-        pass
+    def collect_acfdd_from_processes(self):
+        # n. pulses
+        npl = len(p.n_pulses)
+        self.acfdd = np.zeros((p.nt,npl,p.ntmp), dtype=type(self.acfdd_sp[0,0,0]))
+        # run over T
+        for iT in range(p.ntmp):
+            for ipl in range(npl):
+                self.acfdd[:,ipl,iT] = mpi.collect_time_array(self.acfdd_sp[:,ipl,iT])
     # extract dephasing parameters
     # from acf
     def extract_dephas_data(self, T2_obj, Delt_obj, tauc_obj, iT, lw_obj=None):
@@ -438,6 +448,25 @@ class acf_ph_deph(object):
             Delt_obj.set_Delt(iT, D2)
             if lw_obj is not None:
                 lw_obj.set_lw(iT, T2_inv)
+        return ft
+    # from dd acf
+    def extract_dephas_data_dyndec(self, T2_obj, Delt_obj, tauc_obj, iT, ipl):
+        # Delta^2 -> (eV^2)
+        D2 = self.acfdd[0,ipl,iT].real
+        Ct = np.zeros(p.nt)
+        if np.abs(D2) == 0.:
+            pass
+        else:
+            for t in range(p.nt):
+                Ct[t] = self.acfdd[t,ipl,iT].real / D2
+        # extract T2 time
+        T2 = T2_eval()
+        tau_c, T2_inv, ft = T2.extract_T2(p.time, Ct, D2)
+        # store data in objects
+        if tau_c is not None and T2_inv is not None:
+            T2_obj.set_T2(ipl, iT, T2_inv)
+            tauc_obj.set_tauc(ipl, iT, tau_c)
+            Delt_obj.set_Delt(ipl, iT, D2)
         return ft
     #
     def extract_dephas_data_phr(self, T2_obj, Delt_obj, tauc_obj, iph, iT, lw_obj=None):
@@ -623,18 +652,19 @@ class acf_ph_deph(object):
                 print_acf_dict(p.time2, Ct, ft_wql, namef)
     #
     # print function dynamical decoupling
-    def print_autocorrel_data_dyndec(self, ft, iw, iT):
+    def print_autocorrel_data_dyndec(self, ft, ipl, iT):
         # Delta^2
-        D2 = self.acf[0,iT].real
+        D2 = self.acfdd[0,ipl,iT].real
+        # Ct
         Ct = np.zeros(p.nt)
         if np.abs(D2) == 0.:
             pass
         else:
             for t in range(p.nt):
-                Ct[t] = self.acf[t,iT].real / D2
+                Ct[t] = self.acfdd[t,ipl,iT].real / D2
         # write data on file
         if log.level <= logging.INFO:
-            namef = self.write_dir + "/acf-data-iw" + str(iw+1) + "-iT" + str(iT+1) + ".yml"
+            namef = self.write_dir + "/acf-data-ip" + str(ipl+1) + "-iT" + str(iT+1) + ".yml"
             print_acf_dict(p.time, Ct, ft, namef)
 # CPU class
 class CPU_acf_ph_deph(acf_ph_deph):
