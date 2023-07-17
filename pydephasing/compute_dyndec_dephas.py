@@ -125,10 +125,10 @@ def compute_homo_dyndec_dephas():
     # set dyndec parameters
     p.set_dyndec_param(wu)
     npl = len(p.n_pulses)
-    sys.exit()
     #
     # compute acf over local (q,l) list
     acf.compute_acf_dyndec(wq, wu, u, qpts, nat, Fax, Faxby, ql_list)
+    sys.exit()
     #
     # collect data from processes
     if mpi.size > 1:

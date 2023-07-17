@@ -12,15 +12,17 @@ import sys
 #    input : energy (eV), temperature (K)
 # 3) delta function
 #    input : x, y
-# 4) solve ODE dy/dt = Fy
+# 4) lorentzian
+#    input : x, eta
+# 5) solve ODE dy/dt = Fy
 #    input : y0, F, dt
-# 5) set cross product matrix
+# 6) set cross product matrix
 #    input : a
 #    output : [a] : axv = [a]v
-# 6) triplet state evolution
+# 7) triplet state evolution
 #    input : Ht, psi0, dt
 #    output : psit
-# 7) print ZPL gradient data
+# 8) print ZPL gradient data
 #    input : gradZPL, hessZPL, outdir
 #    output: None
 #
@@ -53,6 +55,12 @@ def delta(x, y):
 #
 #  function 4)
 #
+def lorentzian(x, eta):
+	ltz = eta/2. / (x ** 2 + (eta/2.) ** 2)
+	return ltz
+#
+#  function 5)
+#
 def ODE_solver(y0, F, dt):
 	# this routine solves
 	# dy/dt = F(t) y -> y real 3d vector
@@ -80,7 +88,7 @@ def ODE_solver(y0, F, dt):
 		yt[:,i+1] = y[:] + (K1[:] + 2.*K2[:] + 2.*K3[:] + K4[:]) / 6.
 	return yt
 #
-#   function 5)
+#   function 6)
 #
 def set_cross_prod_matrix(a):
 	A = np.zeros((3,3))
@@ -92,7 +100,7 @@ def set_cross_prod_matrix(a):
 	A[2,1] =  a[0]
 	return A
 #
-#   function 6)
+#   function 7)
 #
 def triplet_evolution(Ht, psi0, dt):
 	# this routine solves
@@ -123,7 +131,7 @@ def triplet_evolution(Ht, psi0, dt):
 		psit[:,i+1] = v[:] + (K1[:] + 2.*K2[:] + 2.*K3[:] + K4[:]) / 6.
 	return psit
 #
-# function 7) print ZPL gradient data
+# function 8) print ZPL gradient data
 # on output file
 #
 def print_zpl_fluct(gradZPL, hessZPL, out_dir):

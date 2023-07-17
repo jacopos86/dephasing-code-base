@@ -335,9 +335,6 @@ class data_input():
         self.wg = np.zeros(self.nw)
         self.wg = np.arange(0., max_freq, dw)
         self.wg = self.wg * 2.*np.pi
-        if mpi.rank == mpi.root:
-            print(self.wg)
-            print(len(self.wg))
     #
     # set wql grid -> ph. res.
     #

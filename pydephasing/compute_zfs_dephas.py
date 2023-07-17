@@ -128,8 +128,7 @@ def compute_homo_dephas():
     acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list)
     #
     # collect data from processes
-    if mpi.size > 1:
-        acf.collect_acf_from_processes(nat)
+    acf.collect_acf_from_processes(nat)
     #
     # print average atom displ
     if log.level <= logging.DEBUG:

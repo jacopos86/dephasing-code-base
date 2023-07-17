@@ -15,7 +15,7 @@ from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.input_parameters import p
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.utility_functions import bose_occup
+from pydephasing.utility_functions import bose_occup, lorentzian
 from pydephasing.extract_ph_data import set_q_to_mq_list
 from tqdm import tqdm
 from pydephasing.global_params import GPU_ACTIVE
@@ -116,78 +116,6 @@ class acf_ph_deph(object):
                     ft[:] = (1.+nph) * exp_iwt[:] + nph * cc_exp_iwt[:]
                     # (eV^2) units
                     self.acf_sp[:,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
-            iql += 1
-    #
-    # compute d^k/dt^k <Delta V^(1)(t) Delta V^(1)(0)> |_t=0
-    def compute_dkt0_acf_Vph1_debug(self, wq, wu, ql_list, A_lq, F_lq):
-        # compute partial acf
-        self.acf2_sp = np.zeros((p.nt, p.ntmp), dtype=np.complex128)
-        # temperatues
-        for iT in range(p.ntmp):
-            T = p.temperatures[iT]
-            iql = 0
-            # \sum_q \sum_l
-            for iq, il in ql_list:
-                wuq = wu[iq]
-                if wuq[il] > p.min_freq:
-                    # E in eV
-                    E = wuq[il] * THz_to_ev
-                    # bose occup.
-                    nph = bose_occup(E, T)
-                    wql = wuq[il]*2.*np.pi
-                    # taylor coeff. array
-                    dtk0_acf = np.zeros((p.nk, p.nt0), dtype=np.complex128)
-                    # run over taylor coeff.
-                    for it in range(p.nt0):
-                        it0 = p.it0_seq[it]
-                        for k in range(p.nk):
-                            fk = (1.+nph) * (-1)**k * cmath.exp(-1j*wql*p.time[it0]) + nph * cmath.exp(1j*wql*p.time[it0])
-                            dtk0_acf[k,it] += (1j)**k * wq[iq] * A_lq[iql] ** 2 * wql ** k * fk * F_lq[iql] * F_lq[iql].conjugate()
-                    max_dtk0 = np.max(dtk0_acf)
-                    dtk0_acf = dtk0_acf / max_dtk0
-                    ft = np.zeros(p.nt, dtype=np.complex128)
-                    for it in range(p.nt0):
-                        it0 = p.it0_seq[it]
-                        it1 = p.it1_seq[it]
-                        for k in range(p.nk):
-                            ft[it0:it1] += 1./math.factorial(k) * dtk0_acf[k,it] * (p.time[it0:it1] - p.time[it0]) ** k
-                    self.acf2_sp[:,iT] += ft[:] * max_dtk0
-                iql += 1
-    def compute_dkt0_acf_Vph1(self, wq, wu, ql_list, A_lq, F_lq):
-        # compute partial sum acf
-        npl = len(p.n_pulses)
-        self.acfdd_sp = np.zeros((p.nt, npl, p.ntmp), dtype=np.complex128)
-        # iql
-        iql = 0
-        # \sum_q \sum_l
-        for iq, il in ql_list:
-            wuq = wu[iq]
-            if wuq[il] > p.min_freq:
-                # E in eV
-                E = wuq[il] * THz_to_ev
-                wql = wuq[il]*2.*np.pi
-                # iterate over pulses
-                for n in p.n_pulses:
-                    ni = p.n_pulses.index(n)
-                    # set e^{-iwt}
-                    exp_iwt = np.zeros(p.nt, dtype=np.complex128)
-                    cc_exp_iwt = np.zeros(p.nt, dtype=np.complex128)
-                    for t in range(p.nt):
-                        exp_iwt[t] = cmath.exp(-1j*wql*p.time[t]/(2.*n)) / (4.*n**3)
-                        exp_iwt[t] += cmath.exp(-1j*wql*p.time[t]) * (-1)**n
-                        if n > 1:
-                            for j in range(1, n):
-                                exp_iwt[t] += cmath.exp(-1j*wql*(2*j+1)/(2*n)*p.time[t]) * (-1)**j * (2.*j+1)**3/(4.*n**3)
-                        cc_exp_iwt[t] = np.conj(exp_iwt[t])
-                    # run over temperatures
-                    for iT in range(p.ntmp):
-                        T = p.temperatures[iT]
-                        # bose occupation
-                        nph = bose_occup(E, T)
-                        ft = np.zeros(p.nt, dtype=np.complex128)
-                        ft[:] = ((1.+nph) * exp_iwt[:] + nph * cc_exp_iwt[:]) * (-1)**n
-                        # (eV^2) units
-                        self.acfdd_sp[:,ni,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
             iql += 1
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')> -> ph / at resolved
@@ -329,26 +257,7 @@ class acf_ph_deph(object):
             F_lq[:] += Fjax_lq[jax,:]
         # set w_k coefficients
         npl = len(p.n_pulses)
-        '''
-        w_k = np.zeros((npl,p.n_dkt))
-        for n in p.n_pulses:
-            ni = p.n_pulses.index(n)
-            for k in range(p.n_dkt):
-                w = 2 + (-1)**n * (2*n)**(k+3)
-                for j in range(1, n):
-                    w += 2 * (-1)**j * (2*j+1)**(k+3)
-                w = (-1)**n * w / (2*n)**(k+3)
-                w_k[ni,k] = w
-        '''
         # compute <V(1)(t) V(1)(t')>
-        if log.level <= logging.INFO:
-            self.compute_acf_Vph1(wq, wu, ql_list, A_lq, F_lq)
-            self.compute_dkt0_acf_Vph1_debug(wq, wu, ql_list, A_lq, F_lq)
-            # plot data for comparison
-            plt.plot(p.time[:], self.acf_sp[:,0].real)
-            plt.plot(p.time[:], self.acf2_sp[:,0].real)
-            plt.savefig(p.write_dir+'/acf_1.png', dpi=600, format='png')
-            plt.clf()
         self.compute_dkt0_acf_Vph1(wq, wu, ql_list, A_lq, F_lq)
         #self.compute_acf_Vph1(wq, wu, ql_list, A_lq, F_lq)
         plt.xlim([0.,1.5])
@@ -718,8 +627,52 @@ class CPU_acf_ph_deph(acf_ph_deph):
                         self.acf_sp[:,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * F_lqlqp[iqlp] * F_lqlqp[iqlp].conjugate()
                 iqlp += 1
     #
+    # compute <V(1)V(1)> dynamical decoupling
+    #
+    def compute_acf_Vph1_dyndec(self, wq, wu, ql_list, A_lq, F_lq):
+        # compute partial sum acf
+        npl = len(p.n_pulses)
+        self.acfdd_sp = np.zeros((p.nt, npl, p.ntmp), dtype=np.complex128)
+        # iql
+        iql = 0
+        # \sum_q \sum_l
+        for iq, il in ql_list:
+            wuq = wu[iq]
+            if wuq[il] > p.min_freq:
+                # E in eV
+                E = wuq[il] * THz_to_ev
+                wql = wuq[il]*2.*np.pi
+                # iterate over pulses
+                for n in p.n_pulses:
+                    ni = p.n_pulses.index(n)
+                    # run over temperatures
+                    for iT in range(p.ntmp):
+                        T = p.temperatures[iT]
+                        # bose occupation
+                        nph = bose_occup(E, T)
+                        fw = np.zeros(p.nw)
+                        # run over all frequencies
+                        for iw in range(p.nw):
+                            # (1)
+                            Lw1 = lorentzian(wql/(2.*n)-p.wg[iw], p.eta)
+                            Lw2 = lorentzian(wql/(2.*n)+p.wg[iw], p.eta)
+                            fw[iw] = (1.+nph)/(2.*n) ** 3 * Lw1 + nph/(2.*n) ** 3 * Lw2
+                            # (2)
+                            Lw1 = lorentzian(wql-p.wg[iw], p.eta)
+                            Lw2 = lorentzian(wql+p.wg[iw], p.eta)
+                            fw[iw] += (-1) ** n / 2. * ((1.+nph) * Lw1 + nph * Lw2)
+                            # (3)
+                            if n > 1:
+                                for j in range(1, n):
+                                    Lw1 = lorentzian((2.*j+1)/(2.*n)*wql-p.wg[iw], p.eta)
+                                    Lw2 = lorentzian((2.*j+1)/(2.*n)*wql+p.wg[iw], p.eta)
+                                    fw[iw] += (1.+nph)*(-1) ** j * ((2.*j+1)/(2.*n)) ** 3 * Lw1 + nph * (-1) ** j * ((2.*j+1)/(2.*n)) ** 3 * Lw2
+                        # (eV^2) units
+                        self.acfdd_sp[:,ni,iT] += wq[iq] * 2.*np.pi * A_lq[iql] ** 2 * fw[:] * F_lq[iql] * F_lq[iql].conjugate()
+            iql += 1
+    #
     # dyndec calculation acf (2)
-    def compute_dkt0_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp, w_k):
+    def compute_acf_Vph2_dyndec(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp, w_k):
         # update acfdd_sp data (order 1 calc.)
         # set wu[q]
         wuq = wu[iq]
