@@ -15,7 +15,7 @@ from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.input_parameters import p
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.utility_functions import bose_occup
+from pydephasing.utility_functions import bose_occup, lorentzian
 from pydephasing.extract_ph_data import set_q_to_mq_list
 from tqdm import tqdm
 from pydephasing.global_params import GPU_ACTIVE
@@ -653,17 +653,22 @@ class CPU_acf_ph_deph(acf_ph_deph):
                         fw = np.zeros(p.nw)
                         # run over all frequencies
                         for iw in range(p.nw):
+                            # (1)
                             Lw1 = lorentzian(wql/(2.*n)-p.wg[iw], p.eta)
                             Lw2 = lorentzian(wql/(2.*n)+p.wg[iw], p.eta)
-                            exp_iwt[t] = cmath.exp(-1j*wql*p.time[t]/(2.*n)) / (4.*n**3)
-                            exp_iwt[t] += cmath.exp(-1j*wql*p.time[t]) * (-1)**n
+                            fw[iw] = (1.+nph)/(2.*n) ** 3 * Lw1 + nph/(2.*n) ** 3 * Lw2
+                            # (2)
+                            Lw1 = lorentzian(wql-p.wg[iw], p.eta)
+                            Lw2 = lorentzian(wql+p.wg[iw], p.eta)
+                            fw[iw] += (-1) ** n / 2. * ((1.+nph) * Lw1 + nph * Lw2)
+                            # (3)
                             if n > 1:
                                 for j in range(1, n):
-                                    exp_iwt[t] += cmath.exp(-1j*wql*(2*j+1)/(2*n)*p.time[t]) * (-1)**j * (2.*j+1)**3/(4.*n**3)
-                            fw[iw] = (1.+nph)/(2.*n) ** 3 * Lw1 + 2.*nph/(2.*n) ** 3 * Lw2
-                            fw[iw] = 2.*np.pi((1.+nph) * exp_iwt[:] + nph * cc_exp_iwt[:]) * (-1)**n
+                                    Lw1 = lorentzian((2.*j+1)/(2.*n)*wql-p.wg[iw], p.eta)
+                                    Lw2 = lorentzian((2.*j+1)/(2.*n)*wql+p.wg[iw], p.eta)
+                                    fw[iw] += (1.+nph)*(-1) ** j * ((2.*j+1)/(2.*n)) ** 3 * Lw1 + nph * (-1) ** j * ((2.*j+1)/(2.*n)) ** 3 * Lw2
                         # (eV^2) units
-                        self.acfdd_sp[:,ni,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
+                        self.acfdd_sp[:,ni,iT] += wq[iq] * 2.*np.pi * A_lq[iql] ** 2 * fw[:] * F_lq[iql] * F_lq[iql].conjugate()
             iql += 1
     #
     # dyndec calculation acf (2)

@@ -11,7 +11,7 @@ from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrde
 from pydephasing.gradient_interactions import gradient_ZFS, gradient_2nd_ZFS
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.spin_hamiltonian import spin_hamiltonian
-from pydephasing.spin_ph_inter import SpinPhononDephClass, SpinPhononRelaxClass
+from pydephasing.spin_ph_inter import SpinPhononClass, SpinPhononRelaxClass
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.auto_correlation_module import acf_ph_deph
 from pydephasing.T2_classes import T2i_dd_ofT, Delta_dd_ofT, tauc_dd_ofT

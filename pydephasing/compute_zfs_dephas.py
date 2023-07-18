@@ -11,7 +11,7 @@ from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrde
 from pydephasing.gradient_interactions import gradient_ZFS, gradient_2nd_ZFS
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.spin_hamiltonian import spin_hamiltonian
-from pydephasing.spin_ph_inter import SpinPhononDephClass, SpinPhononRelaxClass
+from pydephasing.spin_ph_inter import SpinPhononClass, SpinPhononRelaxClass
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.ph_ampl_module import PhononAmplitude
 from pydephasing.auto_correlation_module import acf_ph_deph
@@ -76,7 +76,7 @@ def compute_homo_dephas():
     mpi.comm.Barrier()
     # set up spin phonon interaction class
     if p.deph:
-        sp_ph_inter = SpinPhononDephClass()
+        sp_ph_inter = SpinPhononClass()
         # set up quantum states
         p.qs1 = np.array([1.0+0j,0j,0j])
         p.qs2 = np.array([0j,1.0+0j,0j])
@@ -105,6 +105,7 @@ def compute_homo_dephas():
     # F_ax = <1|S Grad_ax D S|1> - <0|S Grad_ax D S|0>
     # F should be in eV/ang units
     sp_ph_inter.set_Fax_zfs(gradZFS, Hsp)
+    sys.exit()
     Fax = sp_ph_inter.Fzfs_ax
     if p.order_2_correct:
         # F_axby = <1|S Grad_ax,by D S|1> - <0|S Grad_ax,by D S|0>

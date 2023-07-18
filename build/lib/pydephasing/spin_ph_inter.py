@@ -10,21 +10,26 @@ from pydephasing.log import log
 # set of routines 
 # for spin phonon dephasing class
 #
-class SpinPhononDephClass:
+class SpinPhononClass:
     def __init__(self):
+        # <qs1|S grad_ax D S|qs2> -> (3,3,3*nat) matrix
         self.Fzfs_ax = None
+        # <qs1| grad_ax grad_a'x' D S|qs2> -> (3,3,3*nat,3*nat) matrix
         self.Fzfs_axby = None
     # set up < qs | S grad_ax D S | qs > coefficients
     def set_gaxD_force(self, gradZFS, Hsp):
         nat = gradZFS.struct_0.nat
-        # qs1 -> |0>
-        qs1 = p.qs1
-        # qs2 -> |1>
-        qs2 = p.qs2
+        # qs1 -> |1>
+        qs1 = np.array([1.+0j,0j,0j])
+        # qs2 -> |0>
+        qs2 = np.array([0j,1.+0j,0j])
+        # qs3 -> |-1>
+        qs3 = np.array([0j,0j,1.+0j])
         # Hsp = S D S
-        Fax = np.zeros(3*nat, dtype=np.complex128)
+        Fax = np.zeros((3,3,3*nat), dtype=np.complex128)
         # jax list
         jax_list = mpi.split_list(range(3*nat))
+        # run over jax index
         for jax in jax_list:
             SgDS = np.zeros((3,3), dtype=np.complex128)
             gD = np.zeros((3,3))
@@ -39,12 +44,18 @@ class SpinPhononDephClass:
             SgDS += gD[2,1] * np.matmul(Hsp.Sz, Hsp.Sy)
             SgDS += gD[2,2] * np.matmul(Hsp.Sz, Hsp.Sz)
             r1 = np.dot(SgDS, qs1)
-            expv1 = np.dot(qs1.conjugate(), r1)
+            expv11 = np.dot(qs1.conjugate(), r1)
+            Fax[0,0,jax] = expv11
 			#
             r2 = np.dot(SgDS, qs2)
-            expv2 = np.dot(qs2.conjugate(), r2)
+            expv22 = np.dot(qs2.conjugate(), r2)
+            Fax[1,1,jax] = expv22
             #
-            Fax[jax] = expv1 - expv2
+            r12 = np.dot(SgDS, qs2)
+            expv12 = np.dot(qs1.conjugate(), r12)
+            Fax[0,1,jax] = expv12
+            Fax[1,0,jax] = expv12.conjugate()
+            #print(Fax[:,:,jax])
         mpi.comm.Barrier()
         Fax = mpi.collect_array(Fax)
         # THz / Ang units
@@ -194,3 +205,12 @@ class SpinPhononRelaxClass():
     def __init__(self):
         self.Fzfs_ax = None
         self.Fzfs_axby = None
+    # set up < qs1=0 | S grad_ax D S | qs2=1 > matrix coefficients
+    # spin triplet -> 3 X 3 matrix
+    def set_gaxD_force(self, gradZFS, Hsp):
+        nat = gradZFS.struct_0.nat
+        # qs1 -> |0>
+        qs1 = p.qs1
+        # qs2 -> |1>
+        qs2 = p.qs2
+        # Hsp = S D S
