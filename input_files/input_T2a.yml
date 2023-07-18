@@ -1,4 +1,4 @@
-working_dir : /home/jacopo/Documents/dephasing-code-base/examples/NV-diamond
+working_dir : /home/jacopo/PROJECTS/dephasing-code-base/examples/NV-diamond
 output_dir : T2-SP-DEPHC_TEST
 displ_poscar_dir : 
   - DISPLACEMENT-FILES-01
@@ -14,7 +14,7 @@ grad_info_file : info.yml
 unpert_dir :
   - GS
 yaml_pos_file : phonopy_disp.yaml
-hd5_eigen_file : mesh-nosymm.hdf5
+hd5_eigen_file : mesh-nosymm_2x2x2.hdf5
 2nd_order_correct : False
 atom_res : False
 phonon_res : True

@@ -51,11 +51,21 @@ class SpinPhononClass:
             expv22 = np.dot(qs2.conjugate(), r2)
             Fax[1,1,jax] = expv22
             #
-            r12 = np.dot(SgDS, qs2)
-            expv12 = np.dot(qs1.conjugate(), r12)
+            expv12 = np.dot(qs1.conjugate(), r2)
             Fax[0,1,jax] = expv12
             Fax[1,0,jax] = expv12.conjugate()
-            #print(Fax[:,:,jax])
+            #
+            r3 = np.dot(SgDS, qs3)
+            expv13 = np.dot(qs1.conjugate(), r3)
+            Fax[0,2,jax] = expv13
+            Fax[2,0,jax] = expv13.conjugate()
+            #
+            expv23 = np.dot(qs2.conjugate(), r3)
+            Fax[1,2,jax] = expv23
+            Fax[2,1,jax] = expv23.conjugate()
+            #
+            expv33 = np.dot(qs3.conjugate(), r3)
+            Fax[2,2,jax] = expv33
         mpi.comm.Barrier()
         Fax = mpi.collect_array(Fax)
         # THz / Ang units
@@ -145,14 +155,14 @@ class SpinPhononClass:
         nat = gradZFS.struct_0.nat
         # compute grad delta Ezfs
         # gradient of the spin state energy difference
-        self.Fzfs_ax = np.zeros(3*nat, dtype=np.complex128)
+        self.Fzfs_ax = np.zeros((3,3,3*nat), dtype=np.complex128)
         #
         # compute : < qs1 | S gradD S | qs1 > - < qs2 | S gradD S | qs2 >
         #
         Fax = self.set_gaxD_force(gradZFS, Hsp)
         # eV / Ang units (energy)
         # add 2pi factor
-        self.Fzfs_ax[:] = Fax[:] * 2.*np.pi * hbar
+        self.Fzfs_ax[:,:,:] = Fax[:,:,:] * 2.*np.pi * hbar
     # set ZFS energy 2nd order gradient
     def set_Faxby_zfs(self, grad2ZFS, Hsp):
         nat = grad2ZFS.struct_0.nat
