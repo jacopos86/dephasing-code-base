@@ -77,10 +77,12 @@ class acf_ph_relax(object):
             F_lq[:] += Fjax_lq[jax,:]
         # compute <V(1)(t) V(1)(t')>
         if p.time_resolved:
+            print('ok')
             self.compute_acf_V1_oft(wq, wu, ql_list, A_lq, F_lq, H)
         if p.w_resolved:
             self.compute_acf_V1_ofw(wq, wu, ql_list, A_lq, F_lq, H)
         # ph. / atom resolved
+        print('ok2')
         if p.ph_resolved or p.at_resolved:
             if p.time_resolved:
                 self.compute_acf_V1_atphr_oft(nat, wq, wu, ql_list, A_lq, Fjax_lq, H)
