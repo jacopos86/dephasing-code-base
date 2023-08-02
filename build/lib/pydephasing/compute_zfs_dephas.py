@@ -11,10 +11,11 @@ from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrde
 from pydephasing.gradient_interactions import gradient_ZFS, gradient_2nd_ZFS
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.spin_hamiltonian import spin_hamiltonian
-from pydephasing.spin_ph_inter import SpinPhononClass, SpinPhononRelaxClass
+from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.ph_ampl_module import PhononAmplitude
 from pydephasing.auto_correlation_module import acf_ph_deph
+from pydephasing.auto_correlation_relax_module import acf_ph_relax
 from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT
 import sys
 #
@@ -55,6 +56,8 @@ def compute_homo_dephas():
     # set atoms dict
     atoms.extract_atoms_coords(nat)
     # zfs 2nd order
+    # TODO : uncomment here
+    '''
     if p.order_2_correct:
         # set 2nd order tensor
         grad2ZFS = gradient_2nd_ZFS(p.work_dir, p.grad_info)
@@ -73,22 +76,15 @@ def compute_homo_dephas():
                 grad2ZFS.write_grad2Dtensor_to_file(p.write_dir)
         if log.level <= logging.DEBUG and p.order_2_correct:
             grad2ZFS.check_tensor_coefficients()
+    '''
     mpi.comm.Barrier()
-    # set up spin phonon interaction class
-    if p.deph:
-        sp_ph_inter = SpinPhononClass()
-        # set up quantum states
-        p.qs1 = np.array([1.0+0j,0j,0j])
-        p.qs2 = np.array([0j,1.0+0j,0j])
-    elif p.relax:
-        sp_ph_inter = SpinPhononRelaxClass()
-    else:
-        log.error("type of calculation must be deph or relax")
-    # normalization
-    p.qs1[:] = p.qs1[:] / np.sqrt(np.dot(p.qs1.conjugate(), p.qs1))
-    p.qs2[:] = p.qs2[:] / np.sqrt(np.dot(p.qs2.conjugate(), p.qs2))
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
+    Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
+    # set up spin phonon interaction class
+    sp_ph_inter = SpinPhononClass()
+    sp_ph_inter.generate_instance()
+    sp_ph_inter.set_quantum_states(Hsp)
     #
     # extract phonon data
     #
@@ -101,17 +97,24 @@ def compute_homo_dephas():
     assert len(qpts) == nq
     assert len(u) == nq
     mpi.comm.Barrier()
+    # if w_resolved define freq. grid
+    if p.w_resolved:
+        p.set_w_grid(wu)
     # set the effective phonon forces
     # F_ax = <1|S Grad_ax D S|1> - <0|S Grad_ax D S|0>
     # F should be in eV/ang units
     sp_ph_inter.set_Fax_zfs(gradZFS, Hsp)
-    sys.exit()
     Fax = sp_ph_inter.Fzfs_ax
+    # 2nd order calculation
     if p.order_2_correct:
         # F_axby = <1|S Grad_ax,by D S|1> - <0|S Grad_ax,by D S|0>
         # F should be in eV/ang^2 units
+        # TODO : uncomment here 
+        '''
         sp_ph_inter.set_Faxby_zfs(grad2ZFS, Hsp)
         Faxby = sp_ph_inter.Fzfs_axby
+        '''
+        Faxby = np.zeros((3*nat, 3*nat), dtype=np.complex128)
         # eV / ang^2
     else:
         Faxby = None
@@ -125,8 +128,12 @@ def compute_homo_dephas():
     ql_list = mpi.split_ph_modes(nq, 3*nat)
     #
     # compute acf over local (q,l) list
-    acf = acf_ph_deph().generate_instance()
-    acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list)
+    if p.deph:
+        acf = acf_ph_deph().generate_instance()
+    elif p.relax:
+        acf = acf_ph_relax().generate_instance()
+    acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list, Hsp)
+    sys.exit()
     #
     # collect data from processes
     acf.collect_acf_from_processes(nat)

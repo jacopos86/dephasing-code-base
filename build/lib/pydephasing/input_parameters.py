@@ -8,10 +8,13 @@ import numpy as np
 import yaml
 from pydephasing.log import log
 from pydephasing.mpi import mpi
+from pydephasing.phys_constants import THz_to_ev
 #
 class data_input():
     # initialization
     def __init__(self):
+        #######################################
+        # general input parameters
         # working directory
         self.work_dir = ''
         # write directory
@@ -41,34 +44,57 @@ class data_input():
         self.deph = False
         # dynamical decoupling F by default
         self.dyndec = False
+        # time resolved
+        self.time_resolved = False
+        # freq. resolved
+        self.w_resolved = False
+        # zfs 2nd order correction
+        self.order_2_correct = False
+        #
+        ####################################
+        # physical parameters : deph - relax
+        self.index_qs0 = None
+        self.index_qs1 = None
+        # index of states |0> and |1> in the 
+        # spin eigenvectors matrix
         # n. temperatures
         self.ntmp = 0
         # FC core
         self.fc_core = True
-        # nlags
-        self.nlags = 0
         # time
         self.T  = 0.0
         self.T2 = 0.0
         self.T_mus = 0.0
         # eta decay parameter
-        self.eta = 1e-3
-        # dephasing func. param.
-        self.N_df= 100000
-        self.T_df= 0.05
-        # in ps units
-        self.maxiter = 80000
-        # n. spins list
-        self.nsp = 0
-        # zfs 2nd order correction
-        self.order_2_correct = False
+        self.eta = 1e-5
+        # in eV units
         # min. freq.
         self.min_freq = 0.0                    
         # THz
+        # freq. grid
+        self.w_grid = None
+        self.nwg = 0
+        self.w_max = 0.
+        # eV
+        ######################################
+        # hyperfine parameters
+        # n. spins list
+        self.nsp = 0
+        ######################################
+        # dyn. decoupl. parameters
+        # n. pulses
         self.n_pulses = None
         # dyn dec n. pulses
         self.nk = 7
         # order derivative expansion
+        ######################################
+        # auto-correlation fitting parameters
+        # nlags
+        self.nlags = 0
+        # dephasing func. param.
+        self.N_df= 100000
+        self.T_df= 0.05
+        self.maxiter = 80000
     #
     # read yaml data
     def read_yml_data(self, input_file):
@@ -79,6 +105,9 @@ class data_input():
             log.error(msg)
         data = yaml.load(f, Loader=yaml.Loader)
         f.close()
+        # only T or nwg in data -> either time or freq. resolved
+        if 'T' in data and 'nwg' in data:
+            log.error("only T or nwg in data -> either time or freq. resolved")
         # extract directories
         # path always with respect to working directory
         if 'working_dir' in data:
@@ -119,8 +148,6 @@ class data_input():
                 log.info("atom resolved calculation")
         if 'phonon_res' in data:
             self.ph_resolved = data['phonon_res']
-            if self.dyndec:
-                self.ph_resolved = False
             if self.ph_resolved and mpi.rank == mpi.root:
                 log.info("phonon resolved calculation")
             if 'ph_list' in data:
@@ -129,8 +156,12 @@ class data_input():
                 self.phm_list = list(np.arange(stph, self.nphr+stph))
             if 'nwbn' in data:
                 self.nwbn = data['nwbn']
+        # 2nd order ZFS correction
+        if '2nd_order_correct' in data:
+            self.order_2_correct = data['2nd_order_correct']
         # time variables
         if 'T' in data:
+            self.time_resolved = True
             # in ps units
             if len(data['T']) == 1:
                 self.T = float(data['T'][0])
@@ -148,21 +179,16 @@ class data_input():
             self.dt = float(data['dt'])
         if 'eta' in data:
             self.eta = float(data['eta'])
+        # frequency grid parameters
+        if 'nwg' in data:
+            self.w_resolved = True
+            self.min_freq = 0.
+            # n. w grid points
+            self.nwg = data['nwg']
         # temperature (K)
         if 'temperature' in data:
             Tlist = data['temperature']
-        # dynamical decoupling -> number of pulses
-        if 'npulses' in data:
-            self.n_pulses = data['npulses']
-        if 'nw' in data:
-            self.nw = data['nw']
-        # deph. function parameters
-        if 'maxiter' in data:
-            self.maxiter = int(data['maxiter'])
-        if 'Ndf' in data:
-            self.N_df = int(data['Ndf'])
-        if 'Tdf' in data:
-            self.T_df = float(data['Tdf'])
+        #
         # HFI calculation parameters
         if 'nconfig' in data:
             self.nconf = int(data['nconfig'])
@@ -175,18 +201,29 @@ class data_input():
         if 'core' in data:
             if data['core'] == False:
                 self.fc_core = False
-        # 2nd order ZFS correction
-        if '2nd_order_correct' in data:
-            self.order_2_correct = data['2nd_order_correct']
+        # dynamical decoupling -> number of pulses
+        if 'npulses' in data:
+            self.n_pulses = data['npulses']
+        # deph. function parameters
+        if 'maxiter' in data:
+            self.maxiter = int(data['maxiter'])
+        if 'Ndf' in data:
+            self.N_df = int(data['Ndf'])
+        if 'Tdf' in data:
+            self.T_df = float(data['Tdf'])
+        # if dephasing calc. -> only 2nd order
+        if not self.order_2_correct and self.deph:
+            self.order_2_correct = True
         # set temperature list
         self.ntmp = len(Tlist)
         self.temperatures = np.array(Tlist)
         # set time arrays
-        self.nt = int(self.T / self.dt)
-        self.time = np.linspace(0., self.T, self.nt)
-        # time 2
-        self.nt2 = int(self.T2 / self.dt)
-        self.time2 = np.linspace(0., self.T2, self.nt2)
+        if self.time_resolved:
+            self.nt = int(self.T / self.dt)
+            self.time = np.linspace(0., self.T, self.nt)
+            # time 2
+            self.nt2 = int(self.T2 / self.dt)
+            self.time2 = np.linspace(0., self.T2, self.nt2)
         # read displacement data
         for i in range(len(self.displ_poscar_dir)):
             file_name = self.displ_poscar_dir[i] + '/displ.yml'
@@ -364,5 +401,15 @@ class data_input():
                     self.wql_grid_index[iq,iph] = ii
                     # wql freq.
                     self.wql_freq[ii] += 1
+    #
+    # set w_grid
+    def set_w_grid(self, wu):
+        self.w_max = np.max(wu) * THz_to_ev
+        # eV
+        dw = self.w_max / (self.nwg - 1)
+        self.w_grid = np.zeros(self.nwg)
+        # compute w grid
+        for iw in range(self.nwg):
+            self.w_grid[iw] = iw * dw
 # input parameters object
 p = data_input()

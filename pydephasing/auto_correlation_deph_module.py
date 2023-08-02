@@ -9,7 +9,7 @@ import yaml
 import cmath
 import math
 import logging
-from pydephasing.phys_constants import THz_to_ev, eps, kb
+from pydephasing.phys_constants import THz_to_ev, eps, kb, hbar
 from pydephasing.T2_calc import T2_eval
 from pydephasing.log import log
 from pydephasing.mpi import mpi
@@ -91,8 +91,16 @@ class acf_ph_deph(object):
         return Delta_2
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')>
-    def compute_acf_Vph1(self, wq, wu, ql_list, A_lq, F_lq):
+    def compute_acf_Vph1(self, wq, wu, ql_list, A_lq, F_lq, H):
         self.acf_sp = np.zeros((p.nt, p.ntmp), dtype=np.complex128)
+        # phase prefactor
+        iqs0 = p.index_qs0
+        iqs1 = p.index_qs1
+        dE = (H.eig[iqs1]-H.eig[iqs0]) / hbar
+        # ps^-1
+        exp_idEt = np.zeros(p.nt, dtype=np.complex128)
+        for t in range(p.nt):
+            exp_idEt[t] = cmath.exp(-1j*dE*p.time[t])
         # compute partial acf
         # acf(t) = \sum_q \sum_l
         iql = 0
@@ -202,10 +210,10 @@ class acf_ph_deph(object):
             F_lq = np.zeros(len(ql_list), dtype=np.complex128)
             for jax in range(3*nat):
                 F_lq[:] += Fjax_lq[jax,:]
+            # compute <V(1)(t) V(1)(t')>
+            self.compute_acf_Vph1(wq, wu, ql_list, A_lq, F_lq)
         # TODO : uncomment here
         '''
-        # compute <V(1)(t) V(1)(t')>
-        self.compute_acf_Vph1(wq, wu, ql_list, A_lq, F_lq)
         # ph. / atom resolved
         if p.ph_resolved or p.at_resolved:
             self.compute_acf_Vph1_atphr(nat, wq, wu, ql_list, A_lq, Fjax_lq)
@@ -219,20 +227,16 @@ class acf_ph_deph(object):
         if p.order_2_correct:
             nq = len(qpts)
             qmq_list = set_q_to_mq_list(qpts, nq)
-            #iq_to_iql_map = np.zeros(nq, dtype=int)
             # set qlp list (only q>0)
             qlp_list = []
             for iqpair in qmq_list:
                 iq1 = iqpair[0]
-                #iq_to_iql_map[iq1] = len(qlp_list)
-                #iq_to_iql_map[iq2] = len(qlp_list)
                 for il in range(3*nat):
                     qlp_list.append((iq1,il))
             # complete amplitudes
             A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
             # compute effective force (second order)
             # run over q pts list
-            print('ok')
             iql = 0
             for iq, il in tqdm(ql_list):
                 # effective force

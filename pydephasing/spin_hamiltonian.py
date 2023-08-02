@@ -6,9 +6,10 @@
 #   Hss = D [Sz^2 - S(S+1)/3] + E (Sx^2 - Sy^2) + \sum_i^N I_i Ahfi(i) S
 #
 import numpy as np
+from numpy import linalg as LA
 import yaml
 from pydephasing.utility_functions import delta
-from pydephasing.phys_constants import hbar, gamma_e
+from pydephasing.phys_constants import hbar, gamma_e, eps
 from pydephasing.utility_functions import triplet_evolution
 #
 class spin_hamiltonian:
@@ -79,27 +80,25 @@ class spin_hamiltonian:
 		self.SDS = Ddiag[0]*np.matmul(self.Sx, self.Sx)
 		self.SDS = self.SDS + Ddiag[1]*np.matmul(self.Sy, self.Sy)
 		self.SDS = self.SDS + Ddiag[2]*np.matmul(self.Sz, self.Sz)
+	# set ZFS energy levels
+	def set_zfs_levels(self, unprt_struct, B):
+		Ddiag = unprt_struct.Ddiag*2.*np.pi*1.E-6
+		# THz units
+		assert np.abs(np.sum(Ddiag)/Ddiag[2]) < 1.E-3
+		# D = 3./2 Dz
+		D = 3./2 * Ddiag[2]
+		# E = (Dx - Dy)/2
+		E = (Ddiag[0] - Ddiag[1]) / 2.
+		# unperturbed H0 = D[Sz^2 - s(s+1)/3] + E(Sx^2 - Sy^2) + mu_B B Sz
+		H0 = D * (np.matmul(self.Sz, self.Sz) - self.Ssq / 3.) 
+		H0 +=E * (np.matmul(self.Sx, self.Sx) - np.matmul(self.Sy, self.Sy))
+		H0 +=gamma_e * (B[0] * self.Sx + B[1] * self.Sy + B[2] * self.Sz)
+		eig, eigv = LA.eig(H0)
+		# eig (eV)
+		self.eig = eig[:] * hbar
+		self.qs = np.zeros((3,3), dtype=np.complex128)
+		self.qs[:,:] = eigv
 	#
-	# hyperfine coupling 
-	# Delta S = <qs1|S|qs1>-<qs2|S|qs2>
-	def set_DeltaS(self, qs1, qs2):
-		DeltaS = np.zeros(3, dtype=np.complex128)
-		r1 = np.einsum("ij,j->i", self.Sx, qs1)
-		r2 = np.einsum("ij,j->i", self.Sx, qs2)
-		d = np.einsum("i,i", qs1.conjugate(), r1) - np.einsum("i,i", qs2.conjugate(), r2)
-		DeltaS[0] = d
-		#
-		r1 = np.einsum("ij,j->i", self.Sy, qs1)
-		r2 = np.einsum("ij,j->i", self.Sy, qs2)
-		d = np.einsum("i,i", qs1.conjugate(), r1) - np.einsum("i,i", qs2.conjugate(), r2)
-		DeltaS[1] = d
-		#
-		r1 = np.einsum("ij,j->i", self.Sz, qs1)
-		r2 = np.einsum("ij,j->i", self.Sz, qs2)
-		d = np.einsum("i,i", qs1.conjugate(), r1) - np.einsum("i,i", qs2.conjugate(), r2)
-		DeltaS[2] = d
-		#
-		return DeltaS
 	# set time array
 	def set_time(self, dt, T):
 		# set time in ps units
