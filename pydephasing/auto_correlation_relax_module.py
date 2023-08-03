@@ -1019,6 +1019,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
         dE = H.eig[iqs1] - H.eig[iqs0]
         DE = np.double(dE)
         # eV
+        ETA = np.double(p.eta)
         # build input arrays
         WQ = np.zeros(len(ql_list), dtype=np.double)
         WUQ= np.zeros(len(ql_list), dtype=np.double)
@@ -1051,7 +1052,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
                 # call device function
                 compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QL_LIST), SIZE, cuda.In(WG),
                             cuda.In(WQ), cuda.In(WUQ), cuda.In(A_LQ), cuda.In(F_LQ), T, DE,
-                            self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, cuda.Out(ACFW),
+                            self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, ETA, cuda.Out(ACFW),
                             block=gpu.block, grid=gpu.grid)
                 ACFW = gpu.recover_data_from_grid(ACFW)
                 for iw in range(iw0, min(iw1, p.nwg)):
@@ -1141,8 +1142,8 @@ class GPU_acf_ph_relax(acf_ph_relax):
                                         T, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, cuda.Out(ACF),
                                         cuda.Out(ACF_INT), block=gpu.block, grid=gpu.grid)
                         # (eV^2 ps) units
-                        ACF = gpu.recover_data_from_grid_atr(ACF, na, size)
-                        ACF_INT = gpu.recover_data_from_grid_atr(ACF_INT, na, size)
+                        ACF = gpu.recover_data_from_grid_apr(ACF, na, size)
+                        ACF_INT = gpu.recover_data_from_grid_apr(ACF_INT, na, size)
                         for t in range(t0, min(t1,p.nt2)):
                             for a in range(ia0, min(ia1,nat)):
                                 self.acf_atr_sp[t,0,a,iT] += ACF[t-t0,a-ia0]

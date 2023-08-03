@@ -56,8 +56,8 @@ class GPU_obj:
                             if idx < data.shape[0]:
                                 arr[tx] += data[idx]
         return arr
-    def recover_data_from_grid_atr(self, data, na, nt):
-        arr = np.zeros((nt,na), dtype=type(data[0]))
+    def recover_data_from_grid_apr(self, data, n, nt):
+        arr = np.zeros((nt,n), dtype=type(data[0]))
         for th_x in range(self.BLOCK_SIZE[0]):
             for th_y in range(self.BLOCK_SIZE[1]):
                 for th_z in range(self.BLOCK_SIZE[2]):
@@ -68,8 +68,8 @@ class GPU_obj:
                             k = th_z
                             idx = i + j * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] + k * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] * self.BLOCK_SIZE[1] * self.GRID_SIZE[1]
                             tx  = th_x + th_y * self.BLOCK_SIZE[0] + th_z * self.BLOCK_SIZE[0] * self.BLOCK_SIZE[1]
-                            ax  = bl_x + bl_y * self.GRID_SIZE[0]
-                            if tx < nt and ax < na:
-                                arr[tx,ax] = data[idx]
+                            mx  = bl_x + bl_y * self.GRID_SIZE[0]
+                            if tx < nt and mx < n:
+                                arr[tx,mx] = data[idx]
         return arr
 #
