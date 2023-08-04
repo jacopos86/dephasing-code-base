@@ -56,7 +56,7 @@ def delta(x, y):
 #  function 4)
 #
 def lorentzian(x, eta):
-	ltz = eta/2. / (x ** 2 + (eta/2.) ** 2)
+	ltz = eta/2. / (x ** 2 + (eta/2.) ** 2) * 1./np.pi
 	return ltz
 #
 #  function 5)

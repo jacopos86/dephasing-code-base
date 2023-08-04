@@ -14,7 +14,6 @@ from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.ph_ampl_module import PhononAmplitude
-from pydephasing.auto_correlation_module import acf_ph_deph
 from pydephasing.auto_correlation_relax_module import acf_ph_relax
 from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT
 import sys

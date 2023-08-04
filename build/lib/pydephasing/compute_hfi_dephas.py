@@ -13,7 +13,6 @@ from pydephasing.gradient_interactions import gradient_HFI, gradient_2nd_HFI
 from pydephasing.nuclear_spin_config import nuclear_spins_config
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.spin_ph_inter import SpinPhononClass, SpinPhononRelaxClass
-from pydephasing.auto_correlation_module import acf_ph_deph
 from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT
 from pydephasing.log import log
 from pydephasing.mpi import mpi
