@@ -120,13 +120,15 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, c
     int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
     int tx = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int ax = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
-    
+    int ia = at_lst[ax];
+    /* internal vars*/
+    const cmplx IU(0., 1.);
+
     /* check tx < SIZE */
     if (tx < SIZE && ax < NA_SIZE) {
         for (iql=0; iql<NMODES; iql++) {
             if (wuq[iql] > MINFREQ) {
                 wql = 2.*PI*wuq[iql];
-                Eql = wuq[iql] * THZTOEV;
                 re = cos((wql+DE)*time[tx]);
                 im = sin((wql+DE)*time[tx]);
                 cmplx eiwt(re, -im);
@@ -134,9 +136,56 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, c
                 im = sin((wql-DE)*time[tx]);
                 cmplx cc_eiwt(re, im);
                 /* ph. occup. */
+                Eql = wuq[iql] * THZTOEV;
                 x = Eql / (KB * T);
                 nql = bose_occup(x, T, TOLER);
+                /* compute auto correl functions (eV^2) units */
+                ft = (1. + nql) * eiwt + nql * cc_eiwt;
+                for (dx=0; dx<3; dx++) {
+                    iFx = 3*NAT*iql+3*ia+dx;
+                    acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
+                }
+                /* compute cumulative sum auto correl function (eV^2 ps) units */
+                ft = IU * (1. + nql) * (eiwt - 1.) / (wql+DE) - IU * nql * (cc_eiwt - 1.) / (wql-DE);
+                for (dx=0; dx<3; dx++) {
+                    iFx = 3*NAT*iql+3*ia+dx;
+                    acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
+                }
             }
         }
     }
 }
+
+/* atom res. ACF of t*/
+
+__global__ void compute_acf_V1_phr_oft(int NPH, int *ph_lst, int SIZE, double *time, double *wq,
+double *wuq, double *Alq, cmplx *Flq, double T, double DE, double MINFREQ, double THZTOEV, 
+double KB, double TOLER, cmplx *acf, cmplx *acf_int) {
+    const int i = threadIdx.x + blockDim.x * blockIdx.x;
+    const int j = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k = threadIdx.z + blockDim.z * blockIdx.z;
+    int idx= i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
+    int tx = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
+    int phx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
+    int iph = ph_lst[phx];
+    /* internal vars*/
+    const cmplx IU(0., 1.);
+
+    /* check tx < SIZE */
+    if (tx < SIZE && phx < NPH) {
+        if (wuq[iph] > MINFREQ) {
+            wql = 2.*PI*wuq[iph];
+            re = cos((wql+DE)*time[tx]);
+            im = sin((wql+DE)*time[tx]);
+            cmplx eiwt(re, -im);
+            re = cos((wql-DE)*time[tx]);
+            im = sin((wql-DE)*time[tx]);
+            cmplx cc_eiwt(re, im);
+            /* ph. occup.*/
+            Eql = wuq[iph] * THZTOEV;
+            x = Eql / (KB * T);
+            nql = bose_occup(x, T, TOLER);
+            /* compute ACF (eV^2) units*/
+            ft = (1. + nql) * eiwt + nql * cc_eiwt;
+        }
+    }
