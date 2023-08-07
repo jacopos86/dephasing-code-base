@@ -1,7 +1,6 @@
 #include <pycuda-complex.hpp>
 #define PI 3.141592653589793
 typedef pycuda::complex<double> cmplx;
-const cmplx IU(0., 1.);
 
 /* bose occupation internal function */
 
@@ -41,9 +40,11 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, cmplx *acf, cmplx
     int tx  = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int iqlx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal variables */
-    double x;
+    double x, wql, Eql, nql;
+    int iql0, iql, n, ii;
     double re, im;
     cmplx ft;
+    const cmplx IU(0., 1.);
     /* run over t and iql index */
     if (tx < SIZE) {
         iql0= ql_init[iqlx];
@@ -84,8 +85,9 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, double ETA, cmplx
     int iwx = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int iqlx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal variables */
-
-
+    int iql0, iql, ii, n;
+    double x, Eql, nql;
+    double LTZ1, LTZ2, fw;
     /* run over w - ql index */
     if (iwx < SIZE) {
         iql0 = ql_init[iqlx];
@@ -102,8 +104,9 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, double ETA, cmplx
                 LTZ1 = lorentzian(x, ETA);
                 x = DE - Eql + wg[iwx];
                 LTZ2 = lorentzian(x, ETA);
+                fw = (1.+nql) * LTZ1 + nql * LTZ2;
                 /* compute ACF */
-                acfw[idx] += wq[iql] * Alq[iql] * Alq[iql] * ((1.+nql)*LTZ1 + nql*LTZ2) * Flq[iql] * conj(Flq[iql]);
+                acfw[idx] += wq[iql] * Alq[iql] * Alq[iql] * fw * Flq[iql] * conj(Flq[iql]);
             }
         }
     }
@@ -122,7 +125,12 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, c
     int ax = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     int ia = at_lst[ax];
     /* internal vars*/
-
+    int iql;
+    int dx, iFx;
+    double re, im;
+    double wql, Eql, x, nql;
+    cmplx ft;
+    const cmplx IU(0., 1.);
     /* check tx < SIZE */
     if (tx < SIZE && ax < NA_SIZE) {
         for (iql=0; iql<NMODES; iql++) {
@@ -168,8 +176,10 @@ double KB, double TOLER, cmplx *acf, cmplx *acf_int) {
     int phx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     int iql = ph_lst[phx];
     /* internal vars*/
-    
-
+    double wql, Eql, x, nql;
+    double re, im;
+    cmplx ft;
+    const cmplx IU(0., 1.);
     /* check tx < SIZE */
     if (tx < SIZE && phx < NPH) {
         if (wuq[iql] > MINFREQ) {
@@ -206,13 +216,14 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, double ETA, cmplx
     int ax = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     int ia = at_lst[ax];
     /* internal variables */
-    
-    
+    int iql;
+    int dx, iFx;
+    double Eql, x, nql;
+    double LTZ1, LTZ2, fw;
     /* tx - na SIZE*/
     if (iwx < SIZE && ax < NA_SIZE) {
         for (iql=0; iql<NMODES; iql++) {
             if (wuq[iql] > MINFREQ) {
-                wql = 2.*PI*wuq[iql];
                 /* Eql in eV*/
                 Eql = wuq[iql] * THZTOEV;
                 x = Eql / (KB * T);
@@ -222,10 +233,11 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, double ETA, cmplx
                 LTZ1 = lorentzian(x, ETA);
                 x = DE - Eql + wg[iwx];
                 LTZ2 = lorentzian(x, ETA);
+                fw = (1.+nql) * LTZ1 + nql * LTZ2;
                 /* compute ACF(w) - eV*/
                 for (dx=0; dx<3; dx++) {
                     iFx = 3*NAT*iql+3*ia+dx;
-                    acfw[idx] += wq[iql] * Alq[iql] * Alq[iql] * ((1.+nql)*LTZ1 + nql*LTZ2) * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
+                    acfw[idx] += wq[iql] * Alq[iql] * Alq[iql] * fw * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
                 }
             }
         }
@@ -244,13 +256,11 @@ double KB, const double TOLER, double ETA, cmplx *acfw) {
     int phx = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     int iql = ph_lst[phx];
     /* internal variables*/
-
-
-
+    double Eql, x, nql;
+    double LTZ1, LTZ2, fw;
     /* check tx size*/
     if (iwx < SIZE && phx < NPH) {
         if (wuq[iql] > MINFREQ) {
-            wql = 2.*PI*wuq[iql];
             /* Eql in eV*/
             Eql = wuq[iql] * THZTOEV;
             x = Eql / (KB * T);
