@@ -1182,6 +1182,123 @@ class GPU_acf_ph_relax(acf_ph_relax):
                                     self.acf_phr_sp[:,0,ii,iT] += ACF[t-t0,iph-iph0]
                                     self.acf_phr_sp[:,1,ii,iT] += ACF_INT[t-t0,iph-iph0]
                         iph0 = iph1
+                t0 = t1
+    # compute <Delta V^(1) Delta V^(1)>(w) -> ph / at resolved
+    def compute_acf_V1_atphr_ofw(self, nat, wq, wu, ql_list, A_lq, Fjax_lq, H):
+        if p.ph_resolved:
+            self.acf_phr_sp = np.zeros((p.nwg, p.nphr, p.ntmp), dtype=np.complex128)
+            self.acf_wql_sp = np.zeros((p.nwg, p.nwbn, p.ntmp), dtype=np.complex128)
+            # load files
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
+            mod = SourceModule(gpu_src)
+            compute_acf_phr = mod.get_function("compute_acf_V1_phr_ofw")
+        if p.at_resolved:
+            NMODES = np.int32(len(ql_list))
+            NAT = np.int32(nat)
+            self.acf_atr_sp = np.zeros((p.nwg, nat, p.ntmp), dtype=np.complex128)
+            # load files
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
+            mod = SourceModule(gpu_src)
+            compute_acf_atr = mod.get_function("compute_acf_V1_atr_ofw")
+        if not p.ph_resolved and not p.at_resolved:
+            return
+        # phase pre-factor
+        iqs0 = p.index_qs0
+        iqs1 = p.index_qs1
+        dE = (H.eig[iqs1]-H.eig[iqs0])
+        DE = np.double(dE)
+        ETA= np.double(p.eta)
+        # eV units
+        # run over (jax,q,l) modes index
+        # effective force
+        if p.at_resolved:
+            FJAX_LQ = np.zeros(3*nat*len(ql_list), dtype=np.complex128)
+            ii = 0
+            for iql in range(len(ql_list)):
+                for jax in range(3*nat):
+                    FJAX_LQ[ii] = Fjax_lq[jax,iql]
+                    ii += 1
+        if p.ph_resolved:
+            F_LQ = np.zeros(len(ql_list), dtype=np.complex128)
+            for jax in range(3*nat):
+                F_LQ[:] += Fjax_lq[jax,:]
+        # set remaining arrays
+        WQ = np.zeros(len(ql_list), dtype=np.double)
+        WUQ= np.zeros(len(ql_list), dtype=np.double)
+        A_LQ= np.zeros(len(ql_list), dtype=np.double)
+        iql = 0
+        for iq, il in ql_list:
+            WQ[iql] = wq[iq]
+            WUQ[iql]= wu[iq][il]
+            A_LQ[iql] = A_lq[iql]
+            iql += 1
+        # run over temperatures
+        for iT in range(p.ntmp):
+            T = np.double(p.temperatures[iT])
+            # iterate over w
+            w0 = 0
+            while (w0 < p.nwg):
+                w1 = w0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
+                size = min(w1, p.nwg) - w0
+                SIZE = np.int32(size)
+                # FREQ
+                WG = np.zeros(size, dtype=np.double)
+                for w in range(w0, min(w1,p.nwg)):
+                    WG[w-w0] = p.nwg[w]
+                # ATOM RESOLVED
+                #
+                if p.at_resolved:
+                    # ACF array
+                    ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    ia0 = 0
+                    while ia0 < nat:
+                        ia1 = ia0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
+                        na = min(ia1,nat) - ia0
+                        AT_LST = np.zeros(na, dtype=np.int32)
+                        for a in range(ia0, min(ia1,nat)):
+                            AT_LST[a-ia0] = a
+                        NA_SIZE = np.int32(na)
+                        # compute ACF
+                        compute_acf_atr(NA_SIZE, cuda.In(AT_LST), SIZE, cuda.In(WG), cuda.In(WQ),
+                                        cuda.In(WUQ), cuda.In(A_LQ), cuda.In(FJAX_LQ), T, DE, NMODES, NAT,
+                                        self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, ETA, cuda.Out(ACFW),
+                                        block=gpu.block, grid=gpu.grid)
+                        # eV units
+                        ACFW = gpu.recover_data_from_grid_apr(ACFW, na, size)
+                        for w in range(w0, min(w1,p.nwg)):
+                            for a in range(ia0, min(ia1,nat)):
+                                self.acf_atr_sp[w,a,iT] += ACFW[w-w0,a-ia0]
+                        ia0 = ia1
+                # PH. RESOLVED
+                #
+                if p.ph_resolved:
+                    # ACF array
+                    ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    iph0 = 0
+                    while iph0 < len(ql_list):
+                        iph1 = iph0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
+                        nph = min(iph1,len(ql_list)) - iph0
+                        PH_LST = np.zeros(nph, dtype=np.int32)
+                        for iph in range(iph0,min(iph1,len(ql_list))):
+                            PH_LST[iph-iph0] = iph
+                        NPH = np.int32(nph)
+                        # compute ACFW
+                        compute_acf_phr(NPH, cuda.In(PH_LST), SIZE, cuda.In(WG), cuda.In(WQ),
+                                        cuda.In(WUQ), cuda.In(A_LQ), cuda.In(F_LQ), T, DE, self.MINFREQ,
+                                        self.THZTOEV, self.KB, self.TOLER, ETA, cuda.Out(ACFW), block=gpu.block, grid=gpu.grid)
+                        ACFW = gpu.recover_data_from_grid_apr(ACFW, nph, size)
+                        for w in range(w0, min(w1,p.nwg)):
+                            for iph in range(iph0, min(iph1,len(ql_list))):
+                                iq, il = ql_list[iph]
+                                # wql grid
+                                ii = p.wql_grid_index[iq,il]
+                                self.acf_wql_sp[:,ii,iT] += ACFW[w-w0,iph-iph0]
+                                # phr
+                                if il in p.phm_list:
+                                    ii = p.phm_list.index(il)
+                                    self.acf_phr_sp[:,ii,iT] += ACFW[w-w0,iph-iph0]
+                        iph0 = iph1
+                w0 = w1
     # GPU equivalent function
     def compute_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
         '''
