@@ -105,8 +105,10 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, double ETA, cmplx
                 x = DE - Eql + wg[iwx];
                 LTZ2 = lorentzian(x, ETA);
                 fw = (1.+nql) * LTZ1 + nql * LTZ2;
+                // printf("%d : %f\n", idx, fw);
                 /* compute ACF */
                 acfw[idx] += wq[iql] * Alq[iql] * Alq[iql] * fw * Flq[iql] * conj(Flq[iql]);
+                printf("%d : %f\n", idx, Flq[iql]);
             }
         }
     }
