@@ -171,7 +171,9 @@ class data_input():
             else:
                 log.error("only two T values 1) normal calc. 2) ph/at resolved")
             # min. frequency
-            self.min_freq = 1./self.T
+            if 'min_freq' in data:
+                self.min_freq = data['min_freq']
+            self.min_freq = np.max(1./self.T, self.min_freq)
             if mpi.rank == mpi.root:
                 log.info("min. freq. (THz): " + str(self.min_freq))
         if 'dt' in data:
@@ -185,6 +187,9 @@ class data_input():
             self.min_freq = 0.
             # n. w grid points
             self.nwg = data['nwg']
+            # min. freq
+            if 'min_freq' in data:
+                self.min_freq = data['min_freq']
         # temperature (K)
         if 'temperature' in data:
             Tlist = data['temperature']
@@ -246,6 +251,9 @@ class data_input():
                 data = yaml.load(f, Loader=yaml.Loader)
                 self.atoms_2nd_displ.append(np.array(data['displ_ang']))
                 f.close()
+        if mpi.rank == mpi.root:
+            if np.abs(self.min_freq) < 1.E-7:
+                log.warning("check -> min_freq= " + str(self.min_freq) + " THz")
     #
     # read inhomo stat. calculation
     #
