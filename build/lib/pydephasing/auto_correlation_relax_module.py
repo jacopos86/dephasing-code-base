@@ -1049,7 +1049,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
                 size = min(iw1, p.nwg) - iw0
                 SIZE = np.int32(size)
                 # ACFW array
-                ACFW = np.zeros(gpu.gpu_size, dtype=np.double)
+                ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
                 # freq. array
                 WG = np.zeros(size, dtype=np.double)
                 for iw in range(iw0, min(iw1,p.nwg)):
@@ -1060,13 +1060,11 @@ class GPU_acf_ph_relax(acf_ph_relax):
                             cuda.In(WQ), cuda.In(WUQ), cuda.In(A_LQ), cuda.In(F_LQ), T, DE,
                             self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, ETA, cuda.Out(ACFW),
                             block=gpu.block, grid=gpu.grid)
-                print(ACFW)
                 ACFW = gpu.recover_data_from_grid(ACFW)
                 for iw in range(iw0, min(iw1, p.nwg)):
-                    self.acf_sp[iw,iT] = ACFW[iw-iw0]
+                    self.acf_sp[iw,iT] = ACFW[iw-iw0].real
                 iw0 = iw1
         import matplotlib.pyplot as plt
-        print(self.acf_sp[:,0])
         plt.plot(p.w_grid, self.acf_sp[:,0])
         plt.show()
     #

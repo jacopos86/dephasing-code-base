@@ -173,7 +173,7 @@ class data_input():
             # min. frequency
             if 'min_freq' in data:
                 self.min_freq = data['min_freq']
-            self.min_freq = np.max(1./self.T, self.min_freq)
+            self.min_freq = max(1./self.T, self.min_freq)
             if mpi.rank == mpi.root:
                 log.info("min. freq. (THz): " + str(self.min_freq))
         if 'dt' in data:
