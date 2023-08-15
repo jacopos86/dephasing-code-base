@@ -244,9 +244,10 @@ class acf_ph_relax(object):
     # collect data
     def collect_acf_from_processes(self, nat):
         # collect data from processes
-        self.acf = np.zeros((p.nt, p.ntmp), dtype=type(self.acf_sp[0,0]))
-        for iT in range(p.ntmp):
-            self.acf[:,iT] = mpi.collect_time_array(self.acf_sp[:,iT])
+        if p.time_resolved:
+            self.acf = np.zeros((p.nt,2,p.ntmp), dtype=type(self.acf_sp[0,0,0]))
+            for iT in range(p.ntmp):
+                self.acf[:,iT] = mpi.collect_time_array(self.acf_sp[:,iT])
         # ph / at resolved
         if p.ph_resolved:
             self.acf_phr = np.zeros((p.nt2, p.nphr, p.ntmp), dtype=type(self.acf_phr_sp[0,0,0]))
@@ -263,13 +264,14 @@ class acf_ph_relax(object):
                 for ia in range(nat):
                     self.acf_atr[:,ia,iT] = mpi.collect_time_array(self.acf_atr_sp[:,ia,iT])
         if log.level <= logging.INFO:
-            if mpi.rank == mpi.root:
-                log.info("Delta^2 TEST")
-            self.Delta_2 = mpi.collect_array(self.Delta_2)
-            for iT in range(p.ntmp):
-                assert np.fabs(self.Delta_2[iT]/self.acf[0,iT].real - 1.0) < eps
-            if mpi.rank == mpi.root:
-                log.info("Delta^2 TEST PASSED")
+            if p.time_resolved:
+                if mpi.rank == mpi.root:
+                    log.info("Delta^2 TEST")
+                self.Delta_2 = mpi.collect_array(self.Delta_2)
+                for iT in range(p.ntmp):
+                    assert np.fabs(self.Delta_2[iT]/self.acf[0,0,iT].real - 1.0) < eps
+                if mpi.rank == mpi.root:
+                    log.info("Delta^2 TEST PASSED")
     def collect_acfdd_from_processes(self):
         # n. pulses
         npl = len(p.n_pulses)

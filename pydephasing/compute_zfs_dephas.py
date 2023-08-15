@@ -132,10 +132,10 @@ def compute_homo_dephas():
     elif p.relax:
         acf = acf_ph_relax().generate_instance()
     acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list, Hsp)
-    sys.exit()
     #
     # collect data from processes
     acf.collect_acf_from_processes(nat)
+    sys.exit()
     #
     # print average atom displ
     if log.level <= logging.DEBUG:
