@@ -76,21 +76,18 @@ class acf_ph_relax(object):
         for jax in range(3*nat):
             F_lq[:] += Fjax_lq[jax,:]
         # compute <V(1)(t) V(1)(t')>
-        print(p.time_resolved)
         if p.time_resolved:
-            print('ok')
             self.compute_acf_V1_oft(wq, wu, ql_list, A_lq, F_lq, H)
         if p.w_resolved:
-            print('OKW')
             self.compute_acf_V1_ofw(wq, wu, ql_list, A_lq, F_lq, H)
         # ph. / atom resolved
         print('ok2')
-        sys.exit()
         if p.ph_resolved or p.at_resolved:
             if p.time_resolved:
                 self.compute_acf_V1_atphr_oft(nat, wq, wu, ql_list, A_lq, Fjax_lq, H)
             if p.w_resolved:
                 self.compute_acf_V1_atphr_ofw(nat, wq, wu, ql_list, A_lq, Fjax_lq, H)
+        sys.exit()
         #
         # check Delta^2 value
         if log.level <= logging.INFO:
@@ -949,7 +946,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
     # compute <Delta V^(1)(t) Delta V^(1)(t')>
     def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq, H):
         # initialize acf_sp -> 0 acf -> 1 integral
-        self.acf_sp = np.zeros((p.nt, 2, p.ntmp), dtype=np.complex128)
+        self.acf_sp = np.zeros((p.nt, 2, p.ntmp),dtype=np.complex128)
         '''
         read GPU code
         '''
@@ -1004,13 +1001,13 @@ class GPU_acf_ph_relax(acf_ph_relax):
                     self.acf_sp[t,1,iT] += ACF_INT[t-t0]
                 t0 = t1
         #plt.plot(p.time, self.acf_sp[:,0,0])
-        plt.plot(p.time, self.acf_sp[:,1,0])
+        plt.plot(p.time, self.acf_sp[:,1,0].real)
         plt.show()
     #
     # compute <Delta V(1) \Delta V(1)>(w)
     def compute_acf_V1_ofw(self, wq, wu, ql_list, A_lq, F_lq, H):
         # initialize acf_sp -> 0 acf -> 1 integral
-        self.acf_sp = np.zeros((p.nwg, p.ntmp))
+        self.acf_sp = np.zeros((p.nwg, p.ntmp),dtype=np.complex128)
         '''
         read GPU code
         '''
@@ -1062,10 +1059,10 @@ class GPU_acf_ph_relax(acf_ph_relax):
                             block=gpu.block, grid=gpu.grid)
                 ACFW = gpu.recover_data_from_grid(ACFW)
                 for iw in range(iw0, min(iw1, p.nwg)):
-                    self.acf_sp[iw,iT] = ACFW[iw-iw0].real
+                    self.acf_sp[iw,iT] = ACFW[iw-iw0]
                 iw0 = iw1
         import matplotlib.pyplot as plt
-        plt.plot(p.w_grid, self.acf_sp[:,0])
+        plt.plot(p.w_grid, self.acf_sp[:,0].real)
         plt.show()
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')> -> ph / at resolved
