@@ -30,15 +30,15 @@ class MPI_obj:
         lst = self.comm.bcast(lst, root=self.root)
         return lst
     # collect atom displ array
-    def collect_time_array(self, f_oft):
-        nt = f_oft.shape[0]
-        f_oft_full = np.zeros(nt, dtype=type(f_oft))
-        f_oft_list = self.comm.gather(f_oft[:], root=self.root)
+    def collect_time_freq_array(self, f_ofwt):
+        n = f_ofwt.shape[0]
+        f_ofwt_full = np.zeros(n, dtype=type(f_ofwt))
+        f_ofwt_list = self.comm.gather(f_ofwt[:], root=self.root)
         if self.rank == self.root:
-            for f_oft in f_oft_list:
-                f_oft_full[:] += f_oft[:]
-        f_oft = self.comm.bcast(f_oft_full, root=self.root)
-        return f_oft
+            for f_ofwt in f_ofwt_list:
+                f_ofwt_full[:] += f_ofwt[:]
+        f_ofwt = self.comm.bcast(f_ofwt_full, root=self.root)
+        return f_ofwt
     # split array between processes
     def split_ph_modes(self, nq, nl):
         data = []

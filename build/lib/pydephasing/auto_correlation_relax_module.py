@@ -87,7 +87,6 @@ class acf_ph_relax(object):
                 self.compute_acf_V1_atphr_oft(nat, wq, wu, ql_list, A_lq, Fjax_lq, H)
             if p.w_resolved:
                 self.compute_acf_V1_atphr_ofw(nat, wq, wu, ql_list, A_lq, Fjax_lq, H)
-        sys.exit()
         #
         # check Delta^2 value
         if log.level <= logging.INFO:
@@ -154,7 +153,6 @@ class acf_ph_relax(object):
         Fjax_lq = transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list)
         # call acf_1 driver
         self.compute_acf_1_driver(nat, wq, wu, ql_list, A_lq, Fjax_lq, H)
-        sys.exit()
         # if 2nd order
         if p.order_2_correct:
             nq = len(qpts)
@@ -244,32 +242,51 @@ class acf_ph_relax(object):
     # collect data
     def collect_acf_from_processes(self, nat):
         # collect data from processes
-        self.acf = np.zeros((p.nt, p.ntmp), dtype=type(self.acf_sp[0,0]))
-        for iT in range(p.ntmp):
-            self.acf[:,iT] = mpi.collect_time_array(self.acf_sp[:,iT])
+        if p.time_resolved:
+            self.acf = np.zeros((p.nt,2,p.ntmp), dtype=type(self.acf_sp[0,0,0]))
+            for iT in range(p.ntmp):
+                self.acf[:,0,iT] = mpi.collect_time_freq_array(self.acf_sp[:,0,iT])
+                self.acf[:,1,iT] = mpi.collect_time_freq_array(self.acf_sp[:,1,iT])
+        if p.w_resolved:
+            self.acf = np.zeros((p.nwg,p.ntmp), dtype=type(self.acf_sp[0,0]))
+            for iT in range(p.ntmp):
+                self.acf[:,iT] = mpi.collect_time_freq_array(self.acf_sp[:,iT])
         # ph / at resolved
         if p.ph_resolved:
-            self.acf_phr = np.zeros((p.nt2, p.nphr, p.ntmp), dtype=type(self.acf_phr_sp[0,0,0]))
-            self.acf_wql = np.zeros((p.nt2, p.nwbn, p.ntmp), dtype=type(self.acf_wql_sp[0,0,0]))
-            for iT in range(p.ntmp):
-                for iph in range(p.nphr):
-                    self.acf_phr[:,iph,iT] = mpi.collect_time_array(self.acf_phr_sp[:,iph,iT])
-                for iwb in range(p.nwbn):
-                    if p.wql_freq[iwb] > 0:
-                        self.acf_wql[:,iwb,iT] = mpi.collect_time_array(self.acf_wql_sp[:,iwb,iT]) / p.wql_freq[iwb]
+            if p.time_resolved:
+                self.acf_phr = np.zeros((p.nt2,2,p.nphr,p.ntmp), dtype=type(self.acf_phr_sp[0,0,0,0]))
+                self.acf_wql = np.zeros((p.nt2,2,p.nwbn,p.ntmp), dtype=type(self.acf_wql_sp[0,0,0,0]))
+                for iT in range(p.ntmp):
+                    for iph in range(p.nphr):
+                        self.acf_phr[:,0,iph,iT] = mpi.collect_time_freq_array(self.acf_phr_sp[:,0,iph,iT])
+                        self.acf_phr[:,1,iph,iT] = mpi.collect_time_freq_array(self.acf_phr_sp[:,1,iph,iT])
+                    for iwb in range(p.nwbn):
+                        if p.wql_freq[iwb] > 0:
+                            self.acf_wql[:,0,iwb,iT] = mpi.collect_time_freq_array(self.acf_wql_sp[:,0,iwb,iT]) / p.wql_freq[iwb]
+                            self.acf_wql[:,1,iwb,iT] = mpi.collect_time_freq_array(self.acf_wql_sp[:,1,iwb,iT]) / p.wql_freq[iwb]
+            if p.w_resolved:
+                self.acf_phr = np.zeros((p.nwg,p.nphr,p.ntmp), dtype=type(self.acf_phr_sp[0,0,0]))
+                self.acf_wql = np.zeros((p.nwg,p.nwbn,p.ntmp), dtype=type(self.acf_wql_sp[0,0,0]))
+                for iT in range(p.ntmp):
+                    for iph in range(p.nphr):
+                        self.acf_phr[:,iph,iT] = mpi.collect_time_freq_array(self.acf_phr_sp[:,iph,iT])
+                    for iwb in range(p.nwbn):
+                        if p.wql_freq[iwb] > 0:
+                            self.acf_wql[:,iwb,iT] = mpi.collect_time_freq_array(self.acf_wql_sp[:,iwb,iT])
+        #
+        # atom resolved
         if p.at_resolved:
-            self.acf_atr = np.zeros((p.nt2, nat, p.ntmp), dtype=type(self.acf_atr_sp[0,0,0]))
-            for iT in range(p.ntmp):
-                for ia in range(nat):
-                    self.acf_atr[:,ia,iT] = mpi.collect_time_array(self.acf_atr_sp[:,ia,iT])
-        if log.level <= logging.INFO:
-            if mpi.rank == mpi.root:
-                log.info("Delta^2 TEST")
-            self.Delta_2 = mpi.collect_array(self.Delta_2)
-            for iT in range(p.ntmp):
-                assert np.fabs(self.Delta_2[iT]/self.acf[0,iT].real - 1.0) < eps
-            if mpi.rank == mpi.root:
-                log.info("Delta^2 TEST PASSED")
+            if p.time_resolved:
+                self.acf_atr = np.zeros((p.nt2,2,nat,p.ntmp), dtype=type(self.acf_atr_sp[0,0,0,0]))
+                for iT in range(p.ntmp):
+                    for ia in range(nat):
+                        self.acf_atr[:,0,ia,iT] = mpi.collect_time_freq_array(self.acf_atr_sp[:,0,ia,iT])
+                        self.acf_atr[:,1,ia,iT] = mpi.collect_time_freq_array(self.acf_atr_sp[:,1,ia,iT])
+            if p.w_resolved:
+                self.acf_atr = np.zeros((p.nwg,nat,p.ntmp), dtype=type(self.acf_atr_sp[0,0,0]))
+                for iT in range(p.ntmp):
+                    for ia in range(nat):
+                        self.acf_atr[:,ia,iT] = mpi.collect_time_freq_array(self.acf_atr_sp[:,ia,iT])
     def collect_acfdd_from_processes(self):
         # n. pulses
         npl = len(p.n_pulses)
@@ -517,6 +534,17 @@ class acf_ph_relax(object):
         if log.level <= logging.INFO:
             namef = self.write_dir + "/acf-data-ip" + str(ipl+1) + "-iT" + str(iT+1) + ".yml"
             print_acf_dict(p.time, Ct, ft, namef)
+    #
+    # auto correlation tests
+    def auto_correl_test(self):
+        if p.time_resolved:
+            if mpi.rank == mpi.root:
+                log.info("Delta^2 TEST")
+            self.Delta_2 = mpi.collect_array(self.Delta_2)
+            for iT in range(p.ntmp):
+                assert np.fabs(self.Delta_2[iT]/self.acf[0,0,iT].real - 1.0) < eps
+            if mpi.rank == mpi.root:
+                log.info("Delta^2 TEST PASSED")
 # CPU class
 class CPU_acf_ph_relax(acf_ph_relax):
     def __init__(self):
@@ -595,9 +623,6 @@ class CPU_acf_ph_relax(acf_ph_relax):
                     # eV/ps^2*eV*ps^2*eV^-1 = eV
                     self.acf_sp[:,iT] += wq[iq] * A_lq[iql] ** 2 * ((1.+nph)*ltza[:] + nph*ltzb[:]) * F_lq[iql] * F_lq[iql].conjugate()
             iql += 1
-        import matplotlib.pyplot as plt
-        plt.plot(p.w_grid, self.acf_sp[:,0])
-        plt.show()
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')> -> ph / at resolved
     def compute_acf_V1_atphr_oft(self, nat, wq, wu, ql_list, A_lq, Fjax_lq, H):
@@ -679,6 +704,7 @@ class CPU_acf_ph_relax(acf_ph_relax):
         iqs0 = p.index_qs0
         iqs1 = p.index_qs1
         dE = H.eig[iqs1]-H.eig[iqs0]
+        print(dE)
         # eV
         ltza = np.zeros(p.nwg)
         ltzb = np.zeros(p.nwg)

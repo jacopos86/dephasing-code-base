@@ -132,10 +132,17 @@ def compute_homo_dephas():
     elif p.relax:
         acf = acf_ph_relax().generate_instance()
     acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list, Hsp)
-    sys.exit()
     #
     # collect data from processes
     acf.collect_acf_from_processes(nat)
+    # test acf -> check t=0 / w=0
+    if log.level <= logging.INFO:
+        acf.auto_correl_test()
+    import matplotlib.pyplot as plt
+    if mpi.rank == mpi.root:
+        plt.plot(p.w_grid, acf.acf[:,0])
+        plt.savefig('./examples/NV-diamond/F_1_ofw.png')
+    sys.exit()
     #
     # print average atom displ
     if log.level <= logging.DEBUG:

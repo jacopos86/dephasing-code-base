@@ -135,6 +135,13 @@ def compute_homo_dephas():
     #
     # collect data from processes
     acf.collect_acf_from_processes(nat)
+    # test acf -> check t=0 / w=0
+    if log.level <= logging.INFO:
+        acf.auto_correl_test()
+    import matplotlib.pyplot as plt
+    if mpi.rank == mpi.root:
+        plt.plot(p.w_grid, acf.acf[:,0])
+        plt.savefig('./examples/NV-diamond/F_1_ofw.png')
     sys.exit()
     #
     # print average atom displ
