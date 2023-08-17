@@ -62,6 +62,7 @@ class acf_ph_relax(object):
         self.acf_atr_sp = None
         # Delta^2
         self.Delta_2 = None
+        self.Delta_w0= None
     def generate_instance(self):
         if GPU_ACTIVE:
             return GPU_acf_ph_relax()
@@ -93,6 +94,9 @@ class acf_ph_relax(object):
             if p.time_resolved:
                 self.Delta_2 = np.zeros(p.ntmp)
                 self.Delta_2 = self.compute_acf_V1_t0(wq, wu, ql_list, A_lq, F_lq)
+            if p.w_resolved:
+                self.Delta_w0= np.zeros(p.ntmp)
+                self.Delta_w0= self.compute_acf_V1_w0(wq, wu, ql_list, A_lq, F_lq, H)
     #
     # <Delta V^(1)(t) Delta V^(1)(t)>
     def compute_acf_V1_t0(self, wq, wu, ql_list, A_lq, F_lq):
@@ -114,6 +118,34 @@ class acf_ph_relax(object):
                     Delta_2[iT] += wq[iq] * A_lq[iql] ** 2 * (1.+2.*nph) * (F_lq[iql] * F_lq[iql].conjugate()).real
             iql += 1
         return Delta_2
+    # acf V1 (w=0)
+    def compute_acf_V1_w0(self, wq, wu, ql_list, A_lq, F_lq, H):
+        # Delta_w0 = sum_l,q A_l,q^2 [1 + 2 n_lq] |F_lq|^2
+        # eV units
+        Delta_w0 = np.zeros(p.ntmp)
+        # quantum states
+        iqs0 = p.index_qs0
+        iqs1 = p.index_qs1
+        dE = H.eig[iqs1] - H.eig[iqs0]
+        # compute partial value
+        iql = 0
+        for iq, il in ql_list:
+            wuq = wu[iq]
+            if wuq[il] > p.min_freq:
+                # E in eV
+                E_ql = wuq[il] * THz_to_ev
+                ltza = lorentzian(dE+E_ql, p.eta)
+                ltzb = lorentzian(dE-E_ql, p.eta)
+                # eV^-1
+                # temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occ.
+                    nph = bose_occup(E_ql, T)
+                    Delta_w0[iT] += wq[iq] * A_lq[iql] ** 2 * ((1.+nph)*ltza + nph*ltzb) * (F_lq[iql] * F_lq[iql].conjugate()).real
+            iql += 1
+        return Delta_w0
+    #
     # acf(2,t=0)
     def compute_acf_order2_zero_time(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
         # \sum_lq,lqp(q,qp>0) A_lq^2 A_lqp^2 [1+n_lq+3n_lqp+4n_lq n_lqp] {|F_lq_lqp|^2 + |F_l-q_lqp|^2}
@@ -543,6 +575,14 @@ class acf_ph_relax(object):
             self.Delta_2 = mpi.collect_array(self.Delta_2)
             for iT in range(p.ntmp):
                 assert np.fabs(self.Delta_2[iT]/self.acf[0,0,iT].real - 1.0) < eps
+            if mpi.rank == mpi.root:
+                log.info("Delta^2 TEST PASSED")
+        if p.w_resolved:
+            if mpi.rank == mpi.root:
+                log.info("Delta(w=0) TEST")
+            self.Delta_w0 = mpi.collect_array(self.Delta_w0)
+            for iT in range(p.ntmp):
+                assert np.fabs(self.Delta_w0[iT]/self.acf[0,iT].real - 1.0) < eps
             if mpi.rank == mpi.root:
                 log.info("Delta^2 TEST PASSED")
 # CPU class
