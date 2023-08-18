@@ -139,7 +139,7 @@ def compute_homo_dephas():
     if log.level <= logging.INFO:
         acf.auto_correl_test()
     import matplotlib.pyplot as plt
-    if mpi.rank == mpi.root:
+    if mpi.rank == mpi.root and p.w_resolved:
         plt.plot(p.w_grid, acf.acf[:,0])
         plt.savefig('./examples/NV-diamond/F_1_ofw.png')
     sys.exit()

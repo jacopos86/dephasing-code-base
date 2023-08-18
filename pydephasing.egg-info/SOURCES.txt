@@ -7,6 +7,7 @@ pydephasing/__init__.py
 pydephasing/__main__.py
 pydephasing/atomic_list_struct.py
 pydephasing/auto_correlation_deph_module.py
+pydephasing/auto_correlation_driver.py
 pydephasing/auto_correlation_relax_module.py
 pydephasing/compute_dyndec_dephas.py
 pydephasing/compute_exc_dephas.py
