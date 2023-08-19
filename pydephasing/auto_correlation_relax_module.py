@@ -4,13 +4,9 @@
 # auto correlation function
 #
 import numpy as np
-import statsmodels.api as sm
 import cmath
 import math
-import logging
 from pydephasing.phys_constants import THz_to_ev, eps, kb, hbar
-from pydephasing.T2_calc import T2_eval
-from pydephasing.log import log
 from pydephasing.input_parameters import p
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.utility_functions import bose_occup, lorentzian
@@ -33,15 +29,20 @@ if GPU_ACTIVE:
 class acf_ph_relax(acf_ph):
     def __init__(self):
         super(acf_ph_relax, self).__init__()
-    # acf V1 (w=0)
-    def compute_acf_V1_w0(self, wq, wu, ql_list, A_lq, F_lq, H):
-        # Delta_w0 = sum_l,q A_l,q^2 [1 + 2 n_lq] |F_lq|^2
-        # eV units
-        Delta_w0 = np.zeros(p.ntmp)
+        self.dE = 0.0
+    # set dE
+    def set_dE(self, H):
         # quantum states
         iqs0 = p.index_qs0
         iqs1 = p.index_qs1
-        dE = H.eig[iqs1] - H.eig[iqs0]
+        self.dE = H.eig[iqs1] - H.eig[iqs0]
+        # eV
+    # acf V1 (w=0)
+    def compute_acf_V1_w0(self, wq, wu, ql_list, A_lq, F_lq, H):
+        # Delta_w0 = sum_l,q A_l,q^2 [1 + 2 n_lq] |F_lq|^2
+        dE = self.dE
+        # eV units
+        Delta_w0 = np.zeros(p.ntmp)
         # compute partial value
         iql = 0
         for iq, il in ql_list:
@@ -70,13 +71,11 @@ class CPU_acf_ph_relax(acf_ph_relax):
         super(CPU_acf_ph_relax, self).__init__()
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')>
-    def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq, H):
+    def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq):
         # initialize acf_sp -> 0 acf -> 1 integral
         self.acf_sp = np.zeros((p.nt, 2, p.ntmp), dtype=np.complex128)
-        # phase prefactor
-        iqs0 = p.index_qs0
-        iqs1 = p.index_qs1
-        dE = (H.eig[iqs1]-H.eig[iqs0]) / hbar
+        # dE
+        dE = self.dE / hbar
         # ps^-1
         # compute partial acf
         # acf(t) = \sum_q \sum_l
@@ -109,14 +108,11 @@ class CPU_acf_ph_relax(acf_ph_relax):
             iql += 1
     #
     # compute <Delta V(1) \Delta V(1)>(w)
-    def compute_acf_V1_ofw(self, wq, wu, ql_list, A_lq, F_lq, H):
+    def compute_acf_V1_ofw(self, wq, wu, ql_list, A_lq, F_lq):
         # initialize acf_sp -> 0 acf -> 1 integral
         self.acf_sp = np.zeros((p.nwg, p.ntmp), dtype=np.complex128)
-        # phase prefactor
-        iqs0 = p.index_qs0
-        iqs1 = p.index_qs1
-        dE = H.eig[iqs1] - H.eig[iqs0]
-        # eV
+        # dE (eV)
+        dE = self.dE
         ltza = np.zeros(p.nwg)
         ltzb = np.zeros(p.nwg)
         # compute partial acf \sum_ql
@@ -144,7 +140,7 @@ class CPU_acf_ph_relax(acf_ph_relax):
             iql += 1
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')> -> ph / at resolved
-    def compute_acf_V1_atphr_oft(self, nat, wq, wu, ql_list, A_lq, Fjax_lq, H):
+    def compute_acf_V1_atphr_oft(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
         if p.ph_resolved:
             self.acf_phr_sp = np.zeros((p.nt2,2,p.nphr,p.ntmp), dtype=np.complex128)
             self.acf_wql_sp = np.zeros((p.nt2,2,p.nwbn,p.ntmp), dtype=np.complex128)
@@ -152,11 +148,8 @@ class CPU_acf_ph_relax(acf_ph_relax):
             self.acf_atr_sp = np.zeros((p.nt2,2,nat,p.ntmp), dtype=np.complex128)
         if not p.ph_resolved and not p.at_resolved:
             return
-        # phase pre-factor
-        iqs0 = p.index_qs0
-        iqs1 = p.index_qs1
-        dE = (H.eig[iqs1]-H.eig[iqs0]) / hbar
-        # ps^-1
+        # dE (ps^-1)
+        dE = self.dE / hbar
         # compute partial acf
         iql = 0
         for iq, il in tqdm(ql_list):
@@ -211,7 +204,7 @@ class CPU_acf_ph_relax(acf_ph_relax):
             iql += 1
     #
     # compute <Delta V(1) \Delta V(1)>(w) / at-ph res.
-    def compute_acf_V1_atphr_ofw(self, nat, wq, wu, ql_list, A_lq, Fjax_lq, H):
+    def compute_acf_V1_atphr_ofw(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
         if p.ph_resolved:
             self.acf_phr_sp = np.zeros((p.nwg,p.nphr,p.ntmp), dtype=np.complex128)
             self.acf_wql_sp = np.zeros((p.nwg,p.nwbn,p.ntmp), dtype=np.complex128)
@@ -219,11 +212,8 @@ class CPU_acf_ph_relax(acf_ph_relax):
             self.acf_atr_sp = np.zeros((p.nwg,nat,p.ntmp), dtype=np.complex128)
         if not p.ph_resolved and not p.at_resolved:
             return
-        # phase pre-factor
-        iqs0 = p.index_qs0
-        iqs1 = p.index_qs1
-        dE = H.eig[iqs1]-H.eig[iqs0]
-        # eV
+        # dE (eV)
+        dE = self.dE
         ltza = np.zeros(p.nwg)
         ltzb = np.zeros(p.nwg)
         # compute partial acf
@@ -488,7 +478,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
         self.MINFREQ = np.double(p.min_freq)
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')>
-    def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq, H):
+    def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq):
         # initialize acf_sp -> 0 acf -> 1 integral
         self.acf_sp = np.zeros((p.nt, 2, p.ntmp),dtype=np.complex128)
         '''
@@ -499,10 +489,8 @@ class GPU_acf_ph_relax(acf_ph_relax):
         compute_acf = mod.get_function("compute_acf_V1_oft")
         # split modes on grid
         QL_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(ql_list)))
-        # phase prefactor
-        iqs0 = p.index_qs0
-        iqs1 = p.index_qs1
-        dE = (H.eig[iqs1]-H.eig[iqs0]) / hbar
+        # dE (ps^-1)
+        dE = self.dE / hbar
         DE = np.double(dE)
         # ps^-1
         # build input arrays
@@ -549,7 +537,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
         plt.show()
     #
     # compute <Delta V(1) \Delta V(1)>(w)
-    def compute_acf_V1_ofw(self, wq, wu, ql_list, A_lq, F_lq, H):
+    def compute_acf_V1_ofw(self, wq, wu, ql_list, A_lq, F_lq):
         # initialize acf_sp -> 0 acf -> 1 integral
         self.acf_sp = np.zeros((p.nwg, p.ntmp),dtype=np.complex128)
         '''
@@ -560,13 +548,9 @@ class GPU_acf_ph_relax(acf_ph_relax):
         compute_acf = mod.get_function("compute_acf_V1_ofw")
         # split modes on grid
         QL_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(ql_list)))
-        # phase prefactor
-        iqs0 = p.index_qs0
-        iqs1 = p.index_qs1
-        dE = H.eig[iqs1] - H.eig[iqs0]
-        DE = np.double(dE)
-        # eV
+        DE = np.double(self.dE)
         ETA = np.double(p.eta)
+        # eV
         # build input arrays
         WQ = np.zeros(len(ql_list), dtype=np.double)
         WUQ= np.zeros(len(ql_list), dtype=np.double)
@@ -610,7 +594,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
         plt.show()
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')> -> ph / at resolved
-    def compute_acf_V1_atphr_oft(self, nat, wq, wu, ql_list, A_lq, Fjax_lq, H):
+    def compute_acf_V1_atphr_oft(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
         if p.ph_resolved:
             self.acf_phr_sp = np.zeros((p.nt2, 2, p.nphr, p.ntmp), dtype=np.complex128)
             self.acf_wql_sp = np.zeros((p.nt2, 2, p.nwbn, p.ntmp), dtype=np.complex128)
@@ -628,10 +612,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
             compute_acf_atr = mod.get_function("compute_acf_V1_atr_oft")
         if not p.ph_resolved and not p.at_resolved:
             return
-        # phase pre-factor
-        iqs0 = p.index_qs0
-        iqs1 = p.index_qs1
-        dE = (H.eig[iqs1]-H.eig[iqs0]) / hbar
+        dE = self.dE / hbar
         DE = np.double(dE)
         # ps^-1
         # run over (jax,q,l) modes index
@@ -732,7 +713,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
                         iph0 = iph1
                 t0 = t1
     # compute <Delta V^(1) Delta V^(1)>(w) -> ph / at resolved
-    def compute_acf_V1_atphr_ofw(self, nat, wq, wu, ql_list, A_lq, Fjax_lq, H):
+    def compute_acf_V1_atphr_ofw(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
         if p.ph_resolved:
             self.acf_phr_sp = np.zeros((p.nwg, p.nphr, p.ntmp), dtype=np.complex128)
             self.acf_wql_sp = np.zeros((p.nwg, p.nwbn, p.ntmp), dtype=np.complex128)
@@ -750,11 +731,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
             compute_acf_atr = mod.get_function("compute_acf_V1_atr_ofw")
         if not p.ph_resolved and not p.at_resolved:
             return
-        # phase pre-factor
-        iqs0 = p.index_qs0
-        iqs1 = p.index_qs1
-        dE = (H.eig[iqs1]-H.eig[iqs0])
-        DE = np.double(dE)
+        DE = np.double(self.dE)
         ETA= np.double(p.eta)
         # eV units
         # run over (jax,q,l) modes index
@@ -1102,47 +1079,3 @@ class GPU_acf_ph_relax(acf_ph_relax):
                             for t in range(t0, min(t1,p.nt2)):
                                 self.acf_phr_sp[t,iph,iT] += acf[t-t0]
                     t0 = t1
-#
-# auto-correlation HFI static
-# class
-#
-class autocorrel_func_hfi_stat:
-    # initialization
-    def __init__(self, E_fluct):
-        # output dir
-        self.write_dir = p.write_dir
-        # array variables
-        self.nt = int(p.T_mus/p.dt_mus)
-        self.nlags = p.nlags
-        # time (mu sec)
-        self.time = p.time2
-        # arrays
-        self.dE_oft = E_fluct.deltaE_oft
-    # compute auto correlation
-    # function
-    def compute_acf(self):
-        # acf
-        Ct = sm.tsa.acf(self.dE_oft, nlags=self.nlags, fft=True)
-        #
-        # compute C(t) = acf(t) * <DeltaE^2>_T
-        # eV^2
-        #
-        D2 = sum(self.dE_oft[:] * self.dE_oft[:]) / self.nt
-        return D2, Ct
-    # extract dephasing parameters
-    # from acf
-    def extract_dephas_data(self, D2, Ct, T2_obj, Delt_obj, tauc_obj, ic):
-        nct = len(Ct)
-        # extract T2 time
-        T2 = T2_eval()
-        tau_c, T2_inv, ft = T2.extract_T2_star(self.time[:nct], Ct, D2)
-        # tau_c (mu sec)
-        # T2_inv (ps^-1)
-        if tau_c is not None and T2_inv is not None:
-            T2_obj.set_T2_psec(ic, T2_inv)
-            Delt_obj.set_Delt(ic, D2)
-            tauc_obj.set_tauc(ic, tau_c)
-        # write data on file
-        if log.level <= logging.INFO:
-            namef = self.write_dir + "/acf-data-ic" + str(ic+1) + ".yml"
-            print_acf_dict(self.time, Ct, ft, namef)

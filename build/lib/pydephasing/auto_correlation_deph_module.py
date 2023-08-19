@@ -4,13 +4,10 @@
 # auto correlation function
 #
 import numpy as np
-import statsmodels.api as sm
 import cmath
 import math
-import logging
+from tqdm import tqdm
 from pydephasing.phys_constants import THz_to_ev, eps, kb
-from pydephasing.T2_calc import T2_eval
-from pydephasing.log import log
 from pydephasing.input_parameters import p
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.utility_functions import bose_occup, lorentzian
@@ -32,13 +29,10 @@ class acf_ph_deph(acf_ph):
         super(acf_ph_deph, self).__init__()
     #
     # acf V1 (w=0)
-    def compute_acf_V1_w0(self, wq, wu, ql_list, A_lq, F_lq, H):
+    def compute_acf_V1_w0(self, wq, wu, ql_list, A_lq, F_lq):
         # Delta_w0 = sum_l,q A_l,q^2 [1 + 2 n_lq] |F_lq|^2
         # eV units
         Delta_w0 = np.zeros(p.ntmp)
-        # quantum states
-        iqs1 = p.index_qs1
-        dE = H.eig[iqs1] - H.eig[iqs1]
         # compute partial value
         iql = 0
         for iq, il in ql_list:
@@ -46,15 +40,14 @@ class acf_ph_deph(acf_ph):
             if wuq[il] > p.min_freq:
                 # E in eV
                 E_ql = wuq[il] * THz_to_ev
-                ltza = lorentzian(dE+E_ql, p.eta)
-                ltzb = lorentzian(dE-E_ql, p.eta)
+                ltz  = lorentzian(E_ql, p.eta)
                 # eV^-1
                 # temperatures
                 for iT in range(p.ntmp):
                     T = p.temperatures[iT]
                     # bose occ.
                     nph = bose_occup(E_ql, T)
-                    Delta_w0[iT] += wq[iq] * A_lq[iql] ** 2 * ((1.+nph)*ltza + nph*ltzb) * (F_lq[iql] * F_lq[iql].conjugate()).real
+                    Delta_w0[iT] += wq[iq] * A_lq[iql] ** 2 * (1.+2.*nph) * ltz * (F_lq[iql] * F_lq[iql].conjugate()).real
             iql += 1
         return Delta_w0
 # ------------------------------------------------------------------------
@@ -65,6 +58,172 @@ class acf_ph_deph(acf_ph):
 class CPU_acf_ph_deph(acf_ph_deph):
     def __init__(self):
         super(CPU_acf_ph_deph, self).__init__()
+    #
+    # compute <Delta V^(1)(t) Delta V^(1)(t')>
+    def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq):
+        # initialize acf_sp -> 0 acf -> 1 integral
+        self.acf_sp = np.zeros((p.nt, 2, p.ntmp), dtype=np.complex128)
+        # compute partial acf
+        # acf(t) = \sum_q \sum_l
+        iql = 0
+        for iq, il in ql_list:
+            wuq = wu[iq]
+            if wuq[il] > p.min_freq:
+                # E in (eV)
+                Eql = wuq[il] * THz_to_ev
+                wql = 2.*np.pi*wuq[il]
+                # set e^{-iwt}
+                exp_iwt = np.zeros(p.nt, dtype=np.complex128)
+                cc_exp_iwt = np.zeros(p.nt, dtype=np.complex128)
+                for t in range(p.nt):
+                    exp_iwt[t] = cmath.exp(-1j*wql*p.time[t])
+                    cc_exp_iwt[t] = cmath.exp(1j*wql*p.time[t])
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occupation
+                    nph = bose_occup(Eql, T)
+                    ft = np.zeros(p.nt, dtype=np.complex128)
+                    ft[:] = (1.+nph) * exp_iwt[:] + nph * cc_exp_iwt[:]
+                    # (eV^2) units
+                    self.acf_sp[:,0,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
+                    # (eV^2 ps) units
+                    ft[:] = 0.
+                    ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*wql) + nph * (cc_exp_iwt[:] - 1.)/(1j*wql)
+                    self.acf_sp[:,1,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
+            iql += 1
+    #
+    # compute <Delta V(1) \Delta V(1)>(w)
+    def compute_acf_V1_ofw(self, wq, wu, ql_list, A_lq, F_lq):
+        # initialize acf_sp -> 0 acf -> 1 integral
+        self.acf_sp = np.zeros((p.nwg, p.ntmp), dtype=np.complex128)
+        ltz = np.zeros(p.nwg)
+        # compute partial acf \sum_ql
+        iql = 0
+        for iq, il in ql_list:
+            wuq = wu[iq]
+            if wuq[il] > p.min_freq:
+                # E in eV
+                Eql = wuq[il] * THz_to_ev
+                ltz[:] = 0.
+                for iw in range(p.nwg):
+                    w = p.w_grid[iw]
+                    # eV
+                    ltz[iw] = lorentzian(Eql+w, p.eta)
+                    # eV^-1
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occ.
+                    nph = bose_occup(Eql, T)
+                    # eV/ps^2*eV*ps^2*eV^-1 = eV
+                    self.acf_sp[:,iT] += wq[iq] * A_lq[iql] ** 2 * (1.+2.*nph) * ltz[:] * F_lq[iql] * F_lq[iql].conjugate()
+            iql += 1
+    #
+    # compute <Delta V^(1)(t) Delta V^(1)(t')> -> ph / at resolved
+    def compute_acf_V1_atphr_oft(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
+        if p.ph_resolved:
+            self.acf_phr_sp = np.zeros((p.nt2,2,p.nphr,p.ntmp), dtype=np.complex128)
+            self.acf_wql_sp = np.zeros((p.nt2,2,p.nwbn,p.ntmp), dtype=np.complex128)
+        if p.at_resolved:
+            self.acf_atr_sp = np.zeros((p.nt2,2,nat,p.ntmp), dtype=np.complex128)
+        if not p.ph_resolved and not p.at_resolved:
+            return
+        # compute partial acf
+        iql = 0
+        for iq, il in tqdm(ql_list):
+            wuq = wu[iq]
+            if wuq[il] > p.min_freq:
+                # E in (eV)
+                Eql = wuq[il] * THz_to_ev
+                wql = 2.*np.pi*wuq[il]
+                # set e^{-iwt}
+                exp_iwt = np.zeros(p.nt2, dtype=np.complex128)
+                cc_exp_iwt = np.zeros(p.nt2, dtype=np.complex128)
+                for t in range(p.nt2):
+                    exp_iwt[t] = cmath.exp(-1j*wql*p.time2[t])
+                    cc_exp_iwt[t] = cmath.exp(1j*wql*p.time2[t])
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occupation
+                    nph = bose_occup(Eql, T)
+                    ft = np.zeros(p.nt2, dtype=np.complex128)
+                    ft[:] = (1.+nph) * exp_iwt[:] + nph * cc_exp_iwt[:]
+                    for jax in range(3*nat):
+                        # (eV^2) units
+                        # ph. resolved
+                        if p.ph_resolved:
+                            ii = p.wql_grid_index[iq,il]
+                            self.acf_wql_sp[:,0,ii,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,0,iph,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                        # at. resolved
+                        if p.at_resolved:
+                            ia = atoms.index_to_ia_map[jax] - 1
+                            self.acf_atr_sp[:,0,ia,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                    # integral
+                    # (eV^2 ps) units
+                    ft[:] = 0.
+                    ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*wql) + nph * (cc_exp_iwt[:] - 1.)/(1j*wql)
+                    for jax in range(3*nat):
+                        # (eV^2) units
+                        # ph. resolved
+                        if p.ph_resolved:
+                            ii = p.wql_grid_index[iq,il]
+                            self.acf_wql_sp[:,1,ii,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,1,iph,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                        # at. resolved
+                        if p.at_resolved:
+                            ia = atoms.index_to_ia_map[jax] - 1
+                            self.acf_atr_sp[:,1,ia,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+            iql += 1
+    #
+    # compute <Delta V(1) \Delta V(1)>(w) / at-ph res.
+    def compute_acf_V1_atphr_ofw(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
+        if p.ph_resolved:
+            self.acf_phr_sp = np.zeros((p.nwg,p.nphr,p.ntmp), dtype=np.complex128)
+            self.acf_wql_sp = np.zeros((p.nwg,p.nwbn,p.ntmp), dtype=np.complex128)
+        if p.at_resolved:
+            self.acf_atr_sp = np.zeros((p.nwg,nat,p.ntmp), dtype=np.complex128)
+        if not p.ph_resolved and not p.at_resolved:
+            return
+        # lorentzian
+        ltz = np.zeros(p.nwg)
+        # compute partial acf
+        iql = 0
+        for iq, il in tqdm(ql_list):
+            wuq = wu[iq]
+            if wuq[il] > p.min_freq:
+                # E in (eV)
+                Eql = wuq[il] * THz_to_ev
+                for iw in range(p.nwg):
+                    w = p.w_grid[iw]
+                    # eV
+                    ltz[iw] = lorentzian(Eql+w, p.eta)
+                    # eV^-1
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occupation
+                    nph = bose_occup(Eql, T)
+                    for jax in range(3*nat):
+                        # eV/ps^2*eV*ps^2*eV^-1 = eV
+                        # ph. resolved
+                        if p.ph_resolved:
+                            ii = p.wql_grid_index[iq,il]
+                            self.acf_wql_sp[:,ii,iT] += wq[iq] * A_lq[iql] ** 2 * (1.+2.*nph) * ltz[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,iph,iT] += wq[iq] * A_lq[iql] ** 2 * (1.+2.*nph) * ltz[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                        # at. resolved
+                        if p.at_resolved:
+                            ia = atoms.index_to_ia_map[jax] - 1
+                            self.acf_atr_sp[:,ia,iT] += wq[iq] * A_lq[iql] ** 2 * (1.+2.*nph) * ltz[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+            iql += 1
     # compute <Delta V^(2)(t) Delta V^(2)(t')>_c
     def compute_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
         # update acf_sp data
@@ -548,47 +707,3 @@ class GPU_acf_ph_deph(acf_ph_deph):
                             for t in range(t0, min(t1,p.nt2)):
                                 self.acf_phr_sp[t,iph,iT] += acf[t-t0]
                     t0 = t1
-#
-# auto-correlation HFI static
-# class
-#
-class autocorrel_func_hfi_stat:
-    # initialization
-    def __init__(self, E_fluct):
-        # output dir
-        self.write_dir = p.write_dir
-        # array variables
-        self.nt = int(p.T_mus/p.dt_mus)
-        self.nlags = p.nlags
-        # time (mu sec)
-        self.time = p.time2
-        # arrays
-        self.dE_oft = E_fluct.deltaE_oft
-    # compute auto correlation
-    # function
-    def compute_acf(self):
-        # acf
-        Ct = sm.tsa.acf(self.dE_oft, nlags=self.nlags, fft=True)
-        #
-        # compute C(t) = acf(t) * <DeltaE^2>_T
-        # eV^2
-        #
-        D2 = sum(self.dE_oft[:] * self.dE_oft[:]) / self.nt
-        return D2, Ct
-    # extract dephasing parameters
-    # from acf
-    def extract_dephas_data(self, D2, Ct, T2_obj, Delt_obj, tauc_obj, ic):
-        nct = len(Ct)
-        # extract T2 time
-        T2 = T2_eval()
-        tau_c, T2_inv, ft = T2.extract_T2_star(self.time[:nct], Ct, D2)
-        # tau_c (mu sec)
-        # T2_inv (ps^-1)
-        if tau_c is not None and T2_inv is not None:
-            T2_obj.set_T2_psec(ic, T2_inv)
-            Delt_obj.set_Delt(ic, D2)
-            tauc_obj.set_tauc(ic, tau_c)
-        # write data on file
-        if log.level <= logging.INFO:
-            namef = self.write_dir + "/acf-data-ic" + str(ic+1) + ".yml"
-            print_acf_dict(self.time, Ct, ft, namef)

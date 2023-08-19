@@ -4,7 +4,6 @@
 # auto correlation function
 #
 import numpy as np
-import yaml
 import logging
 from pydephasing.phys_constants import THz_to_ev, eps
 from pydephasing.T2_calc import T2_eval
@@ -17,22 +16,8 @@ from tqdm import tqdm
 from pydephasing.ph_resolved_quant import compute_ph_amplitude_q, transf_1st_order_force_phr, transf_2nd_order_force_phr
 import matplotlib.pyplot as plt
 from pydephasing.global_params import GPU_ACTIVE
+from pydephasing.utility_functions import print_acf_dict
 import sys
-#
-# function : create acf dict. file
-#
-def print_acf_dict(time, Ct, ft, namef):
-    nct = Ct.shape[0]
-    # acf dictionaries
-    acf_dict = {'time' : 0, 'acf' : 0, 'ft' : 0}
-    acf_dict['acf'] = Ct
-    acf_dict['ft'] = ft
-    acf_dict['time'] = time[:nct]
-    #
-    # save dicts on file
-    #
-    with open(namef, 'w') as out_file:
-        yaml.dump(acf_dict, out_file)
 #
 # spin-exc-ph dephasing class -> homogeneous
 class acf_ph(object):
@@ -67,22 +52,22 @@ class acf_ph(object):
     #
     # driver for acf - order 1 autocorrelation
     # see Eq. (20) and Eq. (31) in notes
-    def compute_acf_1_driver(self, nat, wq, wu, ql_list, A_lq, Fjax_lq, H):
+    def compute_acf_1_driver(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
         # compute F_lq matrix elements
         F_lq = np.zeros(len(ql_list), dtype=np.complex128)
         for jax in range(3*nat):
             F_lq[:] += Fjax_lq[jax,:]
         # compute <V(1)(t) V(1)(t')>
         if p.time_resolved:
-            self.compute_acf_V1_oft(wq, wu, ql_list, A_lq, F_lq, H)
+            self.compute_acf_V1_oft(wq, wu, ql_list, A_lq, F_lq)
         if p.w_resolved:
-            self.compute_acf_V1_ofw(wq, wu, ql_list, A_lq, F_lq, H)
+            self.compute_acf_V1_ofw(wq, wu, ql_list, A_lq, F_lq)
         # ph. / atom resolved
         if p.ph_resolved or p.at_resolved:
             if p.time_resolved:
-                self.compute_acf_V1_atphr_oft(nat, wq, wu, ql_list, A_lq, Fjax_lq, H)
+                self.compute_acf_V1_atphr_oft(nat, wq, wu, ql_list, A_lq, Fjax_lq)
             if p.w_resolved:
-                self.compute_acf_V1_atphr_ofw(nat, wq, wu, ql_list, A_lq, Fjax_lq, H)
+                self.compute_acf_V1_atphr_ofw(nat, wq, wu, ql_list, A_lq, Fjax_lq)
         #
         # check Delta^2 value
         if log.level <= logging.INFO:
@@ -91,7 +76,7 @@ class acf_ph(object):
                 self.Delta_2 = self.compute_acf_V1_t0(wq, wu, ql_list, A_lq, F_lq)
             if p.w_resolved:
                 self.Delta_w0= np.zeros(p.ntmp)
-                self.Delta_w0= self.compute_acf_V1_w0(wq, wu, ql_list, A_lq, F_lq, H)
+                self.Delta_w0= self.compute_acf_V1_w0(wq, wu, ql_list, A_lq, F_lq)
     #
     # <Delta V^(1)(t) Delta V^(1)(t)>
     def compute_acf_V1_t0(self, wq, wu, ql_list, A_lq, F_lq):
@@ -145,13 +130,16 @@ class acf_ph(object):
         return Delta_2r
     #
     # compute acf parameters
-    def compute_acf(self, wq, wu, u, qpts, nat, Fax, Faxby, ql_list, H):
+    def compute_acf(self, wq, wu, u, qpts, nat, Fax, Faxby, ql_list, H=None):
+        # set dE (relax)
+        if p.relax:
+            self.set_dE(H)
         # compute ph. amplitude
         A_lq = compute_ph_amplitude_q(wu, nat, ql_list)
         # compute effective force (first order)
         Fjax_lq = transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list)
         # call acf_1 driver
-        self.compute_acf_1_driver(nat, wq, wu, ql_list, A_lq, Fjax_lq, H)
+        self.compute_acf_1_driver(nat, wq, wu, ql_list, A_lq, Fjax_lq)
         # if 2nd order
         if p.order_2_correct:
             nq = len(qpts)
