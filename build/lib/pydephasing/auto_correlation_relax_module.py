@@ -464,8 +464,11 @@ class CPU_acf_ph_relax(acf_ph_relax):
                                 ia = atoms.index_to_ia_map[jax] - 1
                                 self.acf_atr_sp[:,ia,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_lqlqp[jax,iqlp] * Fjax_lqlqp[jax,iqlp].conjugate()
                 iqlp += 1
+# -------------------------------------------------------------------------
 #
-# GPU class
+#              GPU CLASS
+#
+# -------------------------------------------------------------------------
 class GPU_acf_ph_relax(acf_ph_relax):
     def __init__(self):
         super(GPU_acf_ph_relax, self).__init__()

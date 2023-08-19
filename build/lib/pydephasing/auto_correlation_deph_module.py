@@ -448,10 +448,71 @@ class GPU_acf_ph_deph(acf_ph_deph):
     def __init__(self):
         super(GPU_acf_ph_deph, self).__init__()
         # set up constants
-        self.THz_to_ev = np.double(THz_to_ev)
-        self.min_freq = np.double(p.min_freq)
-        self.kb = np.double(kb)
-        self.toler = np.double(eps)
+        # gpu variables - capitalized
+        self.THZTOEV = np.double(THz_to_ev)
+        self.KB = np.double(kb)
+        self.TOLER = np.double(eps)
+        # MIN FREQ
+        self.MINFREQ = np.double(p.min_freq)
+    #
+    # compute <Delta V^(1)(t) Delta V^(1)(t')>
+    def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq):
+        # initialize acf_sp -> 0 acf -> 1 integral
+        self.acf_sp = np.zeros((p.nt, 2, p.ntmp),dtype=np.complex128)
+        '''
+        read GPU code
+        '''
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
+        mod = SourceModule(gpu_src)
+        compute_acf = mod.get_function("compute_acf_V1_oft")
+        # split modes on grid
+        QL_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(ql_list)))
+        # dE (ps^-1)
+        dE = 0.0
+        DE = np.double(dE)
+        # ps^-1
+        # build input arrays
+        WQ = np.zeros(len(ql_list), dtype=np.double)
+        WUQ= np.zeros(len(ql_list), dtype=np.double)
+        F_LQ= np.zeros(len(ql_list), dtype=np.complex128)
+        A_LQ= np.zeros(len(ql_list), dtype=np.double)
+        # run over (q,l) modes
+        iql = 0
+        for iq, il in ql_list:
+            F_LQ[iql] = F_lq[iql]
+            A_LQ[iql] = A_lq[iql]
+            WQ[iql] = wq[iq]
+            WUQ[iql]= wu[iq][il]
+            iql += 1
+        # temperatures
+        for iT in range(p.ntmp):
+            T = np.double(p.temperatures[iT])
+            # iterate over time intervals
+            t0 = 0
+            while (t0 < p.nt):
+                t1 = t0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
+                size = min(t1, p.nt) - t0
+                SIZE = np.int32(size)
+                # acf array
+                ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                TIME= np.zeros(size, dtype=np.double)
+                for t in range(t0, min(t1,p.nt)):
+                    TIME[t-t0] = p.time[t]
+                # call function
+                compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QL_LIST), SIZE, cuda.In(TIME),
+                            cuda.In(WQ), cuda.In(WUQ), cuda.In(A_LQ), cuda.In(F_LQ), T, DE, 
+                            self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, cuda.Out(ACF), cuda.Out(ACF_INT),
+                            block=gpu.block, grid=gpu.grid)
+                ACF = gpu.recover_data_from_grid(ACF)
+                ACF_INT = gpu.recover_data_from_grid(ACF_INT)
+                for t in range(t0, min(t1,p.nt)):
+                    self.acf_sp[t,0,iT] += ACF[t-t0]
+                    self.acf_sp[t,1,iT] += ACF_INT[t-t0]
+                t0 = t1
+        #plt.plot(p.time, self.acf_sp[:,0,0])
+        plt.plot(p.time, self.acf_sp[:,1,0].real)
+        plt.show()
     # GPU equivalent function
     def compute_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
         '''
