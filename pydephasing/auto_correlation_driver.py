@@ -41,14 +41,11 @@ class acf_ph(object):
     #  instance CPU / GPU
     #           deph / relax
     def generate_instance(self):
-        if p.relax:
-            from pydephasing.auto_correlation_relax_module import GPU_acf_ph_relax, CPU_acf_ph_relax
-            if GPU_ACTIVE:
-                return GPU_acf_ph_relax()
-            else:
-                return CPU_acf_ph_relax()
-        elif p.deph:
-            pass
+        from pydephasing.auto_correlation_spph_mod import GPU_acf_sp_ph, CPU_acf_sp_ph
+        if GPU_ACTIVE:
+            return GPU_acf_sp_ph ()
+        else:
+            return CPU_acf_sp_ph ()
     #
     # driver for acf - order 1 autocorrelation
     # see Eq. (20) and Eq. (31) in notes
@@ -77,27 +74,6 @@ class acf_ph(object):
             if p.w_resolved:
                 self.Delta_w0= np.zeros(p.ntmp)
                 self.Delta_w0= self.compute_acf_V1_w0(wq, wu, ql_list, A_lq, F_lq)
-    #
-    # <Delta V^(1)(t) Delta V^(1)(t)>
-    def compute_acf_V1_t0(self, wq, wu, ql_list, A_lq, F_lq):
-        # Delta_2 = sum_l,q A_l,q^2 [1 + 2 n_lq] |F_lq|^2
-        # eV^2 units
-        Delta_2 = np.zeros(p.ntmp)
-        # compute partial Delta_2
-        iql = 0
-        for iq, il in ql_list:
-            wuq = wu[iq]
-            # E in eV
-            E_ql = wuq[il] * THz_to_ev
-            if wuq[il] > p.min_freq:
-                # run over temperatures
-                for iT in range(p.ntmp):
-                    T = p.temperatures[iT]
-                    # bose occup.
-                    nph = bose_occup(E_ql, T)
-                    Delta_2[iT] += wq[iq] * A_lq[iql] ** 2 * (1.+2.*nph) * (F_lq[iql] * F_lq[iql].conjugate()).real
-            iql += 1
-        return Delta_2
     #
     # acf(2,t=0)
     def compute_acf_order2_zero_time(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
@@ -130,10 +106,9 @@ class acf_ph(object):
         return Delta_2r
     #
     # compute acf parameters
-    def compute_acf(self, wq, wu, u, qpts, nat, Fax, Faxby, ql_list, H=None):
+    def compute_acf(self, wq, wu, u, qpts, nat, Fax, Faxby, ql_list, H):
         # set dE (relax)
-        if p.relax:
-            self.set_dE(H)
+        self.set_dE(H)
         # compute ph. amplitude
         A_lq = compute_ph_amplitude_q(wu, nat, ql_list)
         # compute effective force (first order)

@@ -14,7 +14,7 @@ from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.ph_ampl_module import PhononAmplitude
-from pydephasing.auto_correlation_relax_module import acf_ph_relax
+from pydephasing.auto_correlation_driver import acf_ph
 from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT
 import sys
 #
@@ -127,10 +127,7 @@ def compute_homo_dephas():
     ql_list = mpi.split_ph_modes(nq, 3*nat)
     #
     # compute acf over local (q,l) list
-    if p.deph:
-        acf = acf_ph_deph().generate_instance()
-    elif p.relax:
-        acf = acf_ph_relax().generate_instance()
+    acf = acf_ph().generate_instance()
     acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list, Hsp)
     #
     # collect data from processes

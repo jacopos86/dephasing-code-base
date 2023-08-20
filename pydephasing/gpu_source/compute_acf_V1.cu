@@ -31,7 +31,7 @@ __device__ double lorentzian(double x, double eta) {
 /* time ACF first order */
 
 __global__ void compute_acf_V1_oft(int *ql_init, int *lgth, int *ql_lst, const int SIZE,
-double *time, double *wq, double *wuq, double *Alq, cmplx *Flq, double T, double DE, 
+double *time, double *wq, double *wuq, double *Alq, cmplx *Flq, double T, double DE, double NU,
 double MINFREQ, double THZTOEV, double KB, const double TOLER, cmplx *acf, cmplx *acf_int) {
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
@@ -64,10 +64,10 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, cmplx *acf, cmplx
                 x = Eql / (KB * T);
                 nql = bose_occup(x, T, TOLER);
                 /* compute auto correl functions (eV^2) units */
-                ft = (1. + nql) * eiwt + nql * cc_eiwt;
+                ft = ((1. + nql) * eiwt + nql * cc_eiwt) * exp(-NU*time[tx]);
                 acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
                 /* compute cumulative sum auto correl function (eV^2 ps) units */
-                ft = IU * (1. + nql) * (eiwt - 1.) / (wql+DE) - IU * nql * (cc_eiwt - 1.) / (wql-DE);
+                ft = IU * (1. + nql) * (eiwt * EXP(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * EXP(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
                 acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
             }
         }
@@ -115,7 +115,7 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, double ETA, cmplx
 /* atom res. ACF of t*/
 
 __global__ void compute_acf_V1_atr_oft(int *at_lst, double *wq, double *wuq, double *time,
-double DE, cmplx *Fjax_lq, double *Alq, int SIZE, int NA_SIZE, int NMODES, int NAT, 
+double DE, double NU, cmplx *Fjax_lq, double *Alq, int SIZE, int NA_SIZE, int NMODES, int NAT, 
 double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, cmplx *acf_int) {
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
@@ -147,13 +147,13 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, c
                 x = Eql / (KB * T);
                 nql = bose_occup(x, T, TOLER);
                 /* compute auto correl functions (eV^2) units */
-                ft = (1. + nql) * eiwt + nql * cc_eiwt;
+                ft = ((1. + nql) * eiwt + nql * cc_eiwt) * EXP(-NU*time[tx]);
                 for (dx=0; dx<3; dx++) {
                     iFx = 3*NAT*iql+3*ia+dx;
                     acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
                 }
                 /* compute cumulative sum auto correl function (eV^2 ps) units */
-                ft = IU * (1. + nql) * (eiwt - 1.) / (wql+DE) - IU * nql * (cc_eiwt - 1.) / (wql-DE);
+                ft = IU * (1. + nql) * (eiwt * EXP(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * EXP(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
                 for (dx=0; dx<3; dx++) {
                     iFx = 3*NAT*iql+3*ia+dx;
                     acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
@@ -166,7 +166,7 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, c
 /* atom res. ACF of t*/
 
 __global__ void compute_acf_V1_phr_oft(int NPH, int *ph_lst, int SIZE, double *time, double *wq,
-double *wuq, double *Alq, cmplx *Flq, double T, double DE, double MINFREQ, double THZTOEV, 
+double *wuq, double *Alq, cmplx *Flq, double T, double DE, double NU, double MINFREQ, double THZTOEV, 
 double KB, double TOLER, cmplx *acf, cmplx *acf_int) {
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
@@ -195,10 +195,10 @@ double KB, double TOLER, cmplx *acf, cmplx *acf_int) {
             x = Eql / (KB * T);
             nql = bose_occup(x, T, TOLER);
             /* compute ACF (eV^2) units*/
-            ft = (1. + nql) * eiwt + nql * cc_eiwt;
+            ft = ((1. + nql) * eiwt + nql * cc_eiwt) * EXP(-NU*time[tx]);
             acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
             /* compute cumulative sum auto correl function (eV^2 ps) units */
-            ft = IU * (1. + nql) * (eiwt - 1.) / (wql+DE) - IU * nql * (cc_eiwt - 1.) / (wql-DE);
+            ft = IU * (1. + nql) * (eiwt * EXP(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * EXP(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
             acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
         }
     }

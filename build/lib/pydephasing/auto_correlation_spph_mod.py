@@ -26,19 +26,44 @@ if GPU_ACTIVE:
 #    spin-exc-ph   RELAXATION CLASS
 #
 # --------------------------------------------------------------
-class acf_ph_relax(acf_ph):
+class acf_sp_ph(acf_ph):
     def __init__(self):
-        super(acf_ph_relax, self).__init__()
+        super(acf_sp_ph, self).__init__()
         self.dE = 0.0
     # set dE
     def set_dE(self, H):
-        # quantum states
-        iqs0 = p.index_qs0
-        iqs1 = p.index_qs1
-        self.dE = H.eig[iqs1] - H.eig[iqs0]
-        # eV
+        if p.relax:
+            # quantum states
+            iqs0 = p.index_qs0
+            iqs1 = p.index_qs1
+            self.dE = H.eig[iqs1] - H.eig[iqs0]
+            # eV
+        elif p.deph:
+            pass
+    #
+    # <Delta V^(1)(t) Delta V^(1)(t)>
+    def compute_acf_V1_t0(self, wq, wu, ql_list, A_lq, F_lq):
+        # Delta_2 = sum_l,q A_l,q^2 [1 + 2 n_lq] |F_lq|^2
+        # eV^2 units
+        Delta_2 = np.zeros(p.ntmp)
+        # compute partial Delta_2
+        iql = 0
+        for iq, il in ql_list:
+            wuq = wu[iq]
+            # E in eV
+            E_ql = wuq[il] * THz_to_ev
+            if wuq[il] > p.min_freq:
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occup.
+                    nph = bose_occup(E_ql, T)
+                    Delta_2[iT] += wq[iq] * A_lq[iql] ** 2 * (1.+2.*nph) * (F_lq[iql] * F_lq[iql].conjugate()).real
+            iql += 1
+        return Delta_2
+    #
     # acf V1 (w=0)
-    def compute_acf_V1_w0(self, wq, wu, ql_list, A_lq, F_lq, H):
+    def compute_acf_V1_w0(self, wq, wu, ql_list, A_lq, F_lq):
         # Delta_w0 = sum_l,q A_l,q^2 [1 + 2 n_lq] |F_lq|^2
         dE = self.dE
         # eV units
@@ -66,9 +91,9 @@ class acf_ph_relax(acf_ph):
 #     CPU class
 #
 # ---------------------------------------------------------------------
-class CPU_acf_ph_relax(acf_ph_relax):
+class CPU_acf_sp_ph(acf_sp_ph):
     def __init__(self):
-        super(CPU_acf_ph_relax, self).__init__()
+        super(CPU_acf_sp_ph, self).__init__()
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')>
     def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq):
@@ -76,6 +101,7 @@ class CPU_acf_ph_relax(acf_ph_relax):
         self.acf_sp = np.zeros((p.nt, 2, p.ntmp), dtype=np.complex128)
         # dE
         dE = self.dE / hbar
+        nu = p.eta / hbar
         # ps^-1
         # compute partial acf
         # acf(t) = \sum_q \sum_l
@@ -90,8 +116,8 @@ class CPU_acf_ph_relax(acf_ph_relax):
                 exp_iwt = np.zeros(p.nt, dtype=np.complex128)
                 cc_exp_iwt = np.zeros(p.nt, dtype=np.complex128)
                 for t in range(p.nt):
-                    exp_iwt[t] = cmath.exp(-1j*(wql+dE)*p.time[t])
-                    cc_exp_iwt[t] = cmath.exp(1j*(wql-dE)*p.time[t])
+                    exp_iwt[t] = cmath.exp(-1j*(wql+dE-1j*nu)*p.time[t])
+                    cc_exp_iwt[t] = cmath.exp(1j*(wql-dE+1j*nu)*p.time[t])
                 # run over temperatures
                 for iT in range(p.ntmp):
                     T = p.temperatures[iT]
@@ -103,7 +129,7 @@ class CPU_acf_ph_relax(acf_ph_relax):
                     self.acf_sp[:,0,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
                     # (eV^2 ps) units
                     ft[:] = 0.
-                    ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE))
+                    ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE-1j*nu)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE+1j*nu))
                     self.acf_sp[:,1,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
             iql += 1
     #
@@ -150,6 +176,7 @@ class CPU_acf_ph_relax(acf_ph_relax):
             return
         # dE (ps^-1)
         dE = self.dE / hbar
+        nu = p.eta / hbar
         # compute partial acf
         iql = 0
         for iq, il in tqdm(ql_list):
@@ -162,8 +189,8 @@ class CPU_acf_ph_relax(acf_ph_relax):
                 exp_iwt = np.zeros(p.nt2, dtype=np.complex128)
                 cc_exp_iwt = np.zeros(p.nt2, dtype=np.complex128)
                 for t in range(p.nt2):
-                    exp_iwt[t] = cmath.exp(-1j*(wql+dE)*p.time2[t])
-                    cc_exp_iwt[t] = cmath.exp(1j*(wql-dE)*p.time2[t])
+                    exp_iwt[t] = cmath.exp(-1j*(wql+dE-1j*nu)*p.time2[t])
+                    cc_exp_iwt[t] = cmath.exp(1j*(wql-dE+1j*nu)*p.time2[t])
                 # run over temperatures
                 for iT in range(p.ntmp):
                     T = p.temperatures[iT]
@@ -187,7 +214,7 @@ class CPU_acf_ph_relax(acf_ph_relax):
                     # integral
                     # (eV^2 ps) units
                     ft[:] = 0.
-                    ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE))
+                    ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE-1j*nu)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE+1j*nu))
                     for jax in range(3*nat):
                         # (eV^2) units
                         # ph. resolved
@@ -469,9 +496,9 @@ class CPU_acf_ph_relax(acf_ph_relax):
 #              GPU CLASS
 #
 # -------------------------------------------------------------------------
-class GPU_acf_ph_relax(acf_ph_relax):
+class GPU_acf_sp_ph(acf_sp_ph):
     def __init__(self):
-        super(GPU_acf_ph_relax, self).__init__()
+        super(GPU_acf_sp_ph, self).__init__()
         # set up constants
         # gpu inputs are capitalized - no space
         self.THZTOEV = np.double(THz_to_ev)
@@ -495,6 +522,8 @@ class GPU_acf_ph_relax(acf_ph_relax):
         # dE (ps^-1)
         dE = self.dE / hbar
         DE = np.double(dE)
+        nu = p.eta / hbar
+        NU = np.double(nu)
         # ps^-1
         # build input arrays
         WQ = np.zeros(len(ql_list), dtype=np.double)
@@ -526,7 +555,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
                     TIME[t-t0] = p.time[t]
                 # call function
                 compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QL_LIST), SIZE, cuda.In(TIME),
-                            cuda.In(WQ), cuda.In(WUQ), cuda.In(A_LQ), cuda.In(F_LQ), T, DE, 
+                            cuda.In(WQ), cuda.In(WUQ), cuda.In(A_LQ), cuda.In(F_LQ), T, DE, NU, 
                             self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, cuda.Out(ACF), cuda.Out(ACF_INT),
                             block=gpu.block, grid=gpu.grid)
                 ACF = gpu.recover_data_from_grid(ACF)
@@ -617,6 +646,8 @@ class GPU_acf_ph_relax(acf_ph_relax):
             return
         dE = self.dE / hbar
         DE = np.double(dE)
+        nu = p.eta / hbar
+        NU = np.double(nu)
         # ps^-1
         # run over (jax,q,l) modes index
         # effective force
@@ -669,7 +700,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
                             AT_LIST[a-ia0] = a
                         NA_SIZE = np.int32(na)
                         # compute ACF
-                        compute_acf_atr(cuda.In(AT_LIST), cuda.In(WQ), cuda.In(WUQ), cuda.In(TIME), DE,
+                        compute_acf_atr(cuda.In(AT_LIST), cuda.In(WQ), cuda.In(WUQ), cuda.In(TIME), DE, NU,
                                         cuda.In(FJAX_LQ), cuda.In(A_LQ), SIZE, NA_SIZE, NMODES, NAT,
                                         T, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, cuda.Out(ACF),
                                         cuda.Out(ACF_INT), block=gpu.block, grid=gpu.grid)
@@ -697,7 +728,7 @@ class GPU_acf_ph_relax(acf_ph_relax):
                         NPH = np.int32(nph)
                         # compute ACF
                         compute_acf_phr(NPH, cuda.In(PH_LST), SIZE, cuda.In(TIME), cuda.In(WQ), cuda.In(WUQ), 
-                                    cuda.In(A_LQ), cuda.In(F_LQ), T, DE, self.MINFREQ, self.THZTOEV, 
+                                    cuda.In(A_LQ), cuda.In(F_LQ), T, DE, NU, self.MINFREQ, self.THZTOEV, 
                                     self.KB, self.TOLER, cuda.Out(ACF), cuda.Out(ACF_INT), block=gpu.block, grid=gpu.grid)
                         ACF = gpu.recover_data_from_grid_apr(ACF, nph, size)
                         ACF_INT = gpu.recover_data_from_grid_apr(ACF_INT, nph, size)
