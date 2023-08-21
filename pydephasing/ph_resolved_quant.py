@@ -33,8 +33,9 @@ def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
     iqs1 = p.index_qs1
     # eff_Fax units : [eV/ang]
     F_lq = np.zeros((3*nat,len(ql_list)), dtype=np.complex128)
-    eff_Fax = np.zeros(3*nat, dtype=np.complex128)
-    eff_Fax[:] = Fax[iqs0,iqs1,:]
+    if p.relax:
+        eff_Fax = np.zeros(3*nat, dtype=np.complex128)
+        eff_Fax[:] = Fax[iqs0,iqs1,:]
     # run over ph. modes
     for jax in range(3*nat):
         ia = atoms.index_to_ia_map[jax] - 1

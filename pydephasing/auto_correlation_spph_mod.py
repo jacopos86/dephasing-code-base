@@ -139,6 +139,7 @@ class CPU_acf_sp_ph(acf_sp_ph):
         self.acf_sp = np.zeros((p.nwg, p.ntmp), dtype=np.complex128)
         # dE (eV)
         dE = self.dE
+        print(dE)
         ltza = np.zeros(p.nwg)
         ltzb = np.zeros(p.nwg)
         # compute partial acf \sum_ql
@@ -688,9 +689,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 # ATOM RESOLVED
                 #
                 if p.at_resolved:
-                    # ACF array
-                    ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                    ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    # run over atoms
                     ia0 = 0
                     while ia0 < nat:
                         ia1 = ia0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
@@ -699,6 +698,9 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         for a in range(ia0, min(ia1, nat)):
                             AT_LIST[a-ia0] = a
                         NA_SIZE = np.int32(na)
+                        # ACF array
+                        ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                        ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         # compute ACF
                         compute_acf_atr(cuda.In(AT_LIST), cuda.In(WQ), cuda.In(WUQ), cuda.In(TIME), DE, NU,
                                         cuda.In(FJAX_LQ), cuda.In(A_LQ), SIZE, NA_SIZE, NMODES, NAT,
@@ -715,9 +717,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 # PH. RESOLVED
                 #
                 if p.ph_resolved:
-                    # ACF ARRAYS
-                    ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                    ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    # run over ph.
                     iph0 = 0
                     while iph0 < len(ql_list):
                         iph1 = iph0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
@@ -726,6 +726,9 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         for iph in range(iph0,min(iph1,len(ql_list))):
                             PH_LST[iph-iph0] = iph
                         NPH = np.int32(nph)
+                        # ACF ARRAYS
+                        ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                        ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         # compute ACF
                         compute_acf_phr(NPH, cuda.In(PH_LST), SIZE, cuda.In(TIME), cuda.In(WQ), cuda.In(WUQ), 
                                     cuda.In(A_LQ), cuda.In(F_LQ), T, DE, NU, self.MINFREQ, self.THZTOEV, 
@@ -803,12 +806,11 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 # FREQ
                 WG = np.zeros(size, dtype=np.double)
                 for w in range(w0, min(w1,p.nwg)):
-                    WG[w-w0] = p.nwg[w]
+                    WG[w-w0] = p.w_grid[w]
                 # ATOM RESOLVED
                 #
                 if p.at_resolved:
-                    # ACF array
-                    ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    # run over atoms
                     ia0 = 0
                     while ia0 < nat:
                         ia1 = ia0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
@@ -817,6 +819,8 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         for a in range(ia0, min(ia1,nat)):
                             AT_LST[a-ia0] = a
                         NA_SIZE = np.int32(na)
+                        # ACF array
+                        ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         # compute ACF
                         compute_acf_atr(NA_SIZE, cuda.In(AT_LST), SIZE, cuda.In(WG), cuda.In(WQ),
                                         cuda.In(WUQ), cuda.In(A_LQ), cuda.In(FJAX_LQ), T, DE, NMODES, NAT,
@@ -831,8 +835,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 # PH. RESOLVED
                 #
                 if p.ph_resolved:
-                    # ACF array
-                    ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    # run over ph. modes
                     iph0 = 0
                     while iph0 < len(ql_list):
                         iph1 = iph0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
@@ -841,6 +844,8 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         for iph in range(iph0,min(iph1,len(ql_list))):
                             PH_LST[iph-iph0] = iph
                         NPH = np.int32(nph)
+                        # ACF array
+                        ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         # compute ACFW
                         compute_acf_phr(NPH, cuda.In(PH_LST), SIZE, cuda.In(WG), cuda.In(WQ),
                                         cuda.In(WUQ), cuda.In(A_LQ), cuda.In(F_LQ), T, DE, self.MINFREQ,

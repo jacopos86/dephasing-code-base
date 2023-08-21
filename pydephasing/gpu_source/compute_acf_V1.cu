@@ -1,4 +1,5 @@
 #include <pycuda-complex.hpp>
+#include <math.h>
 #define PI 3.141592653589793
 typedef pycuda::complex<double> cmplx;
 
@@ -67,7 +68,7 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, cmplx *acf, cmplx
                 ft = ((1. + nql) * eiwt + nql * cc_eiwt) * exp(-NU*time[tx]);
                 acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
                 /* compute cumulative sum auto correl function (eV^2 ps) units */
-                ft = IU * (1. + nql) * (eiwt * EXP(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * EXP(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
+                ft = IU * (1. + nql) * (eiwt * exp(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * exp(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
                 acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
             }
         }
@@ -147,13 +148,13 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, c
                 x = Eql / (KB * T);
                 nql = bose_occup(x, T, TOLER);
                 /* compute auto correl functions (eV^2) units */
-                ft = ((1. + nql) * eiwt + nql * cc_eiwt) * EXP(-NU*time[tx]);
+                ft = ((1. + nql) * eiwt + nql * cc_eiwt) * exp(-NU*time[tx]);
                 for (dx=0; dx<3; dx++) {
                     iFx = 3*NAT*iql+3*ia+dx;
                     acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
                 }
                 /* compute cumulative sum auto correl function (eV^2 ps) units */
-                ft = IU * (1. + nql) * (eiwt * EXP(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * EXP(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
+                ft = IU * (1. + nql) * (eiwt * exp(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * exp(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
                 for (dx=0; dx<3; dx++) {
                     iFx = 3*NAT*iql+3*ia+dx;
                     acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
@@ -195,10 +196,10 @@ double KB, double TOLER, cmplx *acf, cmplx *acf_int) {
             x = Eql / (KB * T);
             nql = bose_occup(x, T, TOLER);
             /* compute ACF (eV^2) units*/
-            ft = ((1. + nql) * eiwt + nql * cc_eiwt) * EXP(-NU*time[tx]);
+            ft = ((1. + nql) * eiwt + nql * cc_eiwt) * exp(-NU*time[tx]);
             acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
             /* compute cumulative sum auto correl function (eV^2 ps) units */
-            ft = IU * (1. + nql) * (eiwt * EXP(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * EXP(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
+            ft = IU * (1. + nql) * (eiwt * exp(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * exp(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
             acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
         }
     }
