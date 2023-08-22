@@ -26,7 +26,7 @@ class SpinPhononClass:
         self.qs1 = np.zeros(3, dtype=np.complex128)
     def generate_instance(self):
         if p.deph:
-            return SpinPhononDephClass
+            return SpinPhononDephClass()
         elif p.relax:
             return SpinPhononRelaxClass()
         else:

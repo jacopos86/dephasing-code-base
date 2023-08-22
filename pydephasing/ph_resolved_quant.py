@@ -36,7 +36,7 @@ def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
     if p.relax:
         eff_Fax[:] = Fax[iqs0,iqs1,:]
     elif p.deph:
-        eff_Fax[:] = Fax[iqs0,iqs0,:]-Fax[iqs1,iqs1,:]
+        eff_Fax[:] = Fax[iqs0,iqs0,:] - Fax[iqs1,iqs1,:]
     # run over ph. modes
     for jax in range(3*nat):
         ia = atoms.index_to_ia_map[jax] - 1

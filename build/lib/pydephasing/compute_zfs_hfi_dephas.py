@@ -4,7 +4,13 @@
 # and return it for further processing
 from pydephasing.input_parameters import p
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
-from pydephasing.gradient_interactions import gradient_ZFS
+from pydephasing.gradient_interactions import gradient_ZFS, gradient_HFI, gradient_2nd_ZFS, gradient_2nd_HFI
+from pydephasing.spin_hamiltonian import spin_hamiltonian
+from pydephasing.spin_ph_inter import SpinPhononClass
+from pydephasing.atomic_list_struct import atoms
+from pydephasing.extract_ph_data import extract_ph_data
+from pydephasing.mpi import mpi
+from pydephasing.log import log
 import sys
 # function
 def compute_full_dephas():
@@ -28,7 +34,9 @@ def compute_full_dephas():
             displ_struct.atom_displ(p.atoms_2nd_displ[i]) # Ang
             # append to list
             struct_list_2nd.append(displ_struct)
-    # set ZFS gradient
+    # ----------------------------------------------
+    #    set ZFS gradient
+    # ----------------------------------------------
     gradZFS = gradient_ZFS(p.work_dir, p.grad_info)
     gradZFS.set_gs_zfs_tensor()
     # compute tensor gradient
@@ -36,4 +44,56 @@ def compute_full_dephas():
     gradZFS.set_tensor_gradient(struct_list)
     # set ZFS gradient in quant. axis coordinates
     gradZFS.set_UgradDU_tensor()
+    # ---------------------------------------------
+    # set HFI gradient
+    # ---------------------------------------------
+    gradHFI = gradient_HFI(p.work_dir, p.grad_info, p.fc_core)
+    # set hyperfine interaction
+    gradHFI.set_gs_hfi_tensor()
+    # set the gradient
+    gradHFI.set_tensor_gradient(struct_list)
+    # set gradient in quant. vector basis
+    gradHFI.set_U_gradAhfi_U_tensor()
+    # n. atoms
+    nat = gradHFI.struct_0.nat
+    # set index maps
+    atoms.compute_index_to_ia_map(nat)
+    atoms.compute_index_to_idx_map(nat)
+    # extract atom positions
+    atoms.extract_atoms_coords(nat)
+    # 2nd order
+    if p.order_2_correct:
+        # --------------------------------------------------
+        # set 2nd order ZFS tensor
+        # --------------------------------------------------
+        grad2ZFS = gradient_2nd_ZFS(p.work_dir, p.grad_info)
+        grad2ZFS.set_gs_zfs_tensor()
+        # set secon order grad
+        grad2ZFS.compute_2nd_order_gradients(struct_list_2nd)
+        # -------------------------------------------------
+        # set 2nd HFI tensor 
+        # -------------------------------------------------
+        grad2HFI = gradient_2nd_HFI(p.work_dir, p.grad_info, p.fc_core)
+        grad2HFI.set_gs_hfi_tensor()
+        # compute 2nd order grad. HFI
+        grad2HFI.extract_2nd_order_gradients()
+    # set up the spin Hamiltonian
+    Hsp = spin_hamiltonian()
+    Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
+    # set up spin phonon interaction class
+    sp_ph_inter = SpinPhononClass()
+    sp_ph_inter.generate_instance()
+    sp_ph_inter.set_quantum_states(Hsp)
+    #
+    # extract phonon data
+    #
+    u, wu, nq, qpts, wq, mesh = extract_ph_data()
+    #
+    if mpi.rank == 0:
+        log.info("nq: " + str(nq))
+        log.info("mesh: " + str(mesh))
+        log.info("wq: " + str(wq))
+    assert len(qpts) == nq
+    assert len(u) == nq
+    mpi.comm.Barrier()
     sys.exit()
