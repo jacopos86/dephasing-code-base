@@ -138,7 +138,7 @@ def compute_homo_dephas():
     import matplotlib.pyplot as plt
     if mpi.rank == mpi.root and p.w_resolved:
         plt.plot(p.w_grid, acf.acf[:,0])
-        plt.savefig('./examples/NV-diamond/F_1_ofw.png')
+        plt.savefig('./examples/NV-diamond/F_1_REL_ofw.png')
     sys.exit()
     #
     # print average atom displ

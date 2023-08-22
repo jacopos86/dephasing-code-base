@@ -1,6 +1,7 @@
 import sys
 from pydephasing.create_displ_struct_files import gen_poscars, gen_2ndorder_poscar
 from pydephasing.input_parameters import p
+from pydephasing.compute_zfs_hfi_dephas import compute_full_dephas
 from pydephasing.compute_zfs_dephas import compute_homo_dephas
 from pydephasing.compute_dyndec_dephas import compute_homo_dyndec_dephas
 from pydephasing.compute_exc_dephas import compute_homo_exc_dephas
@@ -69,6 +70,11 @@ elif calc_type == "--spin":
     # prepare spin dephasing calculation
     calc_type2 = sys.argv[2]
     calc_type3 = sys.argv[3]
+    # --------------------------------------------------------------
+    # 
+    #    SIMPLE HOMOGENEOUS CALC. (ZFS ONLY)
+    #
+    # --------------------------------------------------------------
     if calc_type2 == "--homo":
         if calc_type3 == "--deph":
             p.deph = True
@@ -112,6 +118,46 @@ elif calc_type == "--spin":
             if p.ph_resolved:
                 print_dephas_data_phr(T2_obj, tauc_obj, Delt_obj)
         mpi.comm.Barrier()
+    # --------------------------------------------------------------
+    # 
+    #    FULL CALC. (HFI + ZFS)
+    #
+    # --------------------------------------------------------------
+    elif calc_type2 == "--full":
+        if calc_type3 == "--deph":
+            p.deph = True
+            p.relax= False
+            if mpi.rank == mpi.root:
+                log.info("full spin dephasing calculation                        ")
+                log.info("setting up T2 calculation                              ")
+        elif calc_type3 == "--relax":
+            p.deph = False
+            p.relax= True
+            if mpi.rank == mpi.root:
+                log.info("full spin relaxation calculation                       ")
+                log.info("setting up T1 calculation                              ")
+        # read input file
+        input_file = sys.argv[4]
+        p.read_yml_data(input_file)
+        # compute auto correl. function first
+        T2_obj, Delt_obj, tauc_obj = compute_full_dephas()
+        # finalize calculation
+        if mpi.rank == mpi.root:
+            log.info("    print results on file    ")
+            # write T2 yaml files
+            print_dephas_data(T2_obj, tauc_obj, Delt_obj)
+            # if atom resolved
+            if p.at_resolved:
+                print_dephas_data_atr(T2_obj, tauc_obj, Delt_obj)
+            # if phonon resolved
+            if p.ph_resolved:
+                print_dephas_data_phr(T2_obj, tauc_obj, Delt_obj)
+        mpi.comm.Barrier()
+    # --------------------------------------------------------------
+    # 
+    #    SIMPLE INHOMOGENEOUS CALC. (HFI ONLY)
+    #
+    # --------------------------------------------------------------
     elif calc_type2 == "--inhomo":
         # read input file
         input_file = sys.argv[4]

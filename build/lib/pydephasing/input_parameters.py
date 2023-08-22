@@ -216,9 +216,6 @@ class data_input():
             self.N_df = int(data['Ndf'])
         if 'Tdf' in data:
             self.T_df = float(data['Tdf'])
-        # if dephasing calc. -> only 2nd order
-        if not self.order_2_correct and self.deph:
-            self.order_2_correct = True
         # set temperature list
         self.ntmp = len(Tlist)
         self.temperatures = np.array(Tlist)
