@@ -9,6 +9,7 @@ from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.extract_ph_data import extract_ph_data
+from pydephasing.auto_correlation_driver import acf_ph
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 import sys
@@ -96,4 +97,31 @@ def compute_full_dephas():
     assert len(qpts) == nq
     assert len(u) == nq
     mpi.comm.Barrier()
+    # if w_resolved define freq. grid
+    if p.w_resolved:
+        p.set_w_grid(wu)
+    # set the effective phonon forces
+    # F_ax = <1|S Grad_ax D S|1> - <0|S Grad_ax D S|0>
+    # F should be in eV/ang units
+    sp_ph_inter.set_Fax_zfs(gradZFS, Hsp)
+    Fzfs_ax = sp_ph_inter.Fzfs_ax
+    # 2nd order forces
+    if p.order_2_correct:
+        # F_axby = <1|S Grad_ax,by D S|1> - <0|S Grad_ax,by D S|0> (dephasing)
+        # F_axby = <1|S Grad_ax,by D S|0> (relax)
+        # F should be in eV/ang^2 units
+        sp_ph_inter.set_Faxby_zfs(grad2ZFS, Hsp)
+        Fzfs_axby = sp_ph_inter.Fzfs_axby
+        # eV / ang^2
+    # set q pts. grid
+    if p.ph_resolved:
+        p.set_wql_grid(wu, nq, nat)
+    #
+    # prepare calculation over q pts.
+    # and ph. modes
+    #
+    ql_list = mpi.split_ph_modes(nq, 3*nat)
+    #
+    # set ACF 
+    acf = acf_ph().generate_instance()
     sys.exit()
