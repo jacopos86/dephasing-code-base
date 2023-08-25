@@ -35,6 +35,20 @@ def set_q_to_mq_list(qpts, nq):
                     qplist.append([iq1, iq2])
     assert nqp == nq
     return qplist
+#
+# set ql' list
+def set_qlp_list(qpts, nat):
+    nq = len(qpts)
+    # q -> -q map
+    qmq_list = set_q_to_mq_list(qpts, nq)
+    # only q>0 list
+    qlp_list = []
+    for iqpair in qmq_list:
+        iq1 = iqpair[0]
+        for il in range(3*nat):
+            qlp_list.append((iq1,il))
+    return qlp_list
+#
 # check eigenv data
 def check_eigenv_data(qpts, eigenv, nq):
     # check that e_mu,q = e_mu,-q^*

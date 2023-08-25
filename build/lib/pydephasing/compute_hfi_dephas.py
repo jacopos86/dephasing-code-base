@@ -11,8 +11,9 @@ from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.gradient_interactions import gradient_HFI, gradient_2nd_HFI
 from pydephasing.nuclear_spin_config import nuclear_spins_config
+from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.extract_ph_data import extract_ph_data
-from pydephasing.spin_ph_inter import SpinPhononClass, SpinPhononRelaxClass
+from pydephasing.auto_correlation_driver import acf_ph
 from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT
 from pydephasing.log import log
 from pydephasing.mpi import mpi
@@ -71,22 +72,13 @@ def compute_hfi_dephas():
         log.info("n. config: " + str(p.nconf))
         log.info("n. spins: " + str(p.nsp))
     #
-    # set spin ph. interaction object
-    #
-    if p.deph:
-        sp_ph_inter = SpinPhononDephClass()
-        # set states
-        p.qs1 = np.array([1.0+0j,0j,0j])
-        p.qs2 = np.array([0j,1.0+0j,0j])
-    elif p.relax:
-        sp_ph_inter = SpinPhononRelaxClass()
-    else:
-        log.error("type of calculation must be deph or relax")
-    # normalization
-    p.qs1[:] = p.qs1[:] / np.sqrt(np.dot(p.qs1.conjugate(), p.qs1))
-    p.qs2[:] = p.qs2[:] / np.sqrt(np.dot(p.qs2.conjugate(), p.qs2))
-    # set spin Hamiltonian
+    # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
+    Hsp.set_zfs_levels(gradHFI.struct_0, p.B0)
+    # set up spin phonon interaction class
+    sp_ph_inter = SpinPhononClass()
+    sp_ph_inter.generate_instance()
+    sp_ph_inter.set_quantum_states(Hsp)
     #
     # extract phonon data
     #
@@ -98,13 +90,20 @@ def compute_hfi_dephas():
     assert len(qpts) == nq
     assert len(u) == nq
     mpi.comm.Barrier()
-    # set auto correlation function
-    ql_list = mpi.split_ph_modes(nq, 3*nat)
-    # set wql grid
+    # if w_resolved define freq. grid
+    if p.w_resolved:
+        p.set_w_grid(wu)
+    # set q pts. grid
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)
-    # auto correlation function
-    acf = acf_ph_deph().generate_instance()
+    #
+    # prepare calculation over q pts.
+    # and ph. modes
+    #
+    ql_list = mpi.split_ph_modes(nq, 3*nat)
+    #
+    # initialize ACF
+    acf = acf_ph().generate_instance()
     # set average T2 / D^2 / tau_c
     T2_obj_aver = T2i_ofT(nat)
     Delt_obj_aver = Delta_ofT(nat)
@@ -147,11 +146,15 @@ def compute_hfi_dephas():
         # set spin config.
         config = nuclear_spins_config(p.nsp, p.B0)
         config.set_nuclear_spins(nat, ic)
-        # compute the forces
+        # -------------------------------------
+        #    first order HFI forces
+        # -------------------------------------
         sp_ph_inter.set_Fax_hfi(gradHFI, Hsp, config)
         Fax = sp_ph_inter.Fhf_ax
         # eV / ang
-        # 2nd order
+        # -------------------------------------
+        #    second order HFI forces
+        # -------------------------------------
         if p.order_2_correct:
             sp_ph_inter.set_Faxby_hfi(grad2HFI, Hsp, struct_list_2nd, config)
             # eV / ang^2
@@ -159,10 +162,10 @@ def compute_hfi_dephas():
         else:
             Faxby = None
         # compute over (q,l) list
-        acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list)
-        # parallelization sec.
-        if mpi.size > 1:
-            acf.collect_acf_from_processes(nat)
+        acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list, Hsp)
+        #
+        # collect data from processes
+        acf.collect_acf_from_processes(nat)
         mpi.comm.Barrier()
         # <acf>
         acf_aver[:,:] += acf.acf[:,:]

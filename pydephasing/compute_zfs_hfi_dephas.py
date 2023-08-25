@@ -210,8 +210,8 @@ def compute_full_dephas():
         # test acf -> check t=0 / w=0
         if log.level <= logging.INFO:
             acf.auto_correl_test()
-        import matplotlib.pyplot as plt
-        if mpi.rank == mpi.root and p.w_resolved:
-            plt.plot(p.w_grid, acf.acf[:,0])
-            plt.savefig('./examples/NV-diamond/Ffull100_1_DEPH_ofw.png')
+        #import matplotlib.pyplot as plt
+        #if mpi.rank == mpi.root and p.w_resolved:
+        #    plt.plot(p.w_grid, acf.acf[:,0])
+        #    plt.savefig('./examples/NV-diamond/Ffull100_1_DEPH_ofw.png')
         sys.exit()

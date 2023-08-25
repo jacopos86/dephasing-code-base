@@ -86,6 +86,7 @@ def compute_full_dephas():
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
+    Hsp.set_SDS(gradZFS.struct_0)
     # set up spin phonon interaction class
     sp_ph_inter = SpinPhononClass()
     sp_ph_inter.generate_instance()
@@ -188,11 +189,14 @@ def compute_full_dephas():
             sp_ph_inter.set_Faxby_hfi(grad2HFI, Hsp, struct_list_2nd, config)
             # eV / ang^2
             Fhfi_axby = sp_ph_inter.Fhf_axby
-        # HFI + ZFS forces
+        # ---------------------------------------------------------
+        #       HFI + ZFS forces
+        # ---------------------------------------------------------
         Fax = np.zeros(Fzfs_ax.shape, dtype=np.complex128)
         Fax[:,:,:] = Fzfs_ax[:,:,:] + Fhfi_ax[:,:,:]
         if p.order_2_correct:
-            Faxby = Fzfs_axby + Fhfi_axby
+            Faxby = np.zeros(Fzfs_axby.shape, dtype=np.complex128)
+            Faxby[:,:,:,:] = Fzfs_axby[:,:,:,:] + Fhfi_axby[:,:,:,:]
         else:
             Faxby = None
         # ---------------------------------------------------
@@ -207,8 +211,8 @@ def compute_full_dephas():
         # test acf -> check t=0 / w=0
         if log.level <= logging.INFO:
             acf.auto_correl_test()
-        import matplotlib.pyplot as plt
-        if mpi.rank == mpi.root and p.w_resolved:
-            plt.plot(p.w_grid, acf.acf[:,0])
-            plt.savefig('./examples/NV-diamond/Ffull100_1_DEPH_ofw.png')
+        #import matplotlib.pyplot as plt
+        #if mpi.rank == mpi.root and p.w_resolved:
+        #    plt.plot(p.w_grid, acf.acf[:,0])
+        #    plt.savefig('./examples/NV-diamond/Ffull100_1_DEPH_ofw.png')
         sys.exit()

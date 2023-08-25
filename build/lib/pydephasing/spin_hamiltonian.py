@@ -80,6 +80,8 @@ class spin_hamiltonian:
 		self.SDS = Ddiag[0]*np.matmul(self.Sx, self.Sx)
 		self.SDS = self.SDS + Ddiag[1]*np.matmul(self.Sy, self.Sy)
 		self.SDS = self.SDS + Ddiag[2]*np.matmul(self.Sz, self.Sz)
+		print(self.SDS)
+		sys.exit()
 	# set ZFS energy levels
 	def set_zfs_levels(self, unprt_struct, B):
 		Ddiag = unprt_struct.Ddiag*2.*np.pi*1.E-6

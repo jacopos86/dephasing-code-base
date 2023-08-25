@@ -48,7 +48,7 @@ class acf_ph(object):
             return CPU_acf_sp_ph ()
     #
     # driver for acf - order 1 autocorrelation
-    # see Eq. (20) and Eq. (31) in notes
+    # see Eq. (20) and Eq. (60) in notes
     def compute_acf_1_driver(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
         # compute F_lq matrix elements
         F_lq = np.zeros(len(ql_list), dtype=np.complex128)
@@ -74,6 +74,14 @@ class acf_ph(object):
             if p.w_resolved:
                 self.Delta_w0= np.zeros(p.ntmp)
                 self.Delta_w0= self.compute_acf_V1_w0(wq, wu, ql_list, A_lq, F_lq)
+    #
+    # driver for acf - order 2 autocorrelation
+    # see Eq. (34) and Eq. (73) in notes
+    def compute_acf_2_driver(self, nat, qpts, wq, wu, ql_list, qlp_list, A_lq, A_lqp, F_lqlqp):
+        # compute F_lqlqp matrix elements
+        nq = len(ql_list)
+        # q -> -q map list
+        qmq_list = set_q_to_mq_list(qpts, nq)
     #
     # acf(2,t=0)
     def compute_acf_order2_zero_time(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
