@@ -35,6 +35,27 @@ def set_q_to_mq_list(qpts, nq):
                     qplist.append([iq1, iq2])
     assert nqp == nq
     return qplist
+#
+# set ql' list
+def set_ql_list_red_qgrid(qpts, nat):
+    nq = len(qpts)
+    # q -> -q map
+    qmq_list = set_q_to_mq_list(qpts, nq)
+    # only q>0 list
+    qlp_list = []
+    qmq_map = []
+    for iqpair in qmq_list:
+        iq1 = iqpair[0]
+        for il in range(3*nat):
+            qlp_list.append((iq1,il))
+        iq2 = iqpair[1]
+        qmq_map.append((iq1,iq2))
+    # make dict q -> -q
+    qmq_map = dict(qmq_map)
+    # make local ql_list
+    ql_list = mpi.split_list(qlp_list)
+    return ql_list, qlp_list, qmq_map
+#
 # check eigenv data
 def check_eigenv_data(qpts, eigenv, nq):
     # check that e_mu,q = e_mu,-q^*

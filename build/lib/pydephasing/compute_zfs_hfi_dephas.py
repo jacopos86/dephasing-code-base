@@ -86,7 +86,6 @@ def compute_full_dephas():
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
-    Hsp.set_SDS(gradZFS.struct_0)
     # set up spin phonon interaction class
     sp_ph_inter = SpinPhononClass()
     sp_ph_inter.generate_instance()

@@ -121,14 +121,10 @@ def compute_homo_dephas():
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)
     #
-    # prepare calculation over q pts.
-    # and ph. modes
-    #
-    ql_list = mpi.split_ph_modes(nq, 3*nat)
     #
     # compute acf over local (q,l) list
     acf = acf_ph().generate_instance()
-    acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list, Hsp)
+    acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, Hsp)
     #
     # collect data from processes
     acf.collect_acf_from_processes(nat)

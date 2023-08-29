@@ -11,7 +11,7 @@ from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.input_parameters import p
 from pydephasing.utility_functions import bose_occup
-from pydephasing.extract_ph_data import set_q_to_mq_list
+from pydephasing.extract_ph_data import set_ql_list_red_qgrid
 from tqdm import tqdm
 from pydephasing.ph_resolved_quant import compute_ph_amplitude_q, transf_1st_order_force_phr, transf_2nd_order_force_phr
 import matplotlib.pyplot as plt
@@ -80,8 +80,6 @@ class acf_ph(object):
     def compute_acf_2_driver(self, nat, qpts, wq, wu, ql_list, qlp_list, A_lq, A_lqp, F_lqlqp):
         # compute F_lqlqp matrix elements
         nq = len(ql_list)
-        # q -> -q map list
-        qmq_list = set_q_to_mq_list(qpts, nq)
     #
     # acf(2,t=0)
     def compute_acf_order2_zero_time(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
@@ -114,27 +112,27 @@ class acf_ph(object):
         return Delta_2r
     #
     # compute acf parameters
-    def compute_acf(self, wq, wu, u, qpts, nat, Fax, Faxby, ql_list, H):
+    def compute_acf(self, wq, wu, u, qpts, nat, Fax, Faxby, H):
+        # prepare calculation over (q,l) pts. -> first order
+        nq = len(qpts)
+        ql_list_1 = mpi.split_ph_modes(nq, 3*nat)
         # set dE (relax)
         self.set_dE(H)
         # compute ph. amplitude
-        A_lq = compute_ph_amplitude_q(wu, nat, ql_list)
+        A_lq = compute_ph_amplitude_q(wu, nat, ql_list_1)
         # compute effective force (first order)
-        Fjax_lq = transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list)
+        Fjax_lq = transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list_1)
         # call acf_1 driver
-        self.compute_acf_1_driver(nat, wq, wu, ql_list, A_lq, Fjax_lq)
+        self.compute_acf_1_driver(nat, wq, wu, ql_list_1, A_lq, Fjax_lq)
         # if 2nd order
         if p.order_2_correct:
-            nq = len(qpts)
-            qmq_list = set_q_to_mq_list(qpts, nq)
-            # set qlp list (only q>0)
-            qlp_list = []
-            for iqpair in qmq_list:
-                iq1 = iqpair[0]
-                for il in range(3*nat):
-                    qlp_list.append((iq1,il))
+            # set qlp list (only q, -q excluded)
+            ql_list_2, qlp_list_2, qmq_map = set_ql_list_red_qgrid(qpts, nat)
             # complete amplitudes
-            A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
+            A_lq  = compute_ph_amplitude_q(wu, nat, ql_list_2)
+            A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list_2)
+            print(len(A_lq), len(A_lqp))
+            sys.exit()
             # compute effective force (second order)
             # run over q pts list
             iql = 0
