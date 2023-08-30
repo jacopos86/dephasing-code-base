@@ -76,6 +76,7 @@ class data_input():
         self.nwg = 0
         self.w_max = 0.
         # eV
+        self.lorentz_thres = 0.
         ######################################
         # hyperfine parameters
         # n. spins list
@@ -190,6 +191,9 @@ class data_input():
             # min. freq
             if 'min_freq' in data:
                 self.min_freq = data['min_freq']
+            # lorentz. threshold
+            if 'lorentz_thres' in data:
+                self.lorentz_thres = data['lorentz_thres']
         # temperature (K)
         if 'temperature' in data:
             Tlist = data['temperature']

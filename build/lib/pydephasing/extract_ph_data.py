@@ -3,7 +3,8 @@
 import numpy as np
 import h5py
 from pydephasing.input_parameters import p
-from pydephasing.phys_constants import eps
+from pydephasing.phys_constants import eps, THz_to_ev
+from pydephasing.utility_functions import lorentzian
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 import logging
@@ -44,17 +45,41 @@ def set_ql_list_red_qgrid(qpts, nat):
     # only q>0 list
     qlp_list = []
     qmq_map = []
-    for iqpair in qmq_list:
-        iq1 = iqpair[0]
+    for iqpair1 in qmq_list:
+        iq1 = iqpair1[0]
         for il in range(3*nat):
             qlp_list.append((iq1,il))
-        iq2 = iqpair[1]
-        qmq_map.append((iq1,iq2))
+        miq1 = iqpair1[1]
+        qmq_map.append((iq1,miq1))
     # make dict q -> -q
     qmq_map = dict(qmq_map)
     # make local ql_list
     ql_list = mpi.split_list(qlp_list)
     return ql_list, qlp_list, qmq_map
+#
+# list of (l',q') pairs
+def set_iqlp_list(il, iq, qlp_list_full, wu, H):
+    # dE
+    dE = 0.0
+    if p.relax:
+        # quantum states
+        iqs0 = p.index_qs0
+        iqs1 = p.index_qs1
+        dE = H.eig[iqs1] - H.eig[iqs0]
+        # eV
+    ltz_0 = lorentzian(0.0, p.eta)
+    # set w_ql (eV)
+    E_ql = wu[iq][il] * THz_to_ev
+    # run over (q',l')
+    qlp_list = []
+    for iqp, ilp in qlp_list_full:
+        if iqp != iq or ilp != il:
+            E_qlp = wu[iqp][ilp] * THz_to_ev
+            # E (eV)
+            x = dE + E_qlp - E_ql
+            if lorentzian(x, p.eta) / ltz_0 > p.lorentz_thres:
+                qlp_list.append((iqp,ilp))
+    return qlp_list
 #
 # check eigenv data
 def check_eigenv_data(qpts, eigenv, nq):
@@ -68,6 +93,8 @@ def check_eigenv_data(qpts, eigenv, nq):
             assert np.array_equal(euq[:,il], euqp[:,il].conjugate())
     if mpi.rank == mpi.root:
         log.info("eigenvector test passed")
+#
+# check frequencies
 def check_freq_data(qpts, freq, nq):
     # check w(u,q)=w(u,-q)
     qplist = set_q_to_mq_list(qpts, nq)

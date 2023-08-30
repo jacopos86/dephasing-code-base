@@ -11,7 +11,7 @@ from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.input_parameters import p
 from pydephasing.utility_functions import bose_occup
-from pydephasing.extract_ph_data import set_ql_list_red_qgrid
+from pydephasing.extract_ph_data import set_ql_list_red_qgrid, set_iqlp_list
 from tqdm import tqdm
 from pydephasing.ph_resolved_quant import compute_ph_amplitude_q, transf_1st_order_force_phr, transf_2nd_order_force_phr
 import matplotlib.pyplot as plt
@@ -77,9 +77,26 @@ class acf_ph(object):
     #
     # driver for acf - order 2 autocorrelation
     # see Eq. (34) and Eq. (73) in notes
-    def compute_acf_2_driver(self, nat, qpts, wq, wu, ql_list, qlp_list, A_lq, A_lqp, F_lqlqp):
-        # compute F_lqlqp matrix elements
-        nq = len(ql_list)
+    def compute_acf_2_driver(self, nat, wq, qpts, u, wu, ql_list, qlp_list_full, qmq_map, A_lq, Fax, Faxby, H):
+        iql = 0
+        # run over external (q,l) pair list -> distributed over different
+        # processors
+        for iq, il in tqdm(ql_list):
+            print('OK')
+            # set the list of (iqp,ilp)
+            qlp_list = set_iqlp_list(il, iq, qlp_list_full, wu, H)
+            print(len(qlp_list), len(qlp_list_full))
+            # update A_lqp with only needed amplitudes
+            A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
+            sys.exit()
+            # compute eff. force
+            Fjax_lqlqp = transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H)
+            nlqp = Fjax_lqlqp.shape[1]
+            F_lqlqp = np.zeros(nlqp, dtype=np.complex128)
+            for jax in range(3*nat):
+                F_lqlqp[:] += Fjax_lqlqp[jax,:]
+                # [ps^-2] units
+            iql += 1
     #
     # acf(2,t=0)
     def compute_acf_order2_zero_time(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
@@ -130,8 +147,8 @@ class acf_ph(object):
             ql_list_2, qlp_list_2, qmq_map = set_ql_list_red_qgrid(qpts, nat)
             # complete amplitudes
             A_lq  = compute_ph_amplitude_q(wu, nat, ql_list_2)
-            A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list_2)
-            print(len(A_lq), len(A_lqp))
+            # driver of ACF - order 2 calculation
+            self.compute_acf_2_driver(nat, wq, qpts, u, wu, ql_list_2, qlp_list_2, qmq_map, A_lq, Fax, Faxby, H)
             sys.exit()
             # compute effective force (second order)
             # run over q pts list
