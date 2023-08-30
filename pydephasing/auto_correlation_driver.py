@@ -88,9 +88,9 @@ class acf_ph(object):
             print(len(qlp_list), len(qlp_list_full))
             # update A_lqp with only needed amplitudes
             A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
-            sys.exit()
             # compute eff. force
             Fjax_lqlqp = transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H)
+            sys.exit()
             nlqp = Fjax_lqlqp.shape[1]
             F_lqlqp = np.zeros(nlqp, dtype=np.complex128)
             for jax in range(3*nat):

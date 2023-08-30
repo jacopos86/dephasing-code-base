@@ -3,6 +3,7 @@ import cmath
 from pydephasing.phys_constants import hbar, mp, THz_to_ev
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.input_parameters import p
+from pydephasing.global_params import GPU_ACTIVE
 from pydephasing.log import log
 #
 def compute_ph_amplitude_q(wu, nat, ql_list):
@@ -62,61 +63,65 @@ def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
     return F_lq
 #
 # set ZFS force at 2nd order
-def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
-    # Fax units -> eV / ang
-    # Faxby units -> eV / ang^2
-    F_lq_lqp = np.zeros((3*nat, len(qlp_list)), dtype=np.complex128)
-    # wql (eV)
-    wql = wu[iq][il] * THz_to_ev
-    # remember index jax -> atom,idx
-    # second index (n,p)
-    # q vector
-    qv = qpts[iq]
-    # eq
-    euq = u[iq]
-    # set e^iqR
-    eiqR = np.zeros(3*nat, dtype=np.complex128)
-    for jax in range(3*nat):
-        ia = atoms.index_to_ia_map[jax] - 1
-        # atom coordinate
-        Ra = atoms.atoms_dict[ia]['coordinates']
-        eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
-    # run over list of modes
-    for jby in range(3*nat):
-        ib = atoms.index_to_ia_map[jby] - 1
-        Rb = atoms.atoms_dict[ib]['coordinates']
-        m_ib = atoms.atoms_dict[ib]['mass']
-        m_ib = m_ib * mp
-        # compute ph. resolved force
-        iqlp = 0
-        for iqp, ilp in qlp_list:
-            # e^iqpR
-            qpv = qpts[iqp]
-            eiqpR = cmath.exp(1j*2.*np.pi*np.dot(qpv, Rb))
-            # euqp
-            euqp = u[iqp]
-            # wqlp (eV)
-            wqlp = wu[iqp][ilp] * THz_to_ev
-            # compute Raman contribution to eff_Faxby
-            # eff. force : F(R) + F(2)
-            eff_Faxby = np.zeros(3*nat, dtype=np.complex128)
-            eff_Faxby[:] += Faxby[:,jby]
-            # compute raman in spin deph obj
-            eff_Faxby[:] += compute_raman(nat, jby, Fax, H, wql, wqlp)
-            # update F_ql,qlp
-            F_lq_lqp[:,iqlp] += eff_Faxby[:] * eiqpR * euqp[jby,ilp] / np.sqrt(m_ib)
-            # eV/ang^2 * ang/eV^0.5/ps = eV^0.5/ang/ps
-            iqlp += 1
-    # compute e^iqR e[q] F[jax,qlp]
-    for jax in range(3*nat):
-        ia = atoms.index_to_ia_map[jax] - 1
-        # atom mass
-        m_ia = atoms.atoms_dict[ia]['mass']
-        m_ia = m_ia * mp
-        # effective force
-        F_lq_lqp[jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[jax,:] / np.sqrt(m_ia)
-        # [eV^0.5/ang/ps *ang/eV^0.5/ps] = 1/ps^2
-    return F_lq_lqp
+if GPU_ACTIVE:
+    def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
+        pass
+else:
+    def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
+        # Fax units -> eV / ang
+        # Faxby units -> eV / ang^2
+        F_lq_lqp = np.zeros((3*nat, len(qlp_list)), dtype=np.complex128)
+        # wql (eV)
+        wql = wu[iq][il] * THz_to_ev
+        # remember index jax -> atom,idx
+        # second index (n,p)
+        # q vector
+        qv = qpts[iq]
+        # eq
+        euq = u[iq]
+        # set e^iqR
+        eiqR = np.zeros(3*nat, dtype=np.complex128)
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax] - 1
+            # atom coordinate
+            Ra = atoms.atoms_dict[ia]['coordinates']
+            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
+        # run over list of modes
+        for jby in range(3*nat):
+            ib = atoms.index_to_ia_map[jby] - 1
+            Rb = atoms.atoms_dict[ib]['coordinates']
+            m_ib = atoms.atoms_dict[ib]['mass']
+            m_ib = m_ib * mp
+            # compute ph. resolved force
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                # e^iqpR
+                qpv = qpts[iqp]
+                eiqpR = cmath.exp(1j*2.*np.pi*np.dot(qpv, Rb))
+                # euqp
+                euqp = u[iqp]
+                # wqlp (eV)
+                wqlp = wu[iqp][ilp] * THz_to_ev
+                # compute Raman contribution to eff_Faxby
+                # eff. force : F(R) + F(2)
+                eff_Faxby = np.zeros(3*nat, dtype=np.complex128)
+                eff_Faxby[:] += Faxby[:,jby]
+                # compute raman in spin deph obj
+                eff_Faxby[:] += compute_raman(nat, jby, Fax, H, wql, wqlp)
+                # update F_ql,qlp
+                F_lq_lqp[:,iqlp] += eff_Faxby[:] * eiqpR * euqp[jby,ilp] / np.sqrt(m_ib)
+                # eV/ang^2 * ang/eV^0.5/ps = eV^0.5/ang/ps
+                iqlp += 1
+        # compute e^iqR e[q] F[jax,qlp]
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax] - 1
+            # atom mass
+            m_ia = atoms.atoms_dict[ia]['mass']
+            m_ia = m_ia * mp
+            # effective force
+            F_lq_lqp[jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[jax,:] / np.sqrt(m_ia)
+            # [eV^0.5/ang/ps *ang/eV^0.5/ps] = 1/ps^2
+        return F_lq_lqp
 #
 # compute the Raman contribution to 
 # force matrix elements
