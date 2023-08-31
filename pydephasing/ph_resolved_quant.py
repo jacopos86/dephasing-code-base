@@ -64,8 +64,17 @@ def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
 #
 # set ZFS force at 2nd order
 if GPU_ACTIVE:
+    from pathlib import Path
+    from pycuda.compiler import SourceModule
+    # 
+    # driver function
     def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
-        pass
+        # Fax units -> eV / ang
+        # Faxby units -> eV / ang^2
+        # load file
+        gpu_src = Path('./pydephasing/gpu_source/compute_phr_forces.cu').read_text()
+        mod = SourceModule(gpu_src)
+        compute_Flq_lqp = mod.get_function("compute_Flq_lqp")
 else:
     def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
         # Fax units -> eV / ang
