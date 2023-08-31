@@ -139,7 +139,6 @@ class CPU_acf_sp_ph(acf_sp_ph):
         self.acf_sp = np.zeros((p.nwg, p.ntmp), dtype=np.complex128)
         # dE (eV)
         dE = self.dE
-        print(dE)
         ltza = np.zeros(p.nwg)
         ltzb = np.zeros(p.nwg)
         # compute partial acf \sum_ql

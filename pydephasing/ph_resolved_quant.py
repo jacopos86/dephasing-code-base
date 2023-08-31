@@ -70,7 +70,8 @@ else:
     def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
         # Fax units -> eV / ang
         # Faxby units -> eV / ang^2
-        F_lq_lqp = np.zeros((3*nat, len(qlp_list)), dtype=np.complex128)
+        F_lq_lqp = np.zeros((4, 3*nat, len(qlp_list)), dtype=np.complex128)
+        # 0 -> (lq,l'q'); 1 -> (l-q,l'q'); 2 -> (lq,l'-q'); 3 -> (l-q,l'-q')
         # wql (eV)
         wql = wu[iq][il] * THz_to_ev
         # remember index jax -> atom,idx
@@ -109,7 +110,8 @@ else:
                 # compute raman in spin deph obj
                 eff_Faxby[:] += compute_raman(nat, jby, Fax, H, wql, wqlp)
                 # update F_ql,qlp
-                F_lq_lqp[:,iqlp] += eff_Faxby[:] * eiqpR * euqp[jby,ilp] / np.sqrt(m_ib)
+                F_lq_lqp[:2,:,iqlp] += eff_Faxby[:] * eiqpR * euqp[jby,ilp] / np.sqrt(m_ib)
+                F_lq_lqp[2:,:,iqlp] += eff_Faxby[:] * np.conj(eiqpR) * np.conj(euqp[jby,ilp]) / np.sqrt(m_ib)
                 # eV/ang^2 * ang/eV^0.5/ps = eV^0.5/ang/ps
                 iqlp += 1
         # compute e^iqR e[q] F[jax,qlp]
@@ -119,32 +121,35 @@ else:
             m_ia = atoms.atoms_dict[ia]['mass']
             m_ia = m_ia * mp
             # effective force
-            F_lq_lqp[jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[jax,:] / np.sqrt(m_ia)
+            F_lq_lqp[0,jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[0,jax,:] / np.sqrt(m_ia)
+            F_lq_lqp[2,jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[2,jax,:] / np.sqrt(m_ia)
+            F_lq_lqp[1,jax,:] = np.conj(eiqR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[1,jax,:] / np.sqrt(m_ia)
+            F_lq_lqp[3,jax,:] = np.conj(eiqR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[3,jax,:] / np.sqrt(m_ia)
             # [eV^0.5/ang/ps *ang/eV^0.5/ps] = 1/ps^2
         return F_lq_lqp
-#
-# compute the Raman contribution to 
-# force matrix elements
-# -> p.deph  -> <0|gX|ms><ms|gX'|0>-<1|gX|ms><ms|gX'|1>
-# -> p.relax -> <1|gX|ms><ms|gX'|0>
-def compute_raman(nat, jby, Fax, H, wql, wqlp):
-    iqs0 = p.index_qs0
-    iqs1 = p.index_qs1
-    nqs = H.eig.shape[0]
-    # Raman F_axby vector
-    Faxby_raman = np.zeros(3*nat, dtype=np.complex128)
-    # eV / ang^2 units
-    # dephasing -> raman term
-    if p.deph:
-        for ms in range(nqs):
-            Faxby_raman[:] += Fax[iqs0,ms,:] * Fax[ms,iqs0,jby] / (H.eig[iqs0]-H.eig[ms]+wql)
-            Faxby_raman[:] -= Fax[iqs1,ms,:] * Fax[ms,iqs1,jby] / (H.eig[iqs1]-H.eig[ms]+wql)
-            Faxby_raman[:] += Fax[iqs0,ms,:] * Fax[ms,iqs0,jby] / (H.eig[iqs0]-H.eig[ms]-wqlp)
-            Faxby_raman[:] -= Fax[iqs1,ms,:] * Fax[ms,iqs1,jby] / (H.eig[iqs1]-H.eig[ms]-wqlp)
-    elif p.relax:
-        for ms in range(nqs):
-            Faxby_raman[:] += Fax[iqs0,ms,:] * Fax[ms,iqs1,jby] / (H.eig[iqs1]-H.eig[ms]+wqlp)
-            Faxby_raman[:] += Fax[iqs0,ms,:] * Fax[ms,iqs1,jby] / (H.eig[iqs1]-H.eig[ms]-wql)
-    else:
-        log.error("--- relax or deph calculation only ---")
-    return Faxby_raman
+    #
+    # compute the Raman contribution to 
+    # force matrix elements
+    # -> p.deph  -> <0|gX|ms><ms|gX'|0>-<1|gX|ms><ms|gX'|1>
+    # -> p.relax -> <1|gX|ms><ms|gX'|0>
+    def compute_raman(nat, jby, Fax, H, wql, wqlp):
+        iqs0 = p.index_qs0
+        iqs1 = p.index_qs1
+        nqs = H.eig.shape[0]
+        # Raman F_axby vector
+        Faxby_raman = np.zeros(3*nat, dtype=np.complex128)
+        # eV / ang^2 units
+        # dephasing -> raman term
+        if p.deph:
+            for ms in range(nqs):
+                Faxby_raman[:] += Fax[iqs0,ms,:] * Fax[ms,iqs0,jby] / (H.eig[iqs0]-H.eig[ms]+wql)
+                Faxby_raman[:] -= Fax[iqs1,ms,:] * Fax[ms,iqs1,jby] / (H.eig[iqs1]-H.eig[ms]+wql)
+                Faxby_raman[:] += Fax[iqs0,ms,:] * Fax[ms,iqs0,jby] / (H.eig[iqs0]-H.eig[ms]-wqlp)
+                Faxby_raman[:] -= Fax[iqs1,ms,:] * Fax[ms,iqs1,jby] / (H.eig[iqs1]-H.eig[ms]-wqlp)
+        elif p.relax:
+            for ms in range(nqs):
+                Faxby_raman[:] += Fax[iqs0,ms,:] * Fax[ms,iqs1,jby] / (H.eig[iqs1]-H.eig[ms]+wqlp)
+                Faxby_raman[:] += Fax[iqs0,ms,:] * Fax[ms,iqs1,jby] / (H.eig[iqs1]-H.eig[ms]-wql)
+        else:
+            log.error("--- relax or deph calculation only ---")
+        return Faxby_raman

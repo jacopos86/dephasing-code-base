@@ -38,7 +38,7 @@ def set_q_to_mq_list(qpts, nq):
     return qplist
 #
 # set ql' list
-def set_ql_list_red_qgrid(qpts, nat):
+def set_ql_list_red_qgrid(qpts, nat, wu):
     nq = len(qpts)
     # q -> -q map
     qmq_list = set_q_to_mq_list(qpts, nq)
@@ -48,7 +48,8 @@ def set_ql_list_red_qgrid(qpts, nat):
     for iqpair1 in qmq_list:
         iq1 = iqpair1[0]
         for il in range(3*nat):
-            qlp_list.append((iq1,il))
+            if wu[iq1][il] > p.min_freq:
+                qlp_list.append((iq1,il))
         miq1 = iqpair1[1]
         qmq_map.append((iq1,miq1))
     # make dict q -> -q
@@ -67,9 +68,16 @@ def set_iqlp_list(il, iq, qlp_list_full, wu, H):
         iqs1 = p.index_qs1
         dE = H.eig[iqs1] - H.eig[iqs0]
         # eV
-    ltz_0 = lorentzian(0.0, p.eta)
     # set w_ql (eV)
     E_ql = wu[iq][il] * THz_to_ev
+    ltz_max = 0.
+    for iqp, ilp in qlp_list_full:
+        if iqp != iq or ilp != il:
+            E_qlp = wu[iqp][ilp] * THz_to_ev
+            # eV
+            x = dE + E_qlp - E_ql
+            if lorentzian(x, p.eta) > ltz_max:
+                ltz_max = lorentzian(x, p.eta)
     # run over (q',l')
     qlp_list = []
     for iqp, ilp in qlp_list_full:
@@ -77,7 +85,7 @@ def set_iqlp_list(il, iq, qlp_list_full, wu, H):
             E_qlp = wu[iqp][ilp] * THz_to_ev
             # E (eV)
             x = dE + E_qlp - E_ql
-            if lorentzian(x, p.eta) / ltz_0 > p.lorentz_thres:
+            if lorentzian(x, p.eta) / ltz_max > p.lorentz_thres:
                 qlp_list.append((iqp,ilp))
     return qlp_list
 #

@@ -82,7 +82,6 @@ class acf_ph(object):
         # run over external (q,l) pair list -> distributed over different
         # processors
         for iq, il in tqdm(ql_list):
-            print('OK')
             # set the list of (iqp,ilp)
             qlp_list = set_iqlp_list(il, iq, qlp_list_full, wu, H)
             print(len(qlp_list), len(qlp_list_full))
@@ -90,7 +89,6 @@ class acf_ph(object):
             A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
             # compute eff. force
             Fjax_lqlqp = transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H)
-            print(Fjax_lqlqp)
             sys.exit()
             nlqp = Fjax_lqlqp.shape[1]
             F_lqlqp = np.zeros(nlqp, dtype=np.complex128)
@@ -145,7 +143,7 @@ class acf_ph(object):
         # if 2nd order
         if p.order_2_correct:
             # set qlp list (only q, -q excluded)
-            ql_list_2, qlp_list_2, qmq_map = set_ql_list_red_qgrid(qpts, nat)
+            ql_list_2, qlp_list_2, qmq_map = set_ql_list_red_qgrid(qpts, nat, wu)
             # complete amplitudes
             A_lq  = compute_ph_amplitude_q(wu, nat, ql_list_2)
             # driver of ACF - order 2 calculation
