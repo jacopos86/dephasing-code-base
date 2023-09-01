@@ -67,7 +67,39 @@ if GPU_ACTIVE:
     from pathlib import Path
     from pydephasing.gpu import gpu
     from pycuda.compiler import SourceModule
-    # 
+    #
+    # prepare order 2 phr force calculation
+    def set_up_2nd_order_force_phr(nat, qpts, Fax, Faxby):
+        # prepare force arrays
+        #
+        FAX = np.zeros(3*nat, dtype=np.double)
+        for jax in range(3*nat):
+            FAX[jax] = Fax[jax]
+        FAXBY = np.zeros(9*nat*nat, dtype=np.double)
+        ijax = 0
+        for jax in range(3*nat):
+            for jby in range(3*nat):
+                FAXBY[ijax] = Faxby[jax,jby]
+                ijax += 1
+        # Q vectors list
+        nq = len(qpts)
+        NQ = np.int32(nq)
+        QV = np.zeros(3*nq, dtype=np.double)
+        iiq = 0
+        for iq in range(nq):
+            qv = qpts[iq]
+            for ix in range(3):
+                QV[iiq] = qv[ix]
+                iiq += 1
+        # Ra list
+        R_LST = np.zeros(3*nat, dtype=np.double)
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax] - 1
+            Ra = atoms.atoms_dict[ia]['coordinates']
+            idx = jax%3
+            R_LST[jax] = Ra[idx]
+        return QV, R_LST, FAX, FAXBY
+    #
     # driver function
     def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
         # Fax units -> eV / ang
@@ -93,27 +125,14 @@ if GPU_ACTIVE:
             # atomic coordinates
             Ra = atoms.atoms_dict[ia]['coordinates']
             EIQR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
-        # prepare force arrays
-        #
-        FAX = np.zeros(3*nat, dtype=np.double)
-        for jax in range(3*nat):
-            FAX[jax] = Fax[jax]
-        FAXBY = np.zeros(9*nat*nat, dtype=np.double)
-        ii = 0
-        for jax in range(3*nat):
-            for jby in range(3*nat):
-                FAXBY[ii] = Faxby[jax,jby]
-                ii += 1
-        # Q' vectors list
-        nq = len(qpts)
-        NQ = np.int32(nq)
-        QV = np.zeros(3*nq, dtype=np.double)
-        ii = 0
-        for iq in range(nq):
-            qv = qpts[iq]
-            for ix in range(3):
-                QV[ii] = qv[ix]
-                ii += 1
+        # (q',l') list
+        QP_LST = np.zeros(len(qlp_list), dtype=np.int32)
+        ILP_LST= np.zeros(len(qlp_list), dtype=np.int32)
+        iqlp = 0
+        for iqp, ilp in qlp_list:
+            QP_LST[iqlp] = iqp
+            ILP_LST[iqlp] = ilp
+            iqlp += 1
         # iterate over (q',l')
         iqlp0 = 0
         nqlp = len(qlp_list)
