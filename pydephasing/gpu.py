@@ -72,4 +72,14 @@ class GPU_obj:
                             if xx < nx and mx < n:
                                 arr[xx,mx] = data[idx]
         return arr
+    def recover_eff_force_from_grid(self, Flqlqp, Flmqlqp, Flqlmqp, Flmqlmqp, nb, nthr):
+        arr = np.zeros((nb,nthr), dtype=np.complex128)
+        for th_x in range(self.BLOCK_SIZE[0]):
+            for th_y in range(self.BLOCK_SIZE[1]):
+                for th_z in range(self.BLOCK_SIZE[2]):
+                    for bl_x in range(self.GRID_SIZE[0]):
+                        for bl_y in range(self.GRID_SIZE[1]):
+                            i = th_x + self.BLOCK_SIZE[0] * bl_x
+                            j = th_y + self.BLOCK_SIZE[1] * bl_y
+                            k = th_z
 #

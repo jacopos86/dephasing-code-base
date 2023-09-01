@@ -65,6 +65,7 @@ def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
 # set ZFS force at 2nd order
 if GPU_ACTIVE:
     from pathlib import Path
+    from pydephasing.gpu import gpu
     from pycuda.compiler import SourceModule
     # 
     # driver function
@@ -75,6 +76,65 @@ if GPU_ACTIVE:
         gpu_src = Path('./pydephasing/gpu_source/compute_phr_forces.cu').read_text()
         mod = SourceModule(gpu_src)
         compute_Flq_lqp = mod.get_function("compute_Flq_lqp")
+        # prepare input quantities
+        wql = wu[iq][il] * THz_to_ev
+        WQL = np.double(wql)
+        # q vector
+        qv = qpts[iq]
+        # eq
+        euq = u[iq]
+        EUQ = np.zeros(3*nat, dtype=np.complex128)
+        for jax in range(3*nat):
+            EUQ[jax] = euq[jax,il]
+        # set e^iqR
+        EIQR = np.zeros(3*nat, dtype=np.complex128)
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax] - 1
+            # atomic coordinates
+            Ra = atoms.atoms_dict[ia]['coordinates']
+            EIQR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
+        # prepare force arrays
+        #
+        FAX = np.zeros(3*nat, dtype=np.double)
+        for jax in range(3*nat):
+            FAX[jax] = Fax[jax]
+        FAXBY = np.zeros(9*nat*nat, dtype=np.double)
+        ii = 0
+        for jax in range(3*nat):
+            for jby in range(3*nat):
+                FAXBY[ii] = Faxby[jax,jby]
+                ii += 1
+        # Q' vectors list
+        nq = len(qpts)
+        NQ = np.int32(nq)
+        QV = np.zeros(3*nq, dtype=np.double)
+        ii = 0
+        for iq in range(nq):
+            qv = qpts[iq]
+            for ix in range(3):
+                QV[ii] = qv[ix]
+                ii += 1
+        # iterate over (q',l')
+        iqlp0 = 0
+        nqlp = len(qlp_list)
+        while (iqlp0 < nqlp):
+            iqlp1= iqlp0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
+            size = min(iqlp1, nqlp)-iqlp0
+            SIZE = np.int32(size)
+            # run over (jax)
+            jax0 = 0
+            while jax0 < 3*nat:
+                jax1 = jax0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
+                nax = min(jax1, 3*nat) - jax0
+                JAX_LST = np.zeros(nax, dtype=np.int32)
+                for jax in range(jax0, min(jax1, 3*nat)):
+                    JAX_LST[jax-jax0] = jax
+                NAX = np.int32(nax)
+                # F_lq_lqp array
+                FLQLQP  = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                FLMQLQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                FLQLMQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                FLMQLMQP= np.zeros(gpu.gpu_size, dtype=np.complex128)
 else:
     def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
         # Fax units -> eV / ang
