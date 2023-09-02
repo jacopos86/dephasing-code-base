@@ -139,6 +139,8 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
             m_ia = atoms.atoms_dict[ia]['mass']
             m_ia = m_ia * mp
             M_LST[jax] = m_ia
+        # EIG
+        self.EIG = np.zeros(3, dtype=np.double)
     #
     # driver function
     def transf_2nd_order_force_phr(self, il, iq, wu, u, nat, qlp_list, H):
@@ -207,7 +209,7 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                 # call gpu function
                 compute_Flq_lqp(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(JAX_LST), SIZE, NAX, WQL, cuda.In(WQLP),
                                 cuda.In(EUQ), cuda.In(EUQLP), cuda.In(self.R_LST), cuda.In(self.QV), cuda.In(self.M_LST),
-                                cuda.In(EIQR), DE, cuda.In(self.FAX), cuda.In(self.FAXBY), cuda.Out(FLQLQP),
+                                cuda.In(EIQR), cuda.In(self.EIG), cuda.In(self.FAX), cuda.In(self.FAXBY), cuda.Out(FLQLQP),
                                 cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), cuda.Out(FLMQLMQP), block=gpu.block, grid=gpu.grid)
 # -------------------------------------------------------------------
 #       CPU class
