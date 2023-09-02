@@ -13,7 +13,7 @@ from pydephasing.input_parameters import p
 from pydephasing.utility_functions import bose_occup
 from pydephasing.extract_ph_data import set_ql_list_red_qgrid, set_iqlp_list
 from tqdm import tqdm
-from pydephasing.ph_resolved_quant import compute_ph_amplitude_q, transf_1st_order_force_phr, transf_2nd_order_force_phr
+from pydephasing.ph_resolved_quant import compute_ph_amplitude_q, transf_1st_order_force_phr, phr_force_2nd_order
 import matplotlib.pyplot as plt
 from pydephasing.global_params import GPU_ACTIVE
 from pydephasing.utility_functions import print_acf_dict
@@ -77,7 +77,7 @@ class acf_ph(object):
     #
     # driver for acf - order 2 autocorrelation
     # see Eq. (34) and Eq. (73) in notes
-    def compute_acf_2_driver(self, nat, wq, qpts, u, wu, ql_list, qlp_list_full, qmq_map, A_lq, Fax, Faxby, H):
+    def compute_acf_2_driver(self, nat, wq, u, wu, ql_list, qlp_list_full, qmq_map, A_lq, eff_force_obj, H):
         iql = 0
         # run over external (q,l) pair list -> distributed over different
         # processors
@@ -146,8 +146,12 @@ class acf_ph(object):
             ql_list_2, qlp_list_2, qmq_map = set_ql_list_red_qgrid(qpts, nat, wu)
             # complete amplitudes
             A_lq  = compute_ph_amplitude_q(wu, nat, ql_list_2)
+            # set 2nd order force object
+            eff_force_obj = phr_force_2nd_order()
+            eff_force_obj.generate_instance()
+            eff_force_obj.eff_force_obj.set_up_2nd_order_force_phr(nat, qpts, Fax, Faxby)
             # driver of ACF - order 2 calculation
-            self.compute_acf_2_driver(nat, wq, qpts, u, wu, ql_list_2, qlp_list_2, qmq_map, A_lq, Fax, Faxby, H)
+            self.compute_acf_2_driver(nat, wq, u, wu, ql_list_2, qlp_list_2, qmq_map, A_lq, eff_force_obj, H)
             sys.exit()
             # compute effective force (second order)
             # run over q pts list

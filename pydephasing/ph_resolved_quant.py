@@ -67,41 +67,81 @@ if GPU_ACTIVE:
     from pathlib import Path
     from pydephasing.gpu import gpu
     from pycuda.compiler import SourceModule
+    import pycuda.driver as cuda
+# --------------------------------------------------------
+#
+#  order 2 phr. force -> global class
+#
+# --------------------------------------------------------
+class phr_force_2nd_order(object):
+    def __init__(self, raman=True):
+        self.compute_raman = raman
+    #
+    #  instance CPU / GPU
+    #
+    def generate_instance(self):
+        if GPU_ACTIVE:
+            return GPU_phr_force_2nd_order ()
+        else:
+            return CPU_phr_force_2nd_order ()
+# --------------------------------------------------------
+#       GPU class
+# --------------------------------------------------------
+class GPU_phr_force_2nd_order(phr_force_2nd_order):
+    def __init__(self):
+        super(GPU_phr_force_2nd_order, self).__init__()
+        # atom res. forces
+        self.FAX = None
+        self.FAXBY = None
+        # Q vectors
+        self.NQ = 0
+        self.QV = None
+        # atom list
+        self.R_LST = None
+        # mass list
+        self.M_LST = None
     #
     # prepare order 2 phr force calculation
-    def set_up_2nd_order_force_phr(nat, qpts, Fax, Faxby):
+    def set_up_2nd_order_force_phr(self, qpts, Fax, Faxby):
         # prepare force arrays
         #
-        FAX = np.zeros(3*nat, dtype=np.double)
-        for jax in range(3*nat):
-            FAX[jax] = Fax[jax]
-        FAXBY = np.zeros(9*nat*nat, dtype=np.double)
+        n = Fax.shape[0]
+        self.FAX = np.zeros(n, dtype=np.double)
+        for jax in range(n):
+            self.FAX[jax] = Fax[jax]
+        self.FAXBY = np.zeros(n*n, dtype=np.double)
         ijax = 0
-        for jax in range(3*nat):
-            for jby in range(3*nat):
-                FAXBY[ijax] = Faxby[jax,jby]
+        for jax in range(n):
+            for jby in range(n):
+                self.FAXBY[ijax] = Faxby[jax,jby]
                 ijax += 1
         # Q vectors list
         nq = len(qpts)
-        NQ = np.int32(nq)
-        QV = np.zeros(3*nq, dtype=np.double)
+        self.NQ = np.int32(nq)
+        self.QV = np.zeros(3*nq, dtype=np.double)
         iiq = 0
         for iq in range(nq):
             qv = qpts[iq]
             for ix in range(3):
-                QV[iiq] = qv[ix]
+                self.QV[iiq] = qv[ix]
                 iiq += 1
         # Ra list
-        R_LST = np.zeros(3*nat, dtype=np.double)
-        for jax in range(3*nat):
+        R_LST = np.zeros(n, dtype=np.double)
+        for jax in range(n):
             ia = atoms.index_to_ia_map[jax] - 1
             Ra = atoms.atoms_dict[ia]['coordinates']
             idx = jax%3
             R_LST[jax] = Ra[idx]
-        return QV, R_LST, FAX, FAXBY
+        # M list
+        M_LST = np.zeros(n, dtype=np.double)
+        for jax in range(n):
+            ia = atoms.index_to_ia_map[jax] - 1
+            m_ia = atoms.atoms_dict[ia]['mass']
+            m_ia = m_ia * mp
+            M_LST[jax] = m_ia
     #
     # driver function
-    def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
+    def transf_2nd_order_force_phr(self, il, iq, wu, u, nat, qlp_list, H):
         # Fax units -> eV / ang
         # Faxby units -> eV / ang^2
         # load file
@@ -112,7 +152,7 @@ if GPU_ACTIVE:
         wql = wu[iq][il] * THz_to_ev
         WQL = np.double(wql)
         # q vector
-        qv = qpts[iq]
+        qv = self.QV[iq]
         # eq
         euq = u[iq]
         EUQ = np.zeros(3*nat, dtype=np.complex128)
@@ -128,11 +168,21 @@ if GPU_ACTIVE:
         # (q',l') list
         QP_LST = np.zeros(len(qlp_list), dtype=np.int32)
         ILP_LST= np.zeros(len(qlp_list), dtype=np.int32)
+        WQLP = np.zeros(len(qlp_list), dtype=np.double)
         iqlp = 0
         for iqp, ilp in qlp_list:
             QP_LST[iqlp] = iqp
             ILP_LST[iqlp] = ilp
+            WQLP[iqlp] = wu[iqp][ilp] * THz_to_ev
             iqlp += 1
+        # set eq'(l') array
+        EUQLP = np.zeros(len(qlp_list)*3*nat, dtype=np.complex128)
+        jj = 0
+        for iqp, ilp in qlp_list:
+            euqp = u[iqp]
+            for jax in range(3*nat):
+                EUQLP[jj] = euqp[jax,ilp]
+                jj += 1
         # iterate over (q',l')
         iqlp0 = 0
         nqlp = len(qlp_list)
@@ -154,8 +204,33 @@ if GPU_ACTIVE:
                 FLMQLQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
                 FLQLMQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
                 FLMQLMQP= np.zeros(gpu.gpu_size, dtype=np.complex128)
-else:
-    def transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H):
+                # call gpu function
+                compute_Flq_lqp(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(JAX_LST), SIZE, NAX, WQL, cuda.In(WQLP),
+                                cuda.In(EUQ), cuda.In(EUQLP), cuda.In(self.R_LST), cuda.In(self.QV), cuda.In(self.M_LST),
+                                cuda.In(EIQR), DE, cuda.In(self.FAX), cuda.In(self.FAXBY), cuda.Out(FLQLQP),
+                                cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), cuda.Out(FLMQLMQP), block=gpu.block, grid=gpu.grid)
+# -------------------------------------------------------------------
+#       CPU class
+# -------------------------------------------------------------------
+class CPU_phr_force_2nd_order(phr_force_2nd_order):
+    def __init__(self):
+        super(CPU_phr_force_2nd_order, self).__init__()
+        self.Fax = None
+        self.Faxby = None
+        self.qv = None
+        self.nq = 0
+    #
+    # prepare order 2 phr force calculation
+    def set_up_2nd_order_force_phr(self, qpts, Fax, Faxby):
+        # prepare force arrays
+        #
+        self.Fax = Fax
+        self.Faxby = Faxby
+        # Q vectors list
+        self.nq = len(qpts)
+        self.qv = qpts
+    #
+    def transf_2nd_order_force_phr(self, il, iq, wu, u, nat, qlp_list, H):
         # Fax units -> eV / ang
         # Faxby units -> eV / ang^2
         F_lq_lqp = np.zeros((4, 3*nat, len(qlp_list)), dtype=np.complex128)
@@ -164,17 +239,15 @@ else:
         wql = wu[iq][il] * THz_to_ev
         # remember index jax -> atom,idx
         # second index (n,p)
-        # q vector
-        qv = qpts[iq]
-        # eq
         euq = u[iq]
+        q = self.qv[iq]
         # set e^iqR
         eiqR = np.zeros(3*nat, dtype=np.complex128)
         for jax in range(3*nat):
             ia = atoms.index_to_ia_map[jax] - 1
             # atom coordinate
             Ra = atoms.atoms_dict[ia]['coordinates']
-            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
+            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(q,Ra))
         # run over list of modes
         for jby in range(3*nat):
             ib = atoms.index_to_ia_map[jby] - 1
@@ -185,8 +258,8 @@ else:
             iqlp = 0
             for iqp, ilp in qlp_list:
                 # e^iqpR
-                qpv = qpts[iqp]
-                eiqpR = cmath.exp(1j*2.*np.pi*np.dot(qpv, Rb))
+                qp = self.qv[iqp]
+                eiqpR = cmath.exp(1j*2.*np.pi*np.dot(qp, Rb))
                 # euqp
                 euqp = u[iqp]
                 # wqlp (eV)
@@ -194,9 +267,9 @@ else:
                 # compute Raman contribution to eff_Faxby
                 # eff. force : F(R) + F(2)
                 eff_Faxby = np.zeros(3*nat, dtype=np.complex128)
-                eff_Faxby[:] += Faxby[:,jby]
+                eff_Faxby[:] += self.Faxby[:,jby]
                 # compute raman in spin deph obj
-                eff_Faxby[:] += compute_raman(nat, jby, Fax, H, wql, wqlp)
+                eff_Faxby[:] += self.compute_raman(nat, jby, H, wql, wqlp)
                 # update F_ql,qlp
                 F_lq_lqp[:2,:,iqlp] += eff_Faxby[:] * eiqpR * euqp[jby,ilp] / np.sqrt(m_ib)
                 F_lq_lqp[2:,:,iqlp] += eff_Faxby[:] * np.conj(eiqpR) * np.conj(euqp[jby,ilp]) / np.sqrt(m_ib)
@@ -220,7 +293,7 @@ else:
     # force matrix elements
     # -> p.deph  -> <0|gX|ms><ms|gX'|0>-<1|gX|ms><ms|gX'|1>
     # -> p.relax -> <1|gX|ms><ms|gX'|0>
-    def compute_raman(nat, jby, Fax, H, wql, wqlp):
+    def compute_raman(self, nat, jby, H, wql, wqlp):
         iqs0 = p.index_qs0
         iqs1 = p.index_qs1
         nqs = H.eig.shape[0]
