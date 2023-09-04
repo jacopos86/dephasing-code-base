@@ -65,7 +65,7 @@ def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
 # set ZFS force at 2nd order
 if GPU_ACTIVE:
     from pathlib import Path
-    from pydephasing.gpu import gpu
+    from pydephasing.global_params import gpu
     from pycuda.compiler import SourceModule
     import pycuda.driver as cuda
 # --------------------------------------------------------
@@ -105,11 +105,16 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
     def set_up_2nd_order_force_phr(self, qpts, Fax, Faxby, H):
         # prepare force arrays
         #
-        n = Fax.shape[0]
-        self.FAX = np.zeros(n, dtype=np.double)
+        nqs = H.eig.shape[0]
+        n = Faxby.shape[0]
+        self.FAX = np.zeros(nqs*nqs*n, dtype=np.complex128)
+        ii = 0
         for jax in range(n):
-            self.FAX[jax] = Fax[jax]
-        self.FAXBY = np.zeros(n*n, dtype=np.double)
+            for msr in range(nqs):
+                for msc in range(nqs):
+                    self.FAX[ii] = Fax[msr,msc,jax]
+                    ii += 1
+        self.FAXBY = np.zeros(n*n, dtype=np.complex128)
         ijax = 0
         for jax in range(n):
             for jby in range(n):
@@ -140,7 +145,6 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
             m_ia = m_ia * mp
             M_LST[jax] = m_ia
         # EIG
-        nqs = H.eig.shape[0]
         self.EIG = np.zeros(nqs, dtype=np.double)
         self.NQS = np.int32(nqs)
         for qs in range(nqs):

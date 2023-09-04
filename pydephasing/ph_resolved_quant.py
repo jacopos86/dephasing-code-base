@@ -65,7 +65,7 @@ def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
 # set ZFS force at 2nd order
 if GPU_ACTIVE:
     from pathlib import Path
-    from pydephasing.gpu import gpu
+    from pydephasing.global_params import gpu
     from pycuda.compiler import SourceModule
     import pycuda.driver as cuda
 # --------------------------------------------------------

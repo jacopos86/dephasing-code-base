@@ -1,11 +1,12 @@
 #include <pycuda-complex.hpp>
 #include <math.h>
 typedef pycuda::complex<double> cmplx;
+#define PI 3.141592653589793
 
 /* compute phr forces */
 __global__ void compute_Flq_lqp(int *qp_lst, int *ilp_lst, int *jax_lst, const int size, const int nax, const int nat,
 double wql, double *wqlp, cmplx *euq, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst,
-cmplx *eiqR, const int nqs, double *eig, cmplx *Fax, cmplx *Faxby, cmplx *F_lqlqp,
+cmplx *eiqR, const int nqs, double *eig, cmplx *Fax, cmplx *Faxby, bool calc_raman, cmplx *F_lqlqp,
 cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -14,6 +15,9 @@ cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
     const int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
     const int iqlx= threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     const int jx  = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
+    int id, jby, ib, is, msr, msc;
+    double re, im;
+    double qpR;
     /* local (q',l') pair */
     const int iqp = qp_lst[iqlx];
     const int ilp = ilp_lst[iqlx];
@@ -26,11 +30,11 @@ cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
             qpv[id] = qv_lst[iqp*3+id];
         }
         /* set Fjax force */
-        i = 0;
+        is = 0;
         for (msr=0; msr<nqs; msr++) {
             for (msc=0; msc<nqs; msc++) {
-                Fjax[i] = Fax[jax*nqs*nqs+msr*nqs+msc];
-                i += 1;
+                Fjax[is] = Fax[jax*nqs*nqs+msr*nqs+msc];
+                is += 1;
             }
         }
         /* run over jby index */
@@ -50,21 +54,21 @@ cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
             cmplx eiqpR(re, im);
             /* eff. force */
             F = Faxby[3*nat*jax+jby];
-            i = 0;
+            is = 0;
             for (msr=0; msr<nqs; msr++) {
                 for (msc=0; msc<nqs; msc++) {
-                    Fjby[i] = Fax[jby*nqs*nqs+msr*nqs+msc];
-                    i += 1;
+                    Fjby[is] = Fax[jby*nqs*nqs+msr*nqs+msc];
+                    is += 1;
                 }
             }
             if (calc_raman) {
                 Fr= compute_raman_force(qs0, qs1, nqs, Fjax, Fjby, eig, wql, wqlp[idx]);
                 F += Fr;
             }
-            F_lqlqp[idx] += F * eiqpR * euqlp[3*nat*iqlx+jby] / SQRT (Mb);
-            F_lqlmqp[idx]+= F * eiqpR * euqlp[3*nat*iqlx+jby] / SQRT (Mb);
-            F_lmqlqp[idx]+= F * conj(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / SQRT (Mb);
-            F_lmqlmqp[idx]+= F * conj(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / SQRT (Mb);
+            F_lqlqp[idx] += F * eiqpR * euqlp[3*nat*iqlx+jby] / sqrt (Mb);
+            F_lqlmqp[idx]+= F * eiqpR * euqlp[3*nat*iqlx+jby] / sqrt (Mb);
+            F_lmqlqp[idx]+= F * conj(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / sqrt (Mb);
+            F_lmqlmqp[idx]+= F * conj(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / sqrt (Mb);
         }
         /* multiply with l.h.s*/
         F_lqlqp[idx] = eiqR[jax] * euq[jax] / SQRT (m_lst[jax]) * F_lqlqp[idx];
