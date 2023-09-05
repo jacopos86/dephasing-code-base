@@ -89,12 +89,18 @@ class acf_ph(object):
             A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
             # compute eff. force
             Fjax_lqlqp = eff_force_obj.transf_2nd_order_force_phr(il, iq, wu, u, nat, qlp_list)
-            sys.exit()
-            nlqp = Fjax_lqlqp.shape[1]
-            F_lqlqp = np.zeros(nlqp, dtype=np.complex128)
+            nlqp = len(qlp_list)
+            F_lqlqp = np.zeros((4,nlqp), dtype=np.complex128)
             for jax in range(3*nat):
-                F_lqlqp[:] += Fjax_lqlqp[jax,:]
+                F_lqlqp[:,:] += Fjax_lqlqp[:,jax,:]
                 # [ps^-2] units
+            # ----------------------------------
+            #    ACF calculation
+            # ----------------------------------
+            if p.time_resolved:
+                pass
+            if p.w_resolved:
+                pass
             iql += 1
     #
     # acf(2,t=0)

@@ -6,8 +6,8 @@ typedef pycuda::complex<double> cmplx;
 /* compute phr forces */
 __global__ void compute_Flq_lqp(int *qp_lst, int *ilp_lst, int *jax_lst, const int size, const int nax, const int nat,
 double wql, double *wqlp, cmplx *euq, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst,
-cmplx *eiqR, const int nqs, double *eig, cmplx *Fax, cmplx *Faxby, bool calc_raman, cmplx *F_lqlqp,
-cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
+cmplx *eiqR, const int nqs, const int qs0, const int qs1, double *eig, cmplx *Fax, cmplx *Faxby, bool calc_raman, int calc_typ,
+cmplx *F_lqlqp, cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
@@ -15,7 +15,7 @@ cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
     const int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
     const int iqlx= threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     const int jx  = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
-    int id, jby, ib, is, msr, msc;
+    int jby, ib;
     double re, im;
     double qpR;
     /* local (q',l') pair */
@@ -25,44 +25,49 @@ cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
     const int jax = jax_lst[jx];
     /* check if thread is allowed to compute */
     if (iqlx < size && jx < nax) {
-        /* set local Q vector */
-        for (id=0; id<3; id++) {
-            qpv[id] = qv_lst[iqp*3+id];
-        }
-        /* set Fjax force */
-        is = 0;
-        for (msr=0; msr<nqs; msr++) {
-            for (msc=0; msc<nqs; msc++) {
-                Fjax[is] = Fax[jax*nqs*nqs+msr*nqs+msc];
-                is += 1;
-            }
-        }
+        /* Ma */
+        Ma = m_lst[jax];
         /* run over jby index */
         for (jby=0; jby<3*nat; jby++) {
             ib = jby / 3;
-            /* atom coordinates*/
-            for (id=0; id<3; id++) {
-                R[id] = 0.0;
-                R[id] = r_lst[ib*3+id];
-            }
             /* atom mass */
             Mb = m_lst[jby];
             /*e^iq'R*/
-            qpR = qpv[0]*R[0] + qpv[1]*R[1] + qpv[2]*R[2];
+            qpR  = qv_lst[iqp*3]*r_lst[ib*3];
+            qpR += qv_lst[iqp*3+1]*r_lst[ib*3+1];
+            qpR += qv_lst[iqp*3+2]*r_lst[ib*3+2];
             re = cos(2.*PI*qpR);
             im = sin(2.*PI*qpR);
             cmplx eiqpR(re, im);
-            /* eff. force */
+            /*       eff. force                   */
             F = Faxby[3*nat*jax+jby];
-            is = 0;
-            for (msr=0; msr<nqs; msr++) {
-                for (msc=0; msc<nqs; msc++) {
-                    Fjby[is] = Fax[jby*nqs*nqs+msr*nqs+msc];
-                    is += 1;
-                }
-            }
+            /* ---------------------------------- */
+            /*     Raman calculation              */
+            /* ---------------------------------- */
             if (calc_raman) {
-                Fr= compute_raman_force(qs0, qs1, nqs, Fjax, Fjby, eig, wql, wqlp[idx]);
+                cmplx Fr(0.,0.);
+                if (calc_typ == 0) {
+                    /* deph calc. */
+                    for (ms=0; ms<nqs; ms++) {
+                        i0m = jax*nqs*nqs+qs0*nqs+ms;
+                        i1m = jax*nqs*nqs+qs1*nqs+ms;
+                        im0 = jby*nqs*nqs+ms*nqs+qs0;
+                        im1 = jby*nqs*nqs+ms*nqs+qs1;
+                        Fr += Fax[i0m] * Fax[im0] / (eig[qs0]-eig[ms]+wql);
+                        Fr -= Fax[i1m] * Fax[im1] / (eig[qs1]-eig[ms]+wql);
+                        Fr += Fax[i0m] * Fax[im0] / (eig[qs0]-eig[ms]-wqlp[iqlx]);
+                        Fr -= Fax[i1m] * Fax[im1] / (eig[qs1]-eig[ms]-wqlp[iqlx]);
+                    }
+                }
+                else if (calc_typ == 1) {
+                    /* relax calc. */
+                    for (ms=0; ms<nqs; ms++) {
+                        i0m = jax*nqs*nqs+qs0*nqs+ms;
+                        im1 = jby*nqs*nqs+ms*nqs+qs1;
+                        Fr += Fax[i0m] * Fax[im1] / (eig[qs1]-eig[ms]+wqlp[iqlx]);
+                        Fr += Fax[i0m] * Fax[im1] / (eig[qs1]-eig[ms]-wql);
+                    }
+                }
                 F += Fr;
             }
             F_lqlqp[idx] += F * eiqpR * euqlp[3*nat*iqlx+jby] / sqrt (Mb);
@@ -71,18 +76,18 @@ cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
             F_lmqlmqp[idx]+= F * conj(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / sqrt (Mb);
         }
         /* multiply with l.h.s*/
-        F_lqlqp[idx] = eiqR[jax] * euq[jax] / SQRT (m_lst[jax]) * F_lqlqp[idx];
-        F_lmqlqp[idx]= conj(eiqR[jax]) * conj(euq[jax]) / SQRT (m_lst[jax]) * F_lmqlqp[idx];
-        F_lqlmqp[idx] = eiqR[jax] * euq[jax] / SQRT (m_lst[jax]) * F_lqlmqp[idx];
-        F_lmqlmqp[idx]= conj(eiqR[jax]) * conj(euq[jax]) / SQRT (m_lst[jax]) * F_lmqlmqp[idx];
+        F_lqlqp[idx] = eiqR[jax] * euq[jax] / sqrt (Ma) * F_lqlqp[idx];
+        F_lmqlqp[idx]= conj(eiqR[jax]) * conj(euq[jax]) / SQRT (Ma) * F_lmqlqp[idx];
+        F_lqlmqp[idx] = eiqR[jax] * euq[jax] / SQRT (Ma) * F_lqlmqp[idx];
+        F_lmqlmqp[idx]= conj(eiqR[jax]) * conj(euq[jax]) / SQRT (Ma) * F_lmqlmqp[idx];
     }
 }
 
 /* Raman function calculation */
 __device__ cmplx compute_raman_force(int qs0, int qs1, int nqs, cmplx *Fjax, cmplx *Fjby,
-double *eig, double wql, double wqlp, int calc_type) {
+double *eig, double wql, double wqlp, int calc_typ) {
     cmplx Fr(0.,0.);
-    if (calc_type == 0) {
+    if (calc_typ == 0) {
         /* deph calculation*/
         for (ms=0; ms<nqs; ms++) {
             Fr += Fjax[qs0*nqs+ms] * Fjby[ms*nqs+qs0] / (eig[qs0] - eig[ms] + wql);
