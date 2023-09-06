@@ -73,6 +73,8 @@ PROGRAM zfs_calculation
   call mp_bcast (tmp_dir, ionode_id, intra_image_comm)
   call mp_bcast (prefix, ionode_id, intra_image_comm)
   
+  !
+  IF (npool > 1) call errore (code, 'pools not implemented', npool)
   
   
   

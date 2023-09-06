@@ -105,6 +105,10 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
     def set_up_2nd_order_force_phr(self, qpts, Fax, Faxby, H):
         # prepare force arrays
         #
+        if p.deph:
+            self.CALCTYP = np.int32(0)
+        elif p.relax:
+            self.CALCTYP = np.int32(1)
         nqs = H.eig.shape[0]
         n = Faxby.shape[0]
         self.FAX = np.zeros(nqs*nqs*n, dtype=np.complex128)
@@ -150,9 +154,13 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         for qs in range(nqs):
             self.EIG[qs] = H.eig[qs]
         # eV
+        self.IQS0 = np.int32(p.index_qs0)
+        self.IQS1 = np.int32(p.index_qs1)
     #
     # driver function
     def transf_2nd_order_force_phr(self, il, iq, wu, u, nat, qlp_list):
+        # initialize out array
+        F_lq_lqp = np.zeros((4,3*nat,len(qlp_list)), dtype=np.complex128)
         # Fax units -> eV / ang
         # Faxby units -> eV / ang^2
         # load file
@@ -160,6 +168,7 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         mod = SourceModule(gpu_src)
         compute_Flq_lqp = mod.get_function("compute_Flq_lqp")
         # prepare input quantities
+        NAT = np.int32(nat)
         wql = wu[iq][il] * THz_to_ev
         WQL = np.double(wql)
         # q vector
@@ -216,10 +225,16 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                 FLQLMQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
                 FLMQLMQP= np.zeros(gpu.gpu_size, dtype=np.complex128)
                 # call gpu function
-                compute_Flq_lqp(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(JAX_LST), SIZE, NAX, WQL, cuda.In(WQLP),
-                                cuda.In(EUQ), cuda.In(EUQLP), cuda.In(self.R_LST), cuda.In(self.QV), cuda.In(self.M_LST),
-                                cuda.In(EIQR), self.NQS, cuda.In(self.EIG), cuda.In(self.FAX), cuda.In(self.FAXBY), cuda.Out(FLQLQP),
-                                cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), cuda.Out(FLMQLMQP), block=gpu.block, grid=gpu.grid)
+                compute_Flq_lqp(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(JAX_LST), SIZE, NAX, NAT, WQL, cuda.In(WQLP),
+                                cuda.In(EUQ), cuda.In(EUQLP), cuda.In(self.R_LST), cuda.In(self.QV), cuda.In(self.M_LST), cuda.In(EIQR), self.NQS, 
+                                self.IQS0, self.IQS1, cuda.In(self.EIG), cuda.In(self.FAX), cuda.In(self.FAXBY), self.calc_raman, self.CALCTYP, 
+                                cuda.Out(FLQLQP), cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), cuda.Out(FLMQLMQP), block=gpu.block, grid=gpu.grid)
+                F_LQ_LQP = gpu.recover_eff_force_from_grid(FLQLQP, FLMQLQP, FLQLMQP, FLMQLMQP, nax, size)
+                # reconstruct final array
+                for iqlp in range(iqlp0, min(iqlp1,nqlp)):
+                    for jax in range(jax0, min(jax1,3*nat)):
+                        F_lq_lqp[:,jax,iqlp] += F_LQ_LQP[:,jax-jax0,iqlp-iqlp0]
+        return F_lq_lqp       
 # -------------------------------------------------------------------
 #       CPU class
 # -------------------------------------------------------------------

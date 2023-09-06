@@ -98,7 +98,7 @@ class acf_ph(object):
             #    ACF calculation
             # ----------------------------------
             if p.time_resolved:
-                pass
+                self.compute_acf_V2_oft(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
             if p.w_resolved:
                 pass
             iql += 1

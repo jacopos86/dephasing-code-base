@@ -112,6 +112,14 @@ def check_freq_data(qpts, freq, nq):
         assert np.array_equal(wuq, wuqp)
     if mpi.rank == mpi.root:
         log.info("freq. test passed")
+# check weights
+def check_weights(qpts, wq, nq):
+    # check w(q) = w(-q)
+    qplist = set_q_to_mq_list(qpts, nq)
+    for [iq, iqp] in qplist:
+        assert wq[iq] == wq[iqp]
+    if mpi.rank == mpi.root:
+        log.info("w(q) test passed")
 #
 def extract_ph_data():
     # input_params -> input data structure
@@ -150,5 +158,7 @@ def extract_ph_data():
         check_eigenv_data(qpts, eigenv, nq)
         # check frequencies
         check_freq_data(qpts, freq, nq)
+        # check the weights
+        check_weights(qpts, wq, nq)
     # return data
     return eigenv, freq, nq, qpts, wq, mesh

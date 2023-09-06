@@ -10,7 +10,8 @@ MODFLAGS= $(BASEMOD_FLAGS) \
           $(MOD_FLAG)../../dft-d3
 
 ZFSOBJS = \
-zfs_module.o
+zfs_module.o \
+constants_module.o
 
 PWOBJS = ../../PW/src/libpw.a
 PPOBJS = ../../PP/src/libpp.a

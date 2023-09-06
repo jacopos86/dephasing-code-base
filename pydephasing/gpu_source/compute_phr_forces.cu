@@ -1,5 +1,6 @@
 #include <pycuda-complex.hpp>
 #include <math.h>
+#include <cuComplex.h>
 typedef pycuda::complex<double> cmplx;
 #define PI 3.141592653589793
 
@@ -72,7 +73,7 @@ cmplx *F_lqlqp, cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
             }
             F_lqlqp[idx] += F * eiqpR * euqlp[3*nat*iqlx+jby] / sqrt (Mb);
             F_lqlmqp[idx]+= F * eiqpR * euqlp[3*nat*iqlx+jby] / sqrt (Mb);
-            F_lmqlqp[idx]+= F * conj(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / sqrt (Mb);
+            F_lmqlqp[idx]+= F * cuConjf(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / sqrt (Mb);
             F_lmqlmqp[idx]+= F * conj(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / sqrt (Mb);
         }
         /* multiply with l.h.s*/
