@@ -3,7 +3,11 @@
 !
 MODULE physical_constants
   !
+  USE kinds,                 ONLY : DP
   
+  
+  
+  !
   real(DP), parameter             :: gamma_e = 176085963023.0
   ! electron gyromagnetic ratio
   ! s^-1 T^-1
@@ -15,6 +19,17 @@ MODULE physical_constants
   real(DP), parameter             :: mu0 = 1.25663706212e-06
   ! magnetic moment constant
   ! N C^-2 s^2
+  real(DP)                        :: D0
+  ! prefactor
+  ! MHz * bohr^3
+
+  !
+  ! units conversion factors
+  !
+
+  real(DP), parameter             :: m_to_bohr = 1.889725989e10
+  ! m -> bohr
+  ! conversion factor
   
   
   !
@@ -28,14 +43,15 @@ CONTAINS
   !
   ! =======================================================================
   SUBROUTINE compute_prefactor ( )
-    
+    !
+    USE constants,              ONLY : fpi
     
     !
     IMPLICIT NONE
     
     
     
-    
+    !
     D0 = 1._dp / 4
     D0 = D0 * mu0 / fpi
     D0 = D0 * (gamma_e * hbar) ** 2
