@@ -78,6 +78,12 @@ class acf_ph(object):
     # driver for acf - order 2 autocorrelation
     # see Eq. (34) and Eq. (73) in notes
     def compute_acf_2_driver(self, nat, wq, u, wu, ql_list, qlp_list_full, qmq_map, A_lq, eff_force_obj, H):
+        if log.level <= logging.INFO:
+            # t - resolved
+            if p.time_resolved:
+                self.Delta_2 = np.zeros(p.ntmp)
+            if p.w_resolved:
+                self.Delta_w0= np.zeros(p.ntmp)
         iql = 0
         # run over external (q,l) pair list -> distributed over different
         # processors
@@ -100,38 +106,16 @@ class acf_ph(object):
             if p.time_resolved:
                 self.compute_acf_V2_oft(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
             if p.w_resolved:
-                pass
+                self.compute_acf_V2_ofw(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
+            #
+            # check Delta^2 value
+            if log.level <= logging.INFO:
+                if p.time_resolved:
+                    self.Delta_2 += self.compute_acf_V2_t0(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
+                if p.w_resolved:
+                    self.Delta_w0 += self.compute_acf_V2_w0(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
+            # iterate (q,l)
             iql += 1
-    #
-    # acf(2,t=0)
-    def compute_acf_order2_zero_time(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
-        # \sum_lq,lqp(q,qp>0) A_lq^2 A_lqp^2 [1+n_lq+3n_lqp+4n_lq n_lqp] {|F_lq_lqp|^2 + |F_l-q_lqp|^2}
-        # eV^2 units
-        Delta_2 = np.zeros(p.ntmp, dtype=np.complex128)
-        # set wu[q]
-        wuq = wu[iq]
-        Eql = wuq[il] * THz_to_ev
-        if wuq[il] > p.min_freq:
-            # run over T
-            for iT in range(p.ntmp):
-                T = p.temperatures[iT]
-                n_ql = bose_occup(Eql, T)
-                # run over (qp,ilp)
-                iqlp = 0
-                for iqp, ilp in qlp_list:
-                    # bose occup.
-                    wuqp = wu[iqp]
-                    Eqlp = wuqp[ilp] * THz_to_ev
-                    if wuqp[ilp] > p.min_freq:
-                        n_qlp = bose_occup(Eqlp, T)
-                        # compute Delta^2
-                        A_th = 1 + n_ql + 3 * n_qlp + 4. * n_ql * n_qlp
-                        Delta_2[iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * A_th * F_lqlqp[iqlp] * np.conjugate(F_lqlqp[iqlp])
-                    iqlp += 1
-        Delta_2r = np.zeros(p.ntmp)
-        for iT in range(p.ntmp):
-            Delta_2r[iT] = Delta_2[iT].real
-        return Delta_2r
     #
     # compute acf parameters
     def compute_acf(self, wq, wu, u, qpts, nat, Fax, Faxby, H):

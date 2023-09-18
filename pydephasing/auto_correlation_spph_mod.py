@@ -86,6 +86,76 @@ class acf_sp_ph(acf_ph):
                     Delta_w0[iT] += wq[iq] * A_lq[iql] ** 2 * ((1.+nph)*ltza + nph*ltzb) * (F_lq[iql] * F_lq[iql].conjugate()).real
             iql += 1
         return Delta_w0
+    #
+    # acf V2 (t=0)
+    def compute_acf_V2_t0(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
+        # eV^2 units
+        Delta_2 = np.zeros(p.ntmp, dtype=np.complex128)
+        # check freq. value
+        if wu[iq][il] > p.min_freq:
+            Eql = wu[iq][il] * THz_to_ev
+            # ph. occup.
+            nql_T = np.zeros(p.ntmp)
+            for iT in range(p.ntmp):
+                T = p.temperatures[iT]
+                nql_T[iT] = bose_occup(Eql, T)
+            # iterate over (q',l')
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                # E in eV
+                Eqlp = wu[iqp][ilp] * THz_to_ev
+                # e^{-i w t} = 1
+                # total force
+                F_llp = sum(F_lqlqp[:,iqlp])
+                # run over T
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    nqlp_T = bose_occup(Eqlp, T)
+                    #
+                    # compute Delta^2
+                    A_th = nql_T[iT] * (1. + nqlp_T)
+                    Delta_2[iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * A_th * F_llp[iqlp] * np.conjugate(F_llp[iqlp])
+                iqlp += 1
+        # final result
+        Delta_2r = np.zeros(p.ntmp)
+        for iT in range(p.ntmp):
+            Delta_2r[iT] = Delta_2[iT].real
+        return Delta_2r
+    #
+    # acf V2 (w=0)
+    def compute_acf_V2_w0(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
+        # eV^2 units
+        Delta_w0 = np.zeros(p.ntmp, dtype=np.complex128)
+        # check freq. value
+        if wu[iq][il] > p.min_freq:
+            Eql = wu[iq][il] * THz_to_ev
+            # ph. occup.
+            nql_T = np.zeros(p.ntmp)
+            for iT in range(p.ntmp):
+                T = p.temperatures[iT]
+                nql_T[iT] = bose_occup(Eql, T)
+            # iterate over (q',l')
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                # E in eV
+                Eqlp = wu[iqp][ilp] * THz_to_ev
+                # e^{-i w t} = 1
+                # total force
+                F_llp = sum(F_lqlqp[:,iqlp])
+                # run over T
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    nqlp_T = bose_occup(Eqlp, T)
+                    #
+                    # compute Delta^2
+                    A_th = nql_T[iT] * (1. + nqlp_T)
+                    Delta_w0[iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * A_th * F_llp[iqlp] * np.conjugate(F_llp[iqlp])
+                iqlp += 1
+        # final result
+        Delta_w0r = np.zeros(p.ntmp)
+        for iT in range(p.ntmp):
+            Delta_w0r[iT] = Delta_w0[iT].real
+        return Delta_w0r
 # ---------------------------------------------------------------------
 #
 #     CPU class
