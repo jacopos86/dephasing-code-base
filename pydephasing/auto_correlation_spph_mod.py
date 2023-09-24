@@ -413,17 +413,20 @@ class CPU_acf_sp_ph(acf_sp_ph):
                 wqlp = 2.*np.pi*wu[iqp][ilp]
                 # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'
                 F_llp = sum(F_lqlqp[:,iqlp])
+                # set lorentzian
+                ltz = np.zeros(p.nwg)
+                for iw in range(p.nwg):
+                    w = p.w_grid[iw]
+                    # eV
+                    ltz[iw] = lorentzian(dE+Eql-Eqlp+w, p.eta)
+                    # eV^-1
                 # run over temperatures
                 for iT in range(p.ntmp):
                     T = p.temperatures[iT]
                     nqlp_T = bose_occup(Eqlp, T)
                     #
-                    # (eV^2) units
-                    self.acf_sp[:,0,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * F_llp * F_llp.conjugate()
-                    ft[:] = 0.
-                    ft[:] = nql_T[iT]*(1. + nqlp_T[iT])*(exp_iwt[:] - 1.)/(-1j*(dE+wqlp-wql-1j*nu))
-                    self.acf_sp[:,1,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * F_llp * F_llp.conjugate()
-                    # (eV^2 ps) units
+                    # (eV) units
+                    self.acf_sp[:,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * nql_T[iT] * (1.+nqlp_T) * ltz[:] * F_llp * F_llp.conjugate()
                 iqlp += 1
     #
     # compute <V(1)V(1)> dynamical decoupling
