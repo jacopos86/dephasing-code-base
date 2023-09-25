@@ -395,11 +395,9 @@ class CPU_acf_sp_ph(acf_sp_ph):
     def compute_acf_V2_ofw(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
         # dE
         dE = self.dE / hbar
-        nu = p.eta / hbar
         # update acf_sp data
         if wu[iq][il] > p.min_freq:
             Eql = wu[iq][il] * THz_to_ev
-            wql = 2.*np.pi*wu[iq][il]
             # bose occupations
             nql_T = np.zeros(p.ntmp)
             for iT in range(p.ntmp):
@@ -410,8 +408,7 @@ class CPU_acf_sp_ph(acf_sp_ph):
             for iqp, ilp in qlp_list:
                 # E in eV
                 Eqlp = wu[iqp][ilp] * THz_to_ev
-                wqlp = 2.*np.pi*wu[iqp][ilp]
-                # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'
+                # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'     
                 F_llp = sum(F_lqlqp[:,iqlp])
                 # set lorentzian
                 ltz = np.zeros(p.nwg)
@@ -427,6 +424,131 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     #
                     # (eV) units
                     self.acf_sp[:,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * nql_T[iT] * (1.+nqlp_T) * ltz[:] * F_llp * F_llp.conjugate()
+                iqlp += 1
+    #
+    # compute <Delta V^(2)(t) Delta V^(2)(t')> -> ph / at resolved
+    def compute_acf_V2_atphr_oft(self, nat, wq, wu, iq, il, qlp_list, A_lq, A_lqp, Fjax_lqlqp):
+        if not p.ph_resolved and not p.at_resolved:
+            return
+        # dE (ps^-1)
+        dE = self.dE / hbar
+        nu = p.eta / hbar
+        # update acf_sp
+        if wu[iq][il] > p.min_freq:
+            Eql = wu[iq][il] * THz_to_ev
+            wql = 2.*np.pi*wu[iq][il]
+            # bose occupations
+            nql_T = np.zeros(p.ntmp)
+            for iT in range(p.ntmp):
+                T = p.temperatures[iT]
+                nql_T[iT] = bose_occup(Eql, T)
+            # iterate -> (q',l')
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                # E in (eV)
+                Eqlp = wu[iqp][ilp] * THz_to_ev
+                wqlp = 2.*np.pi*wu[iqp][ilp]
+                # set e^{-iwt} -> w = dE - wql + wqlp
+                exp_iwt = np.zeros(p.nt2, dtype=np.complex128)
+                for t in range(p.nt2):
+                    exp_iwt[t] = cmath.exp(-1j*(dE+wqlp-wql-1j*nu)*p.time2[t])
+                # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'
+                Fjax_llp = np.zeros(3*nat, dtype=np.complex128)
+                for jax in range(3*nat):
+                    Fjax_llp[jax] = sum(Fjax_lqlqp[:,jax,iqlp])
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occupation
+                    nqlp_T = bose_occup(Eqlp, T)
+                    #
+                    # time fluctuations
+                    ft = np.zeros(p.nt2, dtype=np.complex128)
+                    ft[:] = nql_T[iT] * (1. + nqlp_T) * exp_iwt[:]
+                    for jax in range(3*nat):
+                        # (eV^2) units
+                        # ph. resolved
+                        if p.ph_resolved:
+                            ii = p.wql_grid_index[iq,il]
+                            self.acf_wql_sp[:,0,ii,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,0,iph,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                        # at. resolved
+                        if p.at_resolved:
+                            ia = atoms.index_to_ia_map[jax] - 1
+                            self.acf_atr_sp[:,0,ia,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                    # integral
+                    # (eV^2 ps) units
+                    ft[:] = 0.
+                    ft[:] = nql_T[iT] * (1.+nqlp_T) * (exp_iwt[:] - 1.)/(-1j*(dE+wqlp-wql-1j*nu))
+                    for jax in range(3*nat):
+                        # (eV^2) units
+                        # ph. resolved
+                        if p.ph_resolved:
+                            ii = p.wql_grid_index[iq,il]
+                            self.acf_wql_sp[:,1,ii,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,1,iph,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                        # at. resolved
+                        if p.at_resolved:
+                            ia = atoms.index_to_ia_map[jax] - 1
+                            self.acf_atr_sp[:,1,ia,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                iqlp += 1
+    #
+    # compute <Delta V(2) \Delta V(2)>(w) / at-ph res.
+    def compute_acf_V2_atphr_ofw(self, nat, wq, wu, iq, il, qlp_list, A_lq, A_lqp, Fjax_lqlqp):
+        if not p.ph_resolved and not p.at_resolved:
+            return
+        # dE (eV)
+        dE = self.dE
+        # update acf_sp data
+        if wu[iq][il] > p.min_freq:
+            Eql = wu[iq][il] * THz_to_ev
+            # bose occup.
+            nql_T = np.zeros(p.ntmp)
+            for iT in range(p.ntmp):
+                T = p.temperatures[iT]
+                nql_T[iT] = bose_occup(Eql, T)
+            # compute acf (2) -> (q',l') 
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                # E in eV
+                Eqlp = wu[iqp][ilp] * THz_to_ev
+                # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'
+                Fjax_llp = np.zeros(3*nat, dtype=np.complex128)
+                for jax in range(3*nat):
+                    Fjax_llp[jax] = sum(Fjax_lqlqp[:,jax,iqlp])
+                # compute lorentz.
+                ltz = np.zeros(p.nwg)
+                for iw in range(p.nwg):
+                    w = p.w_grid[iw]
+                    # eV
+                    ltz[iw] = lorentzian(dE+Eql-Eqlp+w, p.eta)
+                    # eV^-1
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occupation
+                    nqlp_T = bose_occup(Eqlp, T)
+                    # fw
+                    fw = np.zeros(p.nwg, dtype=np.complex128)
+                    fw[:] = nql_T[iT] * (1. + nqlp_T) * ltz[:]
+                    # eV^-1
+                    for jax in range(3*nat):
+                        # eV/ps^2*eV*ps^2*eV^-1 = eV
+                        # ph. resolved
+                        if p.ph_resolved:
+                            ii = p.wql_grid_index[iq,il]
+                            self.acf_wql_sp[:,ii,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * fw[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,iph,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * fw[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                        # at. resolved
+                        if p.at_resolved:
+                            ia = atoms.index_to_ia_map[jax] - 1
+                            self.acf_atr_sp[:,ia,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * fw[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
                 iqlp += 1
     #
     # compute <V(1)V(1)> dynamical decoupling
