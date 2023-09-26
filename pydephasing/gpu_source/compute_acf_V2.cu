@@ -2,10 +2,10 @@
 #define PI 3.141592653589793
 typedef pycuda::complex<double> cmplx;
 
-__global__ void compute_acf_Vsph2(double *wqp, double *wuq, cmplx *eiwt, double *eint,
-double *time, cmplx *Flqp, double *Alqp, int *qlp_lst, int *qlp0_lst, int *lgth_lst, double Alq, 
-double T, double wq, double nlq, double THz_to_ev, double min_freq, double kb, const double toler,
-const int t_size, cmplx *acf) {
+__global__ void compute_acf_V2_oft(int *qlp_init, int *lgth, int *qlp_lst, const int t_size,
+double *time, double wq, double *wqp, double wuq, double *wuqp, double Alq, double *Alqp, 
+cmplx *Flqlqp, double T, double DE, double NU, double MINFREQ, double THZTOEV, double KB, 
+const double TOLER, cmplx *acf, cmplx *acf_int) {
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
     const int k = threadIdx.z + blockDim.z * blockIdx.z;

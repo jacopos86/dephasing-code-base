@@ -1089,64 +1089,67 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                     self.acf_phr_sp[:,ii,iT] += ACFW[w-w0,iph-iph0]
                         iph0 = iph1
                 w0 = w1
-    # GPU equivalent function
-    def compute_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
+    #
+    # GPU equivalent function (order 2)
+    def compute_acf_V2_oft(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
         '''
         compute ACF partial sum
         '''
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_Vsph2.cu').read_text()
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
         mod = SourceModule(gpu_src)
-        compute_acf = mod.get_function("compute_acf_Vsph2")
+        compute_acf = mod.get_function("compute_acf_V2_oft")
         # split modes on grid
-        qlp_gpu, init_gpu, lgth_gpu = gpu.split_data_on_grid(range(len(qlp_list)))
+        QLP_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(qlp_list)))
+        # dE (ps^-1)
+        dE = self.dE / hbar
+        DE = np.double(dE)
+        nu = p.eta / hbar
+        NU = np.double(nu)
+        # ps^-1
         # check energy Eql
         if wu[iq][il] > p.min_freq:
-            Eql = wu[iq][il] * THz_to_ev
-            # frequency
-            wuq = np.zeros(len(qlp_list), dtype=np.double)
-            w_q = np.double(wq[iq])
-            w_qp= np.zeros(len(qlp_list), dtype=np.double)
-            ind = 0
+            # set (q,l) variables
+            WQ = np.double(wq[iq])
+            WUQ= np.double(wu[iq][il])
+            ALQ= np.double(A_lq)
+            # build input arrays
+            WQP= np.zeros(len(qlp_list), dtype=np.double)
+            WUQP = np.zeros(len(qlp_list), dtype=np.double)
+            ALQP = np.zeros(len(qlp_list), dtype=np.double)
+            FLQLQP = np.zeros(len(qlp_list), dtype=np.complex128)
+            iqlp = 0
             for iqp, ilp in qlp_list:
-                w_qp[ind] = wq[iqp]
-                wuq[ind] = wu[iqp][ilp]
-                ind += 1
-            # effective force
-            Flqp = np.zeros(len(qlp_list), dtype=np.complex128)
-            Alqp = np.zeros(len(qlp_list), dtype=np.double)
-            for iqlp in range(len(qlp_list)):
-                Flqp[iqlp] = F_lqlqp[iqlp]
-                Alqp[iqlp] = A_lqp[iqlp]
-            Alq = np.double(A_lq)
-            # temperature
+                WQP[iqlp] = wq[iqp]
+                WUQP[iqlp]= wu[iqp][ilp]
+                ALQP[iqlp]= A_lqp[iqlp]
+                FLQLQP[iqlp]= F_lqlqp[iqlp]
+                iqlp += 1
+            # run over
+            #  temperature
             for iT in range(p.ntmp):
-                nlq = 0.
-                T = p.temperatures[iT]
-                nlq = np.double(bose_occup(Eql, T))
-                T = np.double(T)
+                T = np.double(p.temperatures[iT])
                 # iterate over time variable
                 t0 = 0
                 while (t0 < p.nt):
                     t1 = t0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
-                    size = min(t1, p.nt)-t0
-                    size_32 = np.int32(size)
-                    # set e^{-iwt}
-                    exp_iwt = np.zeros(size, dtype=np.complex128)
-                    exp_int = np.zeros(size, dtype=np.double)
-                    acf = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                    time = np.zeros(size, dtype=np.double)
+                    size = min(t1, p.nt) - t0
+                    SIZE = np.int32(size)
+                    # set ACF array
+                    ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    TIME = np.zeros(size, dtype=np.double)
                     for t in range(t0, min(t1,p.nt)):
-                        exp_iwt[t-t0] = cmath.exp(-1j*2.*np.pi*wu[iq][il]*p.time[t])
-                        exp_int[t-t0] = math.exp(-p.eta*p.time[t])
-                        time[t-t0] = p.time[t]
+                        TIME[t-t0] = p.time[t]
                     # call function
-                    compute_acf(cuda.In(w_qp), cuda.In(wuq), cuda.In(exp_iwt), cuda.In(exp_int),
-                        cuda.In(time), cuda.In(Flqp), cuda.In(Alqp), cuda.In(qlp_gpu), cuda.In(init_gpu),
-                        cuda.In(lgth_gpu), Alq, T, w_q, nlq, self.THz_to_ev, self.min_freq, self.kb, 
-                        self.toler, size_32, cuda.Out(acf), block=gpu.block, grid=gpu.grid)
-                    acf = gpu.recover_data_from_grid(acf)
+                    compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), SIZE, cuda.In(TIME),
+                        WQ, cuda.In(WQP), WUQ, cuda.In(WUQP), ALQ, cuda.In(ALQP), cuda.In(FLQLQP),
+                        T, DE, NU, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, 
+                        cuda.Out(ACF), cuda.Out(ACF_INT), block=gpu.block, grid=gpu.grid)
+                    ACF = gpu.recover_data_from_grid(ACF)
+                    ACF_INT = gpu.recover_data_from_grid(ACF_INT)
                     for t in range(t0, min(t1,p.nt)):
-                        self.acf_sp[t,iT] += acf[t-t0]
+                        self.acf_sp[t,0,iT] += ACF[t-t0]
+                        self.acf_sp[t,1,iT] += ACF_INT[t-t0]
                     t0 = t1
     #
     # dyndec calculation acf (2)
