@@ -1152,6 +1152,61 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         self.acf_sp[t,1,iT] += ACF_INT[t-t0]
                     t0 = t1
     #
+    # acf (2) of w
+    def compute_acf_V2_ofw(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
+        '''
+        compute ACF partial sum
+        '''
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+        mod = SourceModule(gpu_src)
+        compute_acf = mod.get_function("compute_acf_V2_ofw")
+        # split modes on grid
+        QLP_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(qlp_list)))
+        DE = np.double(self.dE)
+        ETA= np.double(p.eta)
+        # eV
+        # check wql
+        if wu[iq][il] > p.min_freq:
+            # set (q,l) variables
+            WQ = np.double(wq[iq])
+            WUQ= np.double(wu[iq][il])
+            ALQ= np.double(A_lq)
+            # input arrays
+            WQP = np.zeros(len(qlp_list), dtype=np.double)
+            WUQP= np.zeros(len(qlp_list), dtype=np.double)
+            ALQP= np.zeros(len(qlp_list), dtype=np.double)
+            FLQLQP= np.zeros(len(qlp_list), dtype=np.complex128)
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                WQP[iqlp] = wq[iqp]
+                WUQP[iqlp]= wu[iqp][ilp]
+                ALQP[iqlp]= A_lqp[iqlp]
+                FLQLQP[iqlp]= F_lqlqp[iqlp]
+                iqlp += 1
+            # iterate temperature
+            for iT in range(p.ntmp):
+                T = np.double(p.temperatures[iT])
+                # iterate over w variable
+                iw0 = 0
+                while (iw0 < p.nwg):
+                    iw1 = iw0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
+                    size = min(iw1, p.nwg) - iw0
+                    SIZE = np.int32(size)
+                    # ACFW array
+                    ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    # local freq. array
+                    WG = np.zeros(size, dtype=np.double)
+                    for iw in range(iw0, min(iw1,p.nwg)):
+                        WG[iw-iw0] = p.w_grid[iw]
+                        # eV
+                    # call GPU function
+
+
+                    ACFW = gpu.recover_data_from_grid(ACFW)
+                    for iw in range(iw0, min(iw1,p.nwg)):
+                        self.acf_sp[iw,iT] += ACFW[iw-iw0]
+                    iw0 = iw1
+    #
     # dyndec calculation acf (2)
     def compute_dkt0_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp, w_k):
         '''

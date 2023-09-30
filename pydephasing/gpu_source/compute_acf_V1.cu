@@ -1,33 +1,8 @@
 #include <pycuda-complex.hpp>
 #include <math.h>
+#include "extern_func.cuh"
 #define PI 3.141592653589793
 typedef pycuda::complex<double> cmplx;
-
-/* bose occupation internal function */
-
-__device__ double bose_occup(double x, double T, const double TOLER) {
-    double nql;
-    if (T < TOLER) {
-        nql = 0.;
-    }
-    else {
-        if (x > 100.) {
-            nql = 0.;
-        }
-        else {
-            nql = 1./(exp(x) - 1.);
-        }
-    }
-    return nql;
-}
-
-/* lorentzian function */
-
-__device__ double lorentzian(double x, double eta) {
-    double ltz;
-    ltz = 1./PI * eta / 2. / (x * x + eta * eta / 4.);
-    return ltz;
-}
 
 /* time ACF first order */
 
@@ -68,7 +43,9 @@ double MINFREQ, double THZTOEV, double KB, const double TOLER, cmplx *acf, cmplx
                 ft = ((1. + nql) * eiwt + nql * cc_eiwt) * exp(-NU*time[tx]);
                 acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
                 /* compute cumulative sum auto correl function (eV^2 ps) units */
-                ft = IU * (1. + nql) * (eiwt * exp(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * exp(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
+                cmplx DN1(wql+DE,-NU);
+                cmplx DN2(wql-DE, NU);
+                ft = IU * (1. + nql) * (eiwt * exp(-NU*time[tx]) - 1.) / DN1 - IU * nql * (cc_eiwt * exp(-NU*time[tx]) - 1.) / DN2;
                 acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
             }
         }
@@ -154,7 +131,9 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, c
                     acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
                 }
                 /* compute cumulative sum auto correl function (eV^2 ps) units */
-                ft = IU * (1. + nql) * (eiwt * exp(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * exp(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
+                cmplx DN1(wql+DE,-NU);
+                cmplx DN2(wql-DE, NU);
+                ft = IU * (1. + nql) * (eiwt * exp(-NU*time[tx]) - 1.) / DN1 - IU * nql * (cc_eiwt * exp(-NU*time[tx]) - 1.) / DN2;
                 for (dx=0; dx<3; dx++) {
                     iFx = 3*NAT*iql+3*ia+dx;
                     acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Fjax_lq[iFx] * conj(Fjax_lq[iFx]);
@@ -199,7 +178,9 @@ double KB, double TOLER, cmplx *acf, cmplx *acf_int) {
             ft = ((1. + nql) * eiwt + nql * cc_eiwt) * exp(-NU*time[tx]);
             acf[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
             /* compute cumulative sum auto correl function (eV^2 ps) units */
-            ft = IU * (1. + nql) * (eiwt * exp(-NU*time[tx]) - 1.) / (wql+DE-IU*NU) - IU * nql * (cc_eiwt * exp(-NU*time[tx]) - 1.) / (wql-DE+IU*NU);
+            cmplx DN1(wql+DE,-NU);
+            cmplx DN2(wql-DE, NU);
+            ft = IU * (1. + nql) * (eiwt * exp(-NU*time[tx]) - 1.) / DN1 - IU * nql * (cc_eiwt * exp(-NU*time[tx]) - 1.) / DN2;
             acf_int[idx] += wq[iql] * Alq[iql] * Alq[iql] * ft * Flq[iql] * conj(Flq[iql]);
         }
     }

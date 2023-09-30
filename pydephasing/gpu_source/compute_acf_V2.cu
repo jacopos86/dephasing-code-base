@@ -1,4 +1,6 @@
 #include <pycuda-complex.hpp>
+#include <math.h>
+#include "extern_func.cuh"
 #define PI 3.141592653589793
 typedef pycuda::complex<double> cmplx;
 
@@ -41,7 +43,9 @@ const double TOLER, cmplx *acf, cmplx *acf_int) {
                 acf[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * ft * Flqlqp[iqlp] * conj(Flqlqp[iqlp]);
                 /* \int acf^2(t) */
                 ft(0.,0.);
-                ft = nql * (1.+nqlp) * eiwt * EXP(-NU*time[tx]);
+                cmplx DN(DE+wqlp-wql, -NU); 
+                ft = IU * nql * (1.+nqlp) * (eiwt * EXP(-NU*time[tx]) - 1.) / DN;
+                acf_int[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * ft * Flqlqp[iqlp] * conj(Flqlqp[iqlp]);
             }
         }
     }
