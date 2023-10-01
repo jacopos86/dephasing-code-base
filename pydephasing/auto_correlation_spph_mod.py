@@ -1200,8 +1200,10 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         WG[iw-iw0] = p.w_grid[iw]
                         # eV
                     # call GPU function
-
-
+                    compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), SIZE, cuda.In(WG),
+                                WQ, cuda.In(WQP), WUQ, cuda.In(WUQP), ALQ, cuda.In(ALQP), cuda.In(FLQLQP),
+                                T, DE, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, ETA, cuda.Out(ACFW),
+                                block=gpu.block, grid=gpu.grid)
                     ACFW = gpu.recover_data_from_grid(ACFW)
                     for iw in range(iw0, min(iw1,p.nwg)):
                         self.acf_sp[iw,iT] += ACFW[iw-iw0]
