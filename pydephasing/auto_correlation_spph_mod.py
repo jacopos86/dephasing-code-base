@@ -371,24 +371,184 @@ class CPU_acf_sp_ph(acf_sp_ph):
                 exp_iwt = np.zeros(p.nt, dtype=np.complex128)
                 for t in range(p.nt):
                     exp_iwt[t] = cmath.exp(-1j*(dE+wqlp-wql-1j*nu)*p.time[t])
-                # run over temperatures
-                nqlp_T = np.zeros(p.ntmp)
-                for iT in range(p.ntmp):
-                    T = p.temperatures[iT]
-                    nqlp_T[iT] = bose_occup(Eqlp, T)
                 # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'
                 F_llp = sum(F_lqlqp[:,iqlp])
                 #
-                # compute time fluctuations
+                # run over temperatures
                 for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    nqlp_T = bose_occup(Eqlp, T)
+                    #
+                    # compute time fluctuations
                     ft = np.zeros(p.nt, dtype=np.complex128)
-                    ft[:] = nql_T[iT] * (1. + nqlp_T[iT]) * exp_iwt[:]
+                    ft[:] = nql_T[iT] * (1. + nqlp_T) * exp_iwt[:]
                     # (eV^2) units
                     self.acf_sp[:,0,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * F_llp * F_llp.conjugate()
                     ft[:] = 0.
-                    ft[:] = nql_T[iT]*(1. + nqlp_T[iT])*(exp_iwt[:] - 1.)/(-1j*(dE+wqlp-wql-1j*nu))
+                    ft[:] = nql_T[iT]*(1. + nqlp_T)*(exp_iwt[:] - 1.)/(-1j*(dE+wqlp-wql-1j*nu))
                     self.acf_sp[:,1,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * F_llp * F_llp.conjugate()
                     # (eV^2 ps) units
+                iqlp += 1
+    # ---------------------------------------------------------------------
+    # compute <Delta V^(2) Delta V^(2)>_c(w)
+    # ---------------------------------------------------------------------
+    def compute_acf_V2_ofw(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
+        # dE
+        dE = self.dE / hbar
+        # update acf_sp data
+        if wu[iq][il] > p.min_freq:
+            Eql = wu[iq][il] * THz_to_ev
+            # bose occupations
+            nql_T = np.zeros(p.ntmp)
+            for iT in range(p.ntmp):
+                T = p.temperatures[iT]
+                nql_T[iT] = bose_occup(Eql, T)
+            # iterate over (q',l')
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                # E in eV
+                Eqlp = wu[iqp][ilp] * THz_to_ev
+                # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'     
+                F_llp = sum(F_lqlqp[:,iqlp])
+                # set lorentzian
+                ltz = np.zeros(p.nwg)
+                for iw in range(p.nwg):
+                    w = p.w_grid[iw]
+                    # eV
+                    ltz[iw] = lorentzian(dE+Eql-Eqlp+w, p.eta)
+                    # eV^-1
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    nqlp_T = bose_occup(Eqlp, T)
+                    #
+                    # (eV) units
+                    self.acf_sp[:,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * nql_T[iT] * (1.+nqlp_T) * ltz[:] * F_llp * F_llp.conjugate()
+                iqlp += 1
+    #
+    # compute <Delta V^(2)(t) Delta V^(2)(t')> -> ph / at resolved
+    def compute_acf_V2_atphr_oft(self, nat, wq, wu, iq, il, qlp_list, A_lq, A_lqp, Fjax_lqlqp):
+        if not p.ph_resolved and not p.at_resolved:
+            return
+        # dE (ps^-1)
+        dE = self.dE / hbar
+        nu = p.eta / hbar
+        # update acf_sp
+        if wu[iq][il] > p.min_freq:
+            Eql = wu[iq][il] * THz_to_ev
+            wql = 2.*np.pi*wu[iq][il]
+            # bose occupations
+            nql_T = np.zeros(p.ntmp)
+            for iT in range(p.ntmp):
+                T = p.temperatures[iT]
+                nql_T[iT] = bose_occup(Eql, T)
+            # iterate -> (q',l')
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                # E in (eV)
+                Eqlp = wu[iqp][ilp] * THz_to_ev
+                wqlp = 2.*np.pi*wu[iqp][ilp]
+                # set e^{-iwt} -> w = dE - wql + wqlp
+                exp_iwt = np.zeros(p.nt2, dtype=np.complex128)
+                for t in range(p.nt2):
+                    exp_iwt[t] = cmath.exp(-1j*(dE+wqlp-wql-1j*nu)*p.time2[t])
+                # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'
+                Fjax_llp = np.zeros(3*nat, dtype=np.complex128)
+                for jax in range(3*nat):
+                    Fjax_llp[jax] = sum(Fjax_lqlqp[:,jax,iqlp])
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occupation
+                    nqlp_T = bose_occup(Eqlp, T)
+                    #
+                    # time fluctuations
+                    ft = np.zeros(p.nt2, dtype=np.complex128)
+                    ft[:] = nql_T[iT] * (1. + nqlp_T) * exp_iwt[:]
+                    for jax in range(3*nat):
+                        # (eV^2) units
+                        # ph. resolved
+                        if p.ph_resolved:
+                            ii = p.wql_grid_index[iq,il]
+                            self.acf_wql_sp[:,0,ii,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,0,iph,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                        # at. resolved
+                        if p.at_resolved:
+                            ia = atoms.index_to_ia_map[jax] - 1
+                            self.acf_atr_sp[:,0,ia,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                    # integral
+                    # (eV^2 ps) units
+                    ft[:] = 0.
+                    ft[:] = nql_T[iT] * (1.+nqlp_T) * (exp_iwt[:] - 1.)/(-1j*(dE+wqlp-wql-1j*nu))
+                    for jax in range(3*nat):
+                        # (eV^2) units
+                        # ph. resolved
+                        if p.ph_resolved:
+                            ii = p.wql_grid_index[iq,il]
+                            self.acf_wql_sp[:,1,ii,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,1,iph,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                        # at. resolved
+                        if p.at_resolved:
+                            ia = atoms.index_to_ia_map[jax] - 1
+                            self.acf_atr_sp[:,1,ia,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                iqlp += 1
+    #
+    # compute <Delta V(2) \Delta V(2)>(w) / at-ph res.
+    def compute_acf_V2_atphr_ofw(self, nat, wq, wu, iq, il, qlp_list, A_lq, A_lqp, Fjax_lqlqp):
+        if not p.ph_resolved and not p.at_resolved:
+            return
+        # dE (eV)
+        dE = self.dE
+        # update acf_sp data
+        if wu[iq][il] > p.min_freq:
+            Eql = wu[iq][il] * THz_to_ev
+            # bose occup.
+            nql_T = np.zeros(p.ntmp)
+            for iT in range(p.ntmp):
+                T = p.temperatures[iT]
+                nql_T[iT] = bose_occup(Eql, T)
+            # compute acf (2) -> (q',l') 
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                # E in eV
+                Eqlp = wu[iqp][ilp] * THz_to_ev
+                # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'
+                Fjax_llp = np.zeros(3*nat, dtype=np.complex128)
+                for jax in range(3*nat):
+                    Fjax_llp[jax] = sum(Fjax_lqlqp[:,jax,iqlp])
+                # compute lorentz.
+                ltz = np.zeros(p.nwg)
+                for iw in range(p.nwg):
+                    w = p.w_grid[iw]
+                    # eV
+                    ltz[iw] = lorentzian(dE+Eql-Eqlp+w, p.eta)
+                    # eV^-1
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    # bose occupation
+                    nqlp_T = bose_occup(Eqlp, T)
+                    # fw
+                    fw = np.zeros(p.nwg, dtype=np.complex128)
+                    fw[:] = nql_T[iT] * (1. + nqlp_T) * ltz[:]
+                    # eV^-1
+                    for jax in range(3*nat):
+                        # eV/ps^2*eV*ps^2*eV^-1 = eV
+                        # ph. resolved
+                        if p.ph_resolved:
+                            ii = p.wql_grid_index[iq,il]
+                            self.acf_wql_sp[:,ii,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * fw[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                            if il in p.phm_list:
+                                iph = p.phm_list.index(il)
+                                self.acf_phr_sp[:,iph,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * fw[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
+                        # at. resolved
+                        if p.at_resolved:
+                            ia = atoms.index_to_ia_map[jax] - 1
+                            self.acf_atr_sp[:,ia,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * fw[:] * Fjax_llp[jax] * Fjax_llp[jax].conjugate()
                 iqlp += 1
     #
     # compute <V(1)V(1)> dynamical decoupling
@@ -929,65 +1089,125 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                     self.acf_phr_sp[:,ii,iT] += ACFW[w-w0,iph-iph0]
                         iph0 = iph1
                 w0 = w1
-    # GPU equivalent function
-    def compute_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
+    #
+    # GPU equivalent function (order 2)
+    def compute_acf_V2_oft(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
         '''
         compute ACF partial sum
         '''
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_Vsph2.cu').read_text()
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
         mod = SourceModule(gpu_src)
-        compute_acf = mod.get_function("compute_acf_Vsph2")
+        compute_acf = mod.get_function("compute_acf_V2_oft")
         # split modes on grid
-        qlp_gpu, init_gpu, lgth_gpu = gpu.split_data_on_grid(range(len(qlp_list)))
+        QLP_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(qlp_list)))
+        # dE (ps^-1)
+        dE = self.dE / hbar
+        DE = np.double(dE)
+        nu = p.eta / hbar
+        NU = np.double(nu)
+        # ps^-1
         # check energy Eql
         if wu[iq][il] > p.min_freq:
-            Eql = wu[iq][il] * THz_to_ev
-            # frequency
-            wuq = np.zeros(len(qlp_list), dtype=np.double)
-            w_q = np.double(wq[iq])
-            w_qp= np.zeros(len(qlp_list), dtype=np.double)
-            ind = 0
+            # set (q,l) variables
+            WQ = np.double(wq[iq])
+            WUQ= np.double(wu[iq][il])
+            ALQ= np.double(A_lq)
+            # build input arrays
+            WQP= np.zeros(len(qlp_list), dtype=np.double)
+            WUQP = np.zeros(len(qlp_list), dtype=np.double)
+            ALQP = np.zeros(len(qlp_list), dtype=np.double)
+            FLQLQP = np.zeros(len(qlp_list), dtype=np.complex128)
+            iqlp = 0
             for iqp, ilp in qlp_list:
-                w_qp[ind] = wq[iqp]
-                wuq[ind] = wu[iqp][ilp]
-                ind += 1
-            # effective force
-            Flqp = np.zeros(len(qlp_list), dtype=np.complex128)
-            Alqp = np.zeros(len(qlp_list), dtype=np.double)
-            for iqlp in range(len(qlp_list)):
-                Flqp[iqlp] = F_lqlqp[iqlp]
-                Alqp[iqlp] = A_lqp[iqlp]
-            Alq = np.double(A_lq)
-            # temperature
+                WQP[iqlp] = wq[iqp]
+                WUQP[iqlp]= wu[iqp][ilp]
+                ALQP[iqlp]= A_lqp[iqlp]
+                FLQLQP[iqlp]= F_lqlqp[iqlp]
+                iqlp += 1
+            # run over
+            #  temperature
             for iT in range(p.ntmp):
-                nlq = 0.
-                T = p.temperatures[iT]
-                nlq = np.double(bose_occup(Eql, T))
-                T = np.double(T)
+                T = np.double(p.temperatures[iT])
                 # iterate over time variable
                 t0 = 0
                 while (t0 < p.nt):
                     t1 = t0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
-                    size = min(t1, p.nt)-t0
-                    size_32 = np.int32(size)
-                    # set e^{-iwt}
-                    exp_iwt = np.zeros(size, dtype=np.complex128)
-                    exp_int = np.zeros(size, dtype=np.double)
-                    acf = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                    time = np.zeros(size, dtype=np.double)
+                    size = min(t1, p.nt) - t0
+                    SIZE = np.int32(size)
+                    # set ACF array
+                    ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    TIME = np.zeros(size, dtype=np.double)
                     for t in range(t0, min(t1,p.nt)):
-                        exp_iwt[t-t0] = cmath.exp(-1j*2.*np.pi*wu[iq][il]*p.time[t])
-                        exp_int[t-t0] = math.exp(-p.eta*p.time[t])
-                        time[t-t0] = p.time[t]
+                        TIME[t-t0] = p.time[t]
                     # call function
-                    compute_acf(cuda.In(w_qp), cuda.In(wuq), cuda.In(exp_iwt), cuda.In(exp_int),
-                        cuda.In(time), cuda.In(Flqp), cuda.In(Alqp), cuda.In(qlp_gpu), cuda.In(init_gpu),
-                        cuda.In(lgth_gpu), Alq, T, w_q, nlq, self.THz_to_ev, self.min_freq, self.kb, 
-                        self.toler, size_32, cuda.Out(acf), block=gpu.block, grid=gpu.grid)
-                    acf = gpu.recover_data_from_grid(acf)
+                    compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), SIZE, cuda.In(TIME),
+                        WQ, cuda.In(WQP), WUQ, cuda.In(WUQP), ALQ, cuda.In(ALQP), cuda.In(FLQLQP),
+                        T, DE, NU, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, 
+                        cuda.Out(ACF), cuda.Out(ACF_INT), block=gpu.block, grid=gpu.grid)
+                    ACF = gpu.recover_data_from_grid(ACF)
+                    ACF_INT = gpu.recover_data_from_grid(ACF_INT)
                     for t in range(t0, min(t1,p.nt)):
-                        self.acf_sp[t,iT] += acf[t-t0]
+                        self.acf_sp[t,0,iT] += ACF[t-t0]
+                        self.acf_sp[t,1,iT] += ACF_INT[t-t0]
                     t0 = t1
+    #
+    # acf (2) of w
+    def compute_acf_V2_ofw(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
+        '''
+        compute ACF partial sum
+        '''
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+        mod = SourceModule(gpu_src)
+        compute_acf = mod.get_function("compute_acf_V2_ofw")
+        # split modes on grid
+        QLP_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(qlp_list)))
+        DE = np.double(self.dE)
+        ETA= np.double(p.eta)
+        # eV
+        # check wql
+        if wu[iq][il] > p.min_freq:
+            # set (q,l) variables
+            WQ = np.double(wq[iq])
+            WUQ= np.double(wu[iq][il])
+            ALQ= np.double(A_lq)
+            # input arrays
+            WQP = np.zeros(len(qlp_list), dtype=np.double)
+            WUQP= np.zeros(len(qlp_list), dtype=np.double)
+            ALQP= np.zeros(len(qlp_list), dtype=np.double)
+            FLQLQP= np.zeros(len(qlp_list), dtype=np.complex128)
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                WQP[iqlp] = wq[iqp]
+                WUQP[iqlp]= wu[iqp][ilp]
+                ALQP[iqlp]= A_lqp[iqlp]
+                FLQLQP[iqlp]= F_lqlqp[iqlp]
+                iqlp += 1
+            # iterate temperature
+            for iT in range(p.ntmp):
+                T = np.double(p.temperatures[iT])
+                # iterate over w variable
+                iw0 = 0
+                while (iw0 < p.nwg):
+                    iw1 = iw0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
+                    size = min(iw1, p.nwg) - iw0
+                    SIZE = np.int32(size)
+                    # ACFW array
+                    ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                    # local freq. array
+                    WG = np.zeros(size, dtype=np.double)
+                    for iw in range(iw0, min(iw1,p.nwg)):
+                        WG[iw-iw0] = p.w_grid[iw]
+                        # eV
+                    # call GPU function
+                    compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), SIZE, cuda.In(WG),
+                                WQ, cuda.In(WQP), WUQ, cuda.In(WUQP), ALQ, cuda.In(ALQP), cuda.In(FLQLQP),
+                                T, DE, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, ETA, cuda.Out(ACFW),
+                                block=gpu.block, grid=gpu.grid)
+                    ACFW = gpu.recover_data_from_grid(ACFW)
+                    for iw in range(iw0, min(iw1,p.nwg)):
+                        self.acf_sp[iw,iT] += ACFW[iw-iw0]
+                    iw0 = iw1
     #
     # dyndec calculation acf (2)
     def compute_dkt0_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp, w_k):

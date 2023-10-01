@@ -371,18 +371,53 @@ class CPU_acf_sp_ph(acf_sp_ph):
                 exp_iwt = np.zeros(p.nt, dtype=np.complex128)
                 for t in range(p.nt):
                     exp_iwt[t] = cmath.exp(-1j*(dE+wqlp-wql-1j*nu)*p.time[t])
-                # run over temperatures
-                nqlp_T = np.zeros(p.ntmp)
-                for iT in range(p.ntmp):
-                    T = p.temperatures[iT]
-                    nqlp_T[iT] = bose_occup(Eqlp, T)
                 # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'
                 F_llp = sum(F_lqlqp[:,iqlp])
                 #
-                # compute time fluctuations
+                # run over temperatures
                 for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    nqlp_T = bose_occup(Eqlp, T)
+                    #
+                    # compute time fluctuations
                     ft = np.zeros(p.nt, dtype=np.complex128)
-                    ft[:] = nql_T[iT] * (1. + nqlp_T[iT]) * exp_iwt[:]
+                    ft[:] = nql_T[iT] * (1. + nqlp_T) * exp_iwt[:]
+                    # (eV^2) units
+                    self.acf_sp[:,0,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * F_llp * F_llp.conjugate()
+                    ft[:] = 0.
+                    ft[:] = nql_T[iT]*(1. + nqlp_T)*(exp_iwt[:] - 1.)/(-1j*(dE+wqlp-wql-1j*nu))
+                    self.acf_sp[:,1,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * F_llp * F_llp.conjugate()
+                    # (eV^2 ps) units
+                iqlp += 1
+    # ---------------------------------------------------------------------
+    # compute <Delta V^(2) Delta V^(2)>_c(w)
+    # ---------------------------------------------------------------------
+    def compute_acf_V2_ofw(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp):
+        # dE
+        dE = self.dE / hbar
+        nu = p.eta / hbar
+        # update acf_sp data
+        if wu[iq][il] > p.min_freq:
+            Eql = wu[iq][il] * THz_to_ev
+            wql = 2.*np.pi*wu[iq][il]
+            # bose occupations
+            nql_T = np.zeros(p.ntmp)
+            for iT in range(p.ntmp):
+                T = p.temperatures[iT]
+                nql_T[iT] = bose_occup(Eql, T)
+            # iterate over (q',l')
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                # E in eV
+                Eqlp = wu[iqp][ilp] * THz_to_ev
+                wqlp = 2.*np.pi*wu[iqp][ilp]
+                # set total force F_ll' = F_lq,l'q' + F_l-q,l'q' + F_lq,l'-q' + F_l-q,l'-q'
+                F_llp = sum(F_lqlqp[:,iqlp])
+                # run over temperatures
+                for iT in range(p.ntmp):
+                    T = p.temperatures[iT]
+                    nqlp_T = bose_occup(Eqlp, T)
+                    #
                     # (eV^2) units
                     self.acf_sp[:,0,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * ft[:] * F_llp * F_llp.conjugate()
                     ft[:] = 0.
