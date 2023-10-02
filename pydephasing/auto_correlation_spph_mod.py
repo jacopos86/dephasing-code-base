@@ -1209,6 +1209,40 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         self.acf_sp[iw,iT] += ACFW[iw-iw0]
                     iw0 = iw1
     #
+    # compute <Delta V^(2)(t) Delta V^(2)(t')> -> ph / at resolved
+    def compute_acf_V2_atphr_oft(self, nat, wq, wu, iq, il, qlp_list, A_lq, A_lqp, Fjax_lqlqp):
+        if p.ph_resolved:
+            # load files
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+            mod = SourceModule(gpu_src)
+            compute_acf_phr = mod.get_function("compute_acf_V2_phr_oft")
+        if p.at_resolved:
+            NMODES = np.int32(len(qlp_list))
+            NAT = np.int32(nat)
+            # load files
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+            mod = SourceModule(gpu_src)
+            compute_acf_atr = mod.get_function("compute_acf_V2_atr_oft")
+        if not p.ph_resolved and not p.at_resolved:
+            return
+        dE = self.dE / hbar
+        DE = np.double(dE)
+        nu = p.eta / hbar
+        NU = np.double(nu)
+        # ps^-1
+        # extract eff. force
+        if p.at_resolved:
+            FJAX_LQLQP = np.zeros(3*nat*len(qlp_list), dtype=np.complex128)
+            ii = 0
+            for iqlp in range(len(qlp_list)):
+                for jax in range(3*nat):
+                    FJAX_LQLQP[ii] = Fjax_lqlqp[jax,iqlp]
+                    ii += 1
+        if p.ph_resolved:
+            F_LQLQP = np.zeros(len(qlp_list), dtype=np.complex128)
+            for jax in range(3*nat):
+                F_LQLQP[:] += Fjax_lqlqp[jax,:]
+    #
     # dyndec calculation acf (2)
     def compute_dkt0_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp, w_k):
         '''
