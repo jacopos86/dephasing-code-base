@@ -854,20 +854,20 @@ class GPU_acf_sp_ph(acf_sp_ph):
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')> -> ph / at resolved
     def compute_acf_V1_atphr_oft(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
+        # load files
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
+        mod = SourceModule(gpu_src)
+        # CHECK ph/at res.
         if p.ph_resolved:
             self.acf_phr_sp = np.zeros((p.nt2, 2, p.nphr, p.ntmp), dtype=np.complex128)
             self.acf_wql_sp = np.zeros((p.nt2, 2, p.nwbn, p.ntmp), dtype=np.complex128)
             # load files
-            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
-            mod = SourceModule(gpu_src)
             compute_acf_phr = mod.get_function("compute_acf_V1_phr_oft")
         if p.at_resolved:
             NMODES = np.int32(len(ql_list))
             NAT = np.int32(nat)
             self.acf_atr_sp = np.zeros((p.nt2, 2, nat, p.ntmp), dtype=np.complex128)
             # load files
-            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
-            mod = SourceModule(gpu_src)
             compute_acf_atr = mod.get_function("compute_acf_V1_atr_oft")
         if not p.ph_resolved and not p.at_resolved:
             return
@@ -977,20 +977,20 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 t0 = t1
     # compute <Delta V^(1) Delta V^(1)>(w) -> ph / at resolved
     def compute_acf_V1_atphr_ofw(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
+        # load files
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
+        mod = SourceModule(gpu_src)
+        # CHECK at/ph resolved
         if p.ph_resolved:
             self.acf_phr_sp = np.zeros((p.nwg, p.nphr, p.ntmp), dtype=np.complex128)
             self.acf_wql_sp = np.zeros((p.nwg, p.nwbn, p.ntmp), dtype=np.complex128)
             # load files
-            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
-            mod = SourceModule(gpu_src)
             compute_acf_phr = mod.get_function("compute_acf_V1_phr_ofw")
         if p.at_resolved:
             NMODES = np.int32(len(ql_list))
             NAT = np.int32(nat)
             self.acf_atr_sp = np.zeros((p.nwg, nat, p.ntmp), dtype=np.complex128)
             # load files
-            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
-            mod = SourceModule(gpu_src)
             compute_acf_atr = mod.get_function("compute_acf_V1_atr_ofw")
         if not p.ph_resolved and not p.at_resolved:
             return
@@ -1211,10 +1211,11 @@ class GPU_acf_sp_ph(acf_sp_ph):
     #
     # compute <Delta V^(2)(t) Delta V^(2)(t')> -> ph / at resolved
     def compute_acf_V2_atphr_oft(self, nat, wq, wu, iq, il, qlp_list, A_lq, A_lqp, Fjax_lqlqp):
+        # load files
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+        mod = SourceModule(gpu_src)
+        # CALC. type
         if p.ph_resolved:
-            # load files
-            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
-            mod = SourceModule(gpu_src)
             compute_acf_phr = mod.get_function("compute_acf_V2_phr_oft")
             # split modes on grid
             QLP_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(qlp_list)))
@@ -1225,9 +1226,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
         if p.at_resolved:
             NMODES = np.int32(len(qlp_list))
             NAT = np.int32(nat)
-            # load files
-            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
-            mod = SourceModule(gpu_src)
+            # load function
             compute_acf_atr = mod.get_function("compute_acf_V2_atr_oft")
         if not p.ph_resolved and not p.at_resolved:
             return
@@ -1328,6 +1327,74 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                 self.acf_phr_sp[:,0,iphr,iT] += ACF[t-t0]
                                 self.acf_phr_sp[:,1,iphr,iT] += ACF_INT[t-t0]
                     t0 = t1
+    #
+    # compute <Delta V^(2) Delta V^(2)>(w) -> ph / at resolved
+    def compute_acf_V2_atphr_ofw(self, nat, wq, wu, iq, il, qlp_list, A_lq, A_lqp, Fjax_lqlqp):
+        # load files
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+        mod = SourceModule(gpu_src)
+        # CALC. type
+        if p.ph_resolved:
+            compute_acf_phr = mod.get_function("compute_acf_V2_phr_ofw")
+            # split modes on grid
+            QLP_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(qlp_list)))
+            # ph. index
+            iwql = p.wql_grid_index[iq,il]
+            if il in p.phm_list:
+                iphr = p.phm_list.index(il)
+        if p.at_resolved:
+            NMODES = np.int32(len(qlp_list))
+            NAT = np.int32(nat)
+            # load function
+            compute_acf_atr = mod.get_function("compute_acf_V2_atr_ofw")
+        if not p.ph_resolved and not p.at_resolved:
+            return
+        DE = np.double(self.dE)
+        ETA= np.double(p.eta)
+        # eV units
+        # CHECK Eql
+        if wu[iq][il] > p.min_freq:
+            # set (q,l) variables
+            WQ = np.double(wq[iq])
+            WUQ= np.double(wu[iq][il])
+            ALQ= np.double(A_lq)
+            # extract eff. force
+            if p.at_resolved:
+                FJAX_LQLQP = np.zeros(3*nat*len(qlp_list), dtype=np.complex128)
+                ii = 0
+                for iqlp in range(len(qlp_list)):
+                    for jax in range(3*nat):
+                        FJAX_LQLQP[ii] = Fjax_lqlqp[jax,iqlp]
+                        ii += 1
+            if p.ph_resolved:
+                F_LQLQP = np.zeros(len(qlp_list), dtype=np.complex128)
+                for jax in range(3*nat):
+                    F_LQLQP[:] += Fjax_lqlqp[jax,:]
+            # input arrays
+            WQP = np.zeros(len(qlp_list), dtype=np.double)
+            WUQP= np.zeros(len(qlp_list), dtype=np.double)
+            ALQP= np.zeros(len(qlp_list), dtype=np.double)
+            iqlp = 0
+            for iqp, ilp in qlp_list:
+                WQP[iqlp] = wq[iqp]
+                WUQP[iqlp]= wu[iqp][ilp]
+                ALQP[iqlp]= A_lqp[iqlp]
+                iqlp += 1
+            # temperature cycle
+            for iT in range(p.ntmp):
+                T = np.double(p.temperatures[iT])
+                # iterate over w
+                w0 = 0
+                while (w0 < p.nwg):
+                    w1 = w0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
+                    size = min(w1, p.nwg) - w0
+                    SIZE = np.int32(size)
+                    # FREQ.
+                    WG = np.zeros(size, dtype=np.double)
+                    for w in range(w0, min(w1,p.nwg)):
+                        WG[w-w0] = p.w_grid[w]
+                    # ATOM RESOLVED
+                    #
     #
     # dyndec calculation acf (2)
     def compute_dkt0_acf_Vph2(self, wq, wu, iq, il, qlp_list, A_lq, A_lqp, F_lqlqp, w_k):
