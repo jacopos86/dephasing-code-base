@@ -966,13 +966,13 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                 iq, il = ql_list[iph]
                                 # wql grid
                                 iwql = p.wql_grid_index[iq,il]
-                                self.acf_wql_sp[:,0,iwql,iT] += ACF[t-t0,iph-iph0]
-                                self.acf_wql_sp[:,1,iwql,iT] += ACF_INT[t-t0,iph-iph0]
+                                self.acf_wql_sp[t,0,iwql,iT] += ACF[t-t0,iph-iph0]
+                                self.acf_wql_sp[t,1,iwql,iT] += ACF_INT[t-t0,iph-iph0]
                                 # phr
                                 if il in p.phm_list:
                                     iphr = p.phm_list.index(il)
-                                    self.acf_phr_sp[:,0,iphr,iT] += ACF[t-t0,iph-iph0]
-                                    self.acf_phr_sp[:,1,iphr,iT] += ACF_INT[t-t0,iph-iph0]
+                                    self.acf_phr_sp[t,0,iphr,iT] += ACF[t-t0,iph-iph0]
+                                    self.acf_phr_sp[t,1,iphr,iT] += ACF_INT[t-t0,iph-iph0]
                         iph0 = iph1
                 t0 = t1
     # compute <Delta V^(1) Delta V^(1)>(w) -> ph / at resolved
@@ -1082,11 +1082,11 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                 iq, il = ql_list[iph]
                                 # wql grid
                                 iwql = p.wql_grid_index[iq,il]
-                                self.acf_wql_sp[:,iwql,iT] += ACFW[w-w0,iph-iph0]
+                                self.acf_wql_sp[w,iwql,iT] += ACFW[w-w0,iph-iph0]
                                 # phr
                                 if il in p.phm_list:
                                     iphr = p.phm_list.index(il)
-                                    self.acf_phr_sp[:,iphr,iT] += ACFW[w-w0,iph-iph0]
+                                    self.acf_phr_sp[w,iphr,iT] += ACFW[w-w0,iph-iph0]
                         iph0 = iph1
                 w0 = w1
     #
@@ -1196,8 +1196,8 @@ class GPU_acf_sp_ph(acf_sp_ph):
                     ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
                     # local freq. array
                     WG = np.zeros(size, dtype=np.double)
-                    for iw in range(iw0, min(iw1,p.nwg)):
-                        WG[iw-iw0] = p.w_grid[iw]
+                    for w in range(iw0, min(iw1,p.nwg)):
+                        WG[w-iw0] = p.w_grid[w]
                         # eV
                     # call GPU function
                     compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), SIZE, cuda.In(WG),
@@ -1205,8 +1205,8 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                 T, DE, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, ETA, cuda.Out(ACFW),
                                 block=gpu.block, grid=gpu.grid)
                     ACFW = gpu.recover_data_from_grid(ACFW)
-                    for iw in range(iw0, min(iw1,p.nwg)):
-                        self.acf_sp[iw,iT] += ACFW[iw-iw0]
+                    for w in range(iw0, min(iw1,p.nwg)):
+                        self.acf_sp[w,iT] += ACFW[w-iw0]
                     iw0 = iw1
     #
     # compute <Delta V^(2)(t) Delta V^(2)(t')> -> ph / at resolved
@@ -1320,12 +1320,12 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         ACF_INT = gpu.recover_data_from_grid(ACF_INT)
                         for t in range(t0, min(t1,p.nt2)):
                             # wql grid
-                            self.acf_wql_sp[:,0,iwql,iT] += ACF[t-t0]
-                            self.acf_wql_sp[:,1,iwql,iT] += ACF_INT[t-t0]
+                            self.acf_wql_sp[t,0,iwql,iT] += ACF[t-t0]
+                            self.acf_wql_sp[t,1,iwql,iT] += ACF_INT[t-t0]
                             # phr
                             if il in p.phm_list:
-                                self.acf_phr_sp[:,0,iphr,iT] += ACF[t-t0]
-                                self.acf_phr_sp[:,1,iphr,iT] += ACF_INT[t-t0]
+                                self.acf_phr_sp[t,0,iphr,iT] += ACF[t-t0]
+                                self.acf_phr_sp[t,1,iphr,iT] += ACF_INT[t-t0]
                     t0 = t1
     #
     # compute <Delta V^(2) Delta V^(2)>(w) -> ph / at resolved

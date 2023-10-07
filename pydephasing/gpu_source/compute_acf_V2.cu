@@ -83,6 +83,9 @@ const double TOLER, double ETA, cmplx *acfw) {
                 x = Eqlp / (KB * T);
                 nqlp = bose_occup(x, T, TOLER);
                 /* compute lorentzian */
+                x = DE + Eql - Eqlp + wg[iwx];
+                LTZ = lorentzian(x, ETA);
+                
             }
         }
     }
