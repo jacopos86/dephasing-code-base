@@ -83,10 +83,34 @@ const double TOLER, double ETA, cmplx *acfw) {
                 x = Eqlp / (KB * T);
                 nqlp = bose_occup(x, T, TOLER);
                 /* compute lorentzian */
-                x = DE + Eql - Eqlp + wg[iwx];
+                x = DE + Eqlp - Eql + wg[iwx];
                 LTZ = lorentzian(x, ETA);
-                
+                fw = nql * (1. + nqlp) * LTZ;
+                /* compute ACF */
+                acfw[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * fw * Flqlqp[iqlp] * conj(Flqlqp[iqlp]);
             }
         }
     }
+}
+
+__global__ void compute_acf_V2_phr_oft(int *qlp_init, int *lgth, int *qlp_lst, double *time, const int SIZE,
+double DE, double NU, double wq, double wuq, double Alq, double *wqp, double *wuqp, double *Alqp, cmplx *Flqlqp,
+double T, double MINFREQ, double THZTOEV, double KB, const double TOLER, cmplx *acf, cmplx *acf_int) {
+    const int i = threadIdx.x + blockDim.x * blockIdx.x;
+    const int j = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k = threadIdx.z + blockDim.z * blockIdx.z;
+    int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
+    int tx  = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
+    int iqlx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
+    /* internal variables */
+
+
+
+
+    if (tx < SIZE) {
+        
+    }
+
+
+
 }
