@@ -101,7 +101,6 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, c
     int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
     int tx = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int ax = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
-    int ia = at_lst[ax];
     /* internal vars*/
     int iql;
     int dx, iFx;
@@ -111,6 +110,8 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf, c
     const cmplx IU(0., 1.);
     /* check tx < SIZE */
     if (tx < SIZE && ax < NA_SIZE) {
+        int ia = at_lst[ax];
+        /* iterate over (q,l) */
         for (iql=0; iql<NMODES; iql++) {
             if (wuq[iql] > MINFREQ) {
                 wql = 2.*PI*wuq[iql];
