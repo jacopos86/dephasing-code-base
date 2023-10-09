@@ -1216,7 +1216,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
         mod = SourceModule(gpu_src)
         # CALC. type
         if p.ph_resolved:
-            compute_acf_phr = mod.get_function("compute_acf_V2_phr_oft")
+            compute_acf_phr = mod.get_function("compute_acf_V2_oft")
             # split modes on grid
             QLP_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(qlp_list)))
             # ph. index
@@ -1335,7 +1335,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
         mod = SourceModule(gpu_src)
         # CALC. type
         if p.ph_resolved:
-            compute_acf_phr = mod.get_function("compute_acf_V2_phr_ofw")
+            compute_acf_phr = mod.get_function("compute_acf_V2_ofw")
             # split modes on grid
             QLP_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(qlp_list)))
             # ph. index
