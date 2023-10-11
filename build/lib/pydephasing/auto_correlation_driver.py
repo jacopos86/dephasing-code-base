@@ -99,7 +99,7 @@ class acf_ph(object):
             F_lqlqp = np.zeros((4,nlqp), dtype=np.complex128)
             for jax in range(3*nat):
                 F_lqlqp[:,:] += Fjax_lqlqp[:,jax,:]
-                # [ps^-2] units
+                # [ps^-2] 
             # ----------------------------------
             #    ACF calculation
             # ----------------------------------
@@ -107,6 +107,14 @@ class acf_ph(object):
                 self.compute_acf_V2_oft(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
             if p.w_resolved:
                 self.compute_acf_V2_ofw(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
+            # -----------------------------------
+            #    AT / PHR calculation
+            # -----------------------------------
+            if p.at_resolved or p.ph_resolved:
+                if p.time_resolved:
+                    self.compute_acf_V2_atphr_oft(nat, wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, Fjax_lqlqp)
+                if p.w_resolved:
+                    self.compute_acf_V2_atphr_ofw(nat, wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, Fjax_lqlqp)
             #
             # check Delta^2 value
             if log.level <= logging.INFO:

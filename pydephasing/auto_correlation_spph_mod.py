@@ -149,7 +149,7 @@ class acf_sp_ph(acf_ph):
                     #
                     # compute Delta^2
                     A_th = nql_T[iT] * (1. + nqlp_T)
-                    Delta_w0[iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * A_th * F_llp[iqlp] * np.conjugate(F_llp[iqlp])
+                    Delta_w0[iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * A_th * F_llp * np.conjugate(F_llp)
                 iqlp += 1
         # final result
         Delta_w0r = np.zeros(p.ntmp)
@@ -1122,7 +1122,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 WQP[iqlp] = wq[iqp]
                 WUQP[iqlp]= wu[iqp][ilp]
                 ALQP[iqlp]= A_lqp[iqlp]
-                FLQLQP[iqlp]= F_lqlqp[iqlp]
+                FLQLQP[iqlp]= sum(F_lqlqp[:,iqlp])
                 iqlp += 1
             # run over
             #  temperature
@@ -1181,7 +1181,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 WQP[iqlp] = wq[iqp]
                 WUQP[iqlp]= wu[iqp][ilp]
                 ALQP[iqlp]= A_lqp[iqlp]
-                FLQLQP[iqlp]= F_lqlqp[iqlp]
+                FLQLQP[iqlp]= sum(F_lqlqp[:,iqlp])
                 iqlp += 1
             # iterate temperature
             for iT in range(p.ntmp):
@@ -1247,12 +1247,13 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 ii = 0
                 for iqlp in range(len(qlp_list)):
                     for jax in range(3*nat):
-                        FJAX_LQLQP[ii] = Fjax_lqlqp[jax,iqlp]
+                        FJAX_LQLQP[ii] = sum(Fjax_lqlqp[:,jax,iqlp])
                         ii += 1
             if p.ph_resolved:
                 F_LQLQP = np.zeros(len(qlp_list), dtype=np.complex128)
-                for jax in range(3*nat):
-                    F_LQLQP[:] += Fjax_lqlqp[jax,:]
+                for iqlp in range(len(qlp_list)):
+                    for jax in range(3*nat):
+                        F_LQLQP[iqlp] += sum(Fjax_lqlqp[:,jax,iqlp])
             # input arrays
             WQP = np.zeros(len(qlp_list), dtype=np.double)
             WUQP= np.zeros(len(qlp_list), dtype=np.double)
@@ -1364,12 +1365,13 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 ii = 0
                 for iqlp in range(len(qlp_list)):
                     for jax in range(3*nat):
-                        FJAX_LQLQP[ii] = Fjax_lqlqp[jax,iqlp]
+                        FJAX_LQLQP[ii] = sum(Fjax_lqlqp[:,jax,iqlp])
                         ii += 1
             if p.ph_resolved:
                 F_LQLQP = np.zeros(len(qlp_list), dtype=np.complex128)
-                for jax in range(3*nat):
-                    F_LQLQP[:] += Fjax_lqlqp[jax,:]
+                for iqlp in range(len(qlp_list)):
+                    for jax in range(3*nat):
+                        F_LQLQP[iqlp] += sum(Fjax_lqlqp[:,jax,iqlp])
             # input arrays
             WQP = np.zeros(len(qlp_list), dtype=np.double)
             WUQP= np.zeros(len(qlp_list), dtype=np.double)
