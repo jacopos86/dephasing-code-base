@@ -68,7 +68,6 @@ const double TOLER, double ETA, cmplx *acfw) {
     if (iwx < SIZE) {
         iqlp0 = qlp_init[iqlpx];
         n = lgth[iqlpx];
-        wql = 2.*PI*wuq;
         /* ph. occup.*/
         Eql = wuq * THZTOEV;
         x = Eql / (KB * T);
@@ -77,7 +76,6 @@ const double TOLER, double ETA, cmplx *acfw) {
         for (ii=iqlp0; ii<iqlp0+n; ii++) {
             iqlp = qlp_lst[ii];
             if (wuqp[iqlp] > MINFREQ) {
-                wqlp = 2.*PI*wuqp[iqlp];
                 Eqlp = wuqp[iqlp] * THZTOEV;
                 /* ph. occup. */
                 x = Eqlp / (KB * T);
@@ -177,10 +175,17 @@ double *Alqp, cmplx *Fjax_lqlqp, double T, double MINFREQ, double THZTOEV, doubl
                     /* ph. occup. number */
                     x = Eqlp / (KB * T);
                     nqlp = bose_occup(x, T, TOLER);
+                    /* compute lorentzian func. */
+                    x = DE + Eqlp - Eql + wg[iwx];
+                    LTZ = lorentzian(x, ETA);
+                    fw = nql * (1. + nqlp) * LTZ;
+                    /* atoms iteration */
+                    for (dx=0; dx<3; dx++) {
+                        iFx = 3*NAT*iqlp+3*ia+dx;
+                        acfw[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * fw * Fjax_lqlqp[iFx] * conj(Fjax_lqlqp[iFx]);
+                    }
                 }
             }
         }
     }
-
-
 }
