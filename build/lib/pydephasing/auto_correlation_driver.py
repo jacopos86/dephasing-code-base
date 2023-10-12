@@ -149,27 +149,6 @@ class acf_ph(object):
             eff_force_obj.set_up_2nd_order_force_phr(qpts, Fax, Faxby, H)
             # driver of ACF - order 2 calculation
             self.compute_acf_2_driver(nat, wq, u, wu, ql_list_2, qlp_list_2, qmq_map, A_lq, eff_force_obj, H)
-            sys.exit()
-            # compute effective force (second order)
-            # run over q pts list
-            iql = 0
-            for iq, il in tqdm(ql_list):
-                # effective force
-                Fjax_lqlqp = transf_2nd_order_force_phr(il, iq, wu, u, qpts, nat, Fax, Faxby, qlp_list, H)
-                F_lqlqp = np.zeros(len(qlp_list), dtype=np.complex128)
-                for jax in range(3*nat):
-                    F_lqlqp[:] += Fjax_lqlqp[jax,:]
-                sys.exit()
-                # update acf / ph. res.
-                self.compute_acf_Vph2(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
-                # at res.
-                if p.at_resolved or p.ph_resolved:
-                    self.compute_acf_Vph2_atphr(nat, wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, Fjax_lqlqp)
-                if log.level <= logging.INFO:
-                    self.Delta_2 += self.compute_acf_order2_zero_time(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
-                #print(self.Delta_2[0], self.acf_sp[0,0], iq, il, np.max(np.abs(F_lqlqp)), A_lq[iql], np.max(A_lqp))
-                # iterate
-                iql += 1
     #
     # compute acf parameters -> dyndec calculation
     def compute_acf_dyndec(self, wq, wu, u, qpts, nat, Fax, Faxby, ql_list):
