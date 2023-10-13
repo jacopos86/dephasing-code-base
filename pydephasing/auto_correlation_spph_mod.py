@@ -537,7 +537,8 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     fw[:] = nql_T[iT] * (1. + nqlp_T) * ltz[:]
                     # eV^-1
                     for jax in range(3*nat):
-                        # eV/ps^2*eV*ps^2*eV^-1 = eV
+                        # units : 1/ps^4*(eV*ps^2)^2*eV^-1 
+                        # = eV^2 * eV^-1 = eV
                         # ph. resolved
                         if p.ph_resolved:
                             ii = p.wql_grid_index[iq,il]

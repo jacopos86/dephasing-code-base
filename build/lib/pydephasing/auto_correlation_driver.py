@@ -91,6 +91,7 @@ class acf_ph(object):
             # set the list of (iqp,ilp)
             qlp_list = set_iqlp_list(il, iq, qlp_list_full, wu, H)
             print(len(qlp_list), len(qlp_list_full))
+            sys.exit()
             # update A_lqp with only needed amplitudes
             A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
             # compute eff. force
@@ -99,7 +100,8 @@ class acf_ph(object):
             F_lqlqp = np.zeros((4,nlqp), dtype=np.complex128)
             for jax in range(3*nat):
                 F_lqlqp[:,:] += Fjax_lqlqp[:,jax,:]
-                # [ps^-2] 
+                # [ps^-2]
+            sys.exit()
             # ----------------------------------
             #    ACF calculation
             # ----------------------------------

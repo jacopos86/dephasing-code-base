@@ -1,0 +1,11 @@
+!
+!   Author : Jacopo Simoni
+!   This file contains the subroutines needed
+!   to compute the GS electronic structure
+!   for each perturbed atomic system
+!   it uses run_pwscf.f90 in PW/src/
+!   without the atom dynamics part
+!
+! ===========================================================================
+SUBROUTINE run_pwscf_perturb_atom_struct ( exit_status )
+	   ! ================================================================

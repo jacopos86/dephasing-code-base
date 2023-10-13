@@ -5,12 +5,11 @@
 #
 import numpy as np
 import logging
-from pydephasing.phys_constants import THz_to_ev, eps
+from pydephasing.phys_constants import eps
 from pydephasing.T2_calc import T2_eval
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.input_parameters import p
-from pydephasing.utility_functions import bose_occup
 from pydephasing.extract_ph_data import set_ql_list_red_qgrid, set_iqlp_list
 from tqdm import tqdm
 from pydephasing.ph_resolved_quant import compute_ph_amplitude_q, transf_1st_order_force_phr, phr_force_2nd_order
@@ -91,6 +90,7 @@ class acf_ph(object):
             # set the list of (iqp,ilp)
             qlp_list = set_iqlp_list(il, iq, qlp_list_full, wu, H)
             print(len(qlp_list), len(qlp_list_full))
+            sys.exit()
             # update A_lqp with only needed amplitudes
             A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
             # compute eff. force
@@ -99,7 +99,8 @@ class acf_ph(object):
             F_lqlqp = np.zeros((4,nlqp), dtype=np.complex128)
             for jax in range(3*nat):
                 F_lqlqp[:,:] += Fjax_lqlqp[:,jax,:]
-                # [ps^-2] 
+                # [ps^-2]
+            sys.exit()
             # ----------------------------------
             #    ACF calculation
             # ----------------------------------
