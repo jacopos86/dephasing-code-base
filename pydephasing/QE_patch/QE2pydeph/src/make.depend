@@ -1,0 +1,3 @@
+zfs_module.o : constants_module.o
+pwscf_perturb_calc.o : zfs_module.o
+QE2pydeph.o : pwscf_perturb_calc.o

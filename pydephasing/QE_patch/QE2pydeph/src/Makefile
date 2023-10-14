@@ -11,7 +11,8 @@ MODFLAGS= $(BASEMOD_FLAGS) \
 
 ZFSOBJS = \
 zfs_module.o \
-constants_module.o
+constants_module.o \
+pwscf_perturb_calc.o
 
 PWOBJS = ../../PW/src/libpw.a
 PPOBJS = ../../PP/src/libpp.a
@@ -23,16 +24,16 @@ MODULES = $(PWOBJS) $(QEOBJS) $(PPOBJS)
 
 TLDEPS= pwlibs
 
-all : tldeps zfs_calc_driver.x
+all : tldeps QE2pydeph.x
 
 
 libzfs.a : $(ZFSOBJS) 
 	$(AR) $(ARFLAGS) $@ $?
 	$(RANLIB) $@
 
-zfs_calc_driver.x : zfs_calc_driver.o libzfs.a $(MODULES) $(LIBOBJS)
+QE2pydeph.x : QE2pydeph.o libzfs.a $(MODULES) $(LIBOBJS)
 	$(LD) $(LDFLAGS) -o $@ \
-		zfs_calc_driver.o libzfs.a $(MODULES) $(LIBOBJS) $(QELIBS)
+		QE2pydeph.o libzfs.a $(MODULES) $(LIBOBJS) $(QELIBS)
 	- ( cd ../../bin ; ln -fs ../PP/src/$@ . )
 
 tldeps :

@@ -1,11 +1,11 @@
-  !
-  ! ----------------------------------------------------------------------------
-  !
-  !    This program reads an input file and produce in output
-  !    a file with the ZFS tensor
-  !
-  ! ----------------------------------------------------------------------------
-PROGRAM zfs_calculation
+!
+! ----------------------------------------------------------------------------
+!
+!    This program is the main driver of the QE - pydephasing
+!    interface
+!
+! ----------------------------------------------------------------------------
+PROGRAM QE_pydeph
   ! ----------------------------------------------------------------------------
   !
   
@@ -26,7 +26,7 @@ PROGRAM zfs_calculation
   !
   
   CHARACTER (LEN=256)              :: outdir
-  CHARACTER (LEN=8)                :: code = 'ZFS_CALC'
+  CHARACTER (LEN=8)                :: code = 'QE_PYDEPH'
   CHARACTER (LEN=256)              :: trimcheck
   !
   INTEGER                          :: ios
@@ -37,7 +37,7 @@ PROGRAM zfs_calculation
   !
   !   NAMELIST zfs_hfi module
   
-  NAMELIST / inputzfs_hfi / outdir, prefix
+  NAMELIST / inputQE_pydeph / outdir, prefix, ZFS, HFI
   
 #ifdef __MPI
   call mp_startup ()
@@ -47,7 +47,7 @@ PROGRAM zfs_calculation
   call environment_start (code)
 
   !
-  prefix = 'zfs'
+  prefix = 'pydeph'
   call get_environment_variable ('ESPRESSO_TMPDIR', outdir)
   IF ( TRIM (outdir) == ' ' ) outdir = './'
 
@@ -58,8 +58,8 @@ PROGRAM zfs_calculation
      !
      call input_from_file ()
      !
-     READ (5, inputzfs_hfi, err=200, iostat=ios)
-200  call errore (code, 'reading inputzfs_hfi namelist', abs (ios))
+     READ (5, inputQE_pydeph, err=200, iostat=ios)
+200  call errore (code, 'reading inputQE_pydeph namelist', abs (ios))
 
      !
      tmp_dir = trimcheck (outdir)
@@ -72,11 +72,34 @@ PROGRAM zfs_calculation
 
   call mp_bcast (tmp_dir, ionode_id, intra_image_comm)
   call mp_bcast (prefix, ionode_id, intra_image_comm)
+  call mp_bcast (ZFS, ionode_id, intra_image_comm)
+  call mp_bcast (HFI, ionode_id, intra_image_comm)
   
   !
   IF (npool > 1) call errore (code, 'pools not implemented', npool)
   
   
+  !
+  !  prepare ZFS calculation : if required
+  !
+  
+  IF (ZFS) THEN
+
+     !
+     !  compute ddi (G)
+     !
+
+     call compute_ddig_space ( )
+
+     !
+     !  compute ddi real space
+     !
+     
+     
+     
+     
+  END IF
+  !
   
   
   
@@ -87,8 +110,8 @@ PROGRAM zfs_calculation
 
 
 
-
-
+  
+  !
   call environment_end (code)
   !
   
@@ -96,4 +119,4 @@ PROGRAM zfs_calculation
   STOP
   
   !
-END PROGRAM zfs_calculation
+END PROGRAM QE_pydeph
