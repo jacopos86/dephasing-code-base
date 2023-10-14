@@ -8,27 +8,38 @@
 MODULE zfs_module
   !
   
-
-
-
-
+  USE kinds,               ONLY : DP
+  
+  
+  
+  real(DP), allocatable         :: ddi_G (:,:,:)
+  !
+  !  dip. dip. inter. (G)
+  
+  
   CONTAINS
     !
     SUBROUTINE allocate_array_variables ()
       
-      
+      USE gvect,      ONLY : ngm
       
       
       
       !
       implicit none
       
+      !
+      integer             :: ierr
       
       
       
       
       !
-      !  allocate ZFS tensor
+      !    allocate ddi_G
+      !
+      
+      allocate ( ddi_G (ngm, 3, 3), stat=ierr )
+      if (ierr/=0) call errore ('compute_ddig_space', 'allocating ddi_G', abs(ierr))
       
       
       
@@ -46,23 +57,25 @@ MODULE zfs_module
       !    ddi(G)_{xy} = 4 * pi * [Gx * Gy / G^2 - delta(x,y) / 3 ]
       !
       
-      
+      USE constants,    ONLY : eps8, fpi
+      USE cell_base,    ONLY : omega
+      USE gvect,        ONLY : ngm, g
       
       
       !
       implicit none
-
-      !    internal variables
-
-
-
       
+      !    internal variables
+      
+      integer               :: x, y
+      integer               :: ng
       !
-      !    allocate ddi_G
-      !
-
-      allocate ( ddi_G (ngm, 3, 3), stat=ierr )
-      if (ierr/=0) call errore ('compute_ddig_space', 'allocating ddi_G', abs(ierr))
+      real(DP)              :: gsq
+      
+      
+      
+      !    initialize ddi (G)
+      
       ddi_G = 0._dp
       
       
@@ -87,6 +100,7 @@ MODULE zfs_module
       
       !
       ddi_G (:,:,:) = ddi_G (:,:,:) * fpi / omega
+      !  bohr^-3
       
       !
       RETURN

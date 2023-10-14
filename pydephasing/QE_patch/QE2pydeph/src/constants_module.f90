@@ -30,6 +30,8 @@ MODULE physical_constants
   real(DP), parameter             :: m_to_bohr = 1.889725989e10
   ! m -> bohr
   ! conversion factor
+  real(DP), parameter             :: Hz_to_joule = 6.62607015e-34
+  ! Hz -> Joule
   
   
   !
@@ -57,10 +59,10 @@ CONTAINS
     D0 = D0 * (gamma_e * hbar) ** 2
     !
     ! units : J m^3
-    D0 = D0 * J_to_MHz
     D0 = D0 * m_to_bohr ** 3
     !
     ! units : MHz bohr^3
+    D0 = D0 / Hz_to_joule * 1.e-6
     
     !
     RETURN
