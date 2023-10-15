@@ -95,9 +95,9 @@ PROGRAM QE_pydeph
      !  compute ddi real space
      !
      
+     call compute_invfft_ddiG ( )
      
-     
-     
+     !
   END IF
   !
   

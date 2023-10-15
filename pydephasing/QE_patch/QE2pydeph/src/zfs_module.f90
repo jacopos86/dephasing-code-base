@@ -39,7 +39,14 @@ MODULE zfs_module
       !
       
       allocate ( ddi_G (ngm, 3, 3), stat=ierr )
-      if (ierr/=0) call errore ('compute_ddig_space', 'allocating ddi_G', abs(ierr))
+      if (ierr/=0) call errore ('allocate_array_variables', 'allocating ddi_G', abs(ierr))
+      
+      !
+      !    allocate ddi_r
+      !
+      
+      allocate ( ddi_r (dfftp%nnr, 3, 3), stat=ierr )
+      if (ierr/=0) call errore ('allocate_array_variables', 'allocating ddi_r', abs(ierr))
       
       
       
@@ -47,7 +54,7 @@ MODULE zfs_module
       !
     END SUBROUTINE allocate_array_variables
     
-
+    
     ! ================================================================
     SUBROUTINE compute_ddig_space ( )
       ! ==============================================================
@@ -107,6 +114,83 @@ MODULE zfs_module
       
       !        
     END SUBROUTINE compute_ddig_space
+
+    !
+    !  compute ddi (r) : inv fft
+    !
+
+    ! ----------------------------------------------------------------
+    SUBROUTINE compute_invfft_ddiG ()
+      ! --------------------------------------------------------------
+      
+      
+      !
+      implicit none
+      
+      !   internal variables
+      
+      
+      
+      
+      
+      !
+      !  allocate temp. array
+
+      allocate ( aux_arr (dfftp%nnr), stat=ierr )
+      if (ierr/=0) call errore ('compute_invfft_ddiG', 'allocating aux_arr', abs(ierr))
+
+      !
+      !  prepare array for invfft
+      !
+      
+      DO x= 1, 3
+         DO y= x, 3
+            
+            aux_arr (:) = (0._dp,0._dp)
+            !
+            DO ng= 1, ngm
+               aux_arr (dfftp%nl (ng)) = aux_arr (dfftp%nl (ng)) + ddi_G (ng,x,y)
+            END DO
+
+            !
+            IF (gamma_only) THEN
+               DO ng= 1, ngm
+                  aux_arr (dfftp%nlm (ng)) = CONJG ( aux_arr (dfftp%nl (ng)))
+               END DO
+            END IF
+
+            !
+            !  ... ddi_of_0  ddi(G=0)
+            !
+
+            ddi_of_0 = 0.0_DP
+            IF (gg(1) < eps8) ddi_of_0 = DBLE( aux_arr (dfftp%nl(1)) )
+
+            !
+            call mp_sum ( ddi_of_0, intra_bgrp_comm )
+
+            !
+            ! inv FFT to real space
+            !
+
+            call invfft ('Rho', aux_arr, dfftp)
+
+            !
+            IF (x == y) THEN
+               ddi_r (:,x,y) = DBLE( aux_arr (:) )
+            ELSE
+               ddi_r (:,x,y) = DBLE( aux_arr (:) )
+               ddi_r (:,y,x) = DBLE( aux_arr (:) )
+            END IF
+            !
+
+         END DO
+         !
+      END DO
+      
+      !
+    END SUBROUTINE compute_invfft_ddiG
+    
     
     
     
