@@ -190,9 +190,69 @@ MODULE zfs_module
       
       !
     END SUBROUTINE compute_invfft_ddiG
+
+    !
+    ! --------------------------------------------------
+    SUBROUTINE compute_rho12_G ( )
+      ! ------------------------------------------------
+      !
+      !   compute :
+      !           rho(G,-G) = 
+      
+      
+      !  internal variables
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      !
+    END SUBROUTINE compute_rho12_G
     
-    
-    
+    !
+    ! --------------------------------------------------
+    SUBROUTINE compute_zfs_tensor ( )
+      ! ------------------------------------------------
+      !
+      !   This subroutine compute the ZFS tensor
+      !   D =
+      !
+      !   in presence of spin orbit
+      !   -> correction
+      !
+      !
+      
+      
+      
+      
+      implicit none
+      
+      !  internal variables
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+
+      
+      
+      
+    END SUBROUTINE compute_zfs_tensor
+    !
     
     
     
