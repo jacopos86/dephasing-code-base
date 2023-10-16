@@ -16,6 +16,8 @@ PROGRAM QE_pydeph
   USE mp_pools,                  ONLY : npool
   USE mp,                        ONLY : mp_bcast
   USE environment,               ONLY : environment_start, environment_end
+  USE input_parameters,          ONLY : ZFS, HFI, nconfig
+  USE zfs_module,                ONLY : compute_ddig_space, compute_invfft_ddiG
   
   
   
@@ -37,20 +39,20 @@ PROGRAM QE_pydeph
   !
   !   NAMELIST zfs_hfi module
   
-  NAMELIST / inputQE_pydeph / outdir, prefix, ZFS, HFI
+  NAMELIST / inputQE_pydeph / outdir, prefix, ZFS, HFI, nconfig
   
 #ifdef __MPI
   call mp_startup ()
 #endif
-
+  
   !
   call environment_start (code)
-
+  
   !
   prefix = 'pydeph'
   call get_environment_variable ('ESPRESSO_TMPDIR', outdir)
   IF ( TRIM (outdir) == ' ' ) outdir = './'
-
+  
   !
   IF (npool > 1) call errore (code, 'pools not implemented', npool)
   !
@@ -65,7 +67,7 @@ PROGRAM QE_pydeph
      tmp_dir = trimcheck (outdir)
      !
   END IF
-
+  
   !
   !  ... bcast
   !
@@ -74,6 +76,7 @@ PROGRAM QE_pydeph
   call mp_bcast (prefix, ionode_id, intra_image_comm)
   call mp_bcast (ZFS, ionode_id, intra_image_comm)
   call mp_bcast (HFI, ionode_id, intra_image_comm)
+  call mp_bcast (nconfig, ionode_id, intra_image_comm)
   
   !
   IF (npool > 1) call errore (code, 'pools not implemented', npool)
@@ -90,7 +93,7 @@ PROGRAM QE_pydeph
      !
 
      call compute_ddig_space ( )
-
+     call stop_pp
      !
      !  compute ddi real space
      !

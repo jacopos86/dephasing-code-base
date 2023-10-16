@@ -15,6 +15,9 @@ MODULE zfs_module
   real(DP), allocatable         :: ddi_G (:,:,:)
   !
   !  dip. dip. inter. (G)
+  real(DP), allocatable         :: ddi_r (:,:,:)
+  !
+  !  dip. dip. inter. (r)
   
   
   CONTAINS
@@ -22,7 +25,7 @@ MODULE zfs_module
     SUBROUTINE allocate_array_variables ()
       
       USE gvect,      ONLY : ngm
-      
+      USE fft_base,   ONLY : dfftp
       
       
       !
@@ -122,23 +125,36 @@ MODULE zfs_module
     ! ----------------------------------------------------------------
     SUBROUTINE compute_invfft_ddiG ()
       ! --------------------------------------------------------------
-      
+
+      USE constants,                ONLY : eps8
+      USE mp,                       ONLY : mp_sum
+      USE fft_base,                 ONLY : dfftp
+      USE mp_bands,                 ONLY : intra_bgrp_comm
+      USE control_flags,            ONLY : gamma_only
+      USE gvect,                    ONLY : ngm, gg
+      USE fft_interfaces,           ONLY : invfft
       
       !
       implicit none
       
       !   internal variables
-      
-      
-      
+
+      integer                           :: x, y
+      !   x,y counters
+      integer                           :: ng
+      integer                           :: ierr
+      !
+      complex(DP), allocatable          :: aux_arr (:)
+      !
+      real(DP)                          :: ddi_of_0
       
       
       !
       !  allocate temp. array
-
+      
       allocate ( aux_arr (dfftp%nnr), stat=ierr )
       if (ierr/=0) call errore ('compute_invfft_ddiG', 'allocating aux_arr', abs(ierr))
-
+      
       !
       !  prepare array for invfft
       !

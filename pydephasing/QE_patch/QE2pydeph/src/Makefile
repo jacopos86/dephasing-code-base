@@ -10,6 +10,7 @@ MODFLAGS= $(BASEMOD_FLAGS) \
           $(MOD_FLAG)../../dft-d3
 
 ZFSOBJS = \
+input_parameters.o \
 zfs_module.o \
 constants_module.o \
 pwscf_perturb_calc.o

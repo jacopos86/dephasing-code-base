@@ -24,29 +24,34 @@ SUBROUTINE run_pwscf_perturb_atom_struct ( exit_status )
   !!     (note: in the future, check_stop_now could also return a value
   !!     to specify the reason of exiting, and the value could be used
   !!     to return a different value for different reasons)
-
-
-
-
-
-
-
-
+  
+  USE control_flags,        ONLY : gamma_only
+  USE parameters,           ONLY : lmaxx, npk, ntypx
+  USE mp_images,            ONLY : intra_image_comm
+  USE io_global,            ONLY : ionode, ionode_id, stdout
+  USE check_stop,           ONLY : check_stop_now
+  USE input_parameters,     ONLY : nconfig
+  
+  
   !
   implicit none
-
-
-
-
-
-
-
-
-
-
-
-
-
+  !
+  INTEGER, INTENT(OUT)           :: exit_status
+  !!  Gives exit status
+  !
+  INTEGER                        :: ic
+  !   counter config. step
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   !
   exit_status = 0
   IF (ionode) WRITE( UNIT=stdout, FMT=9010 ) ntypx, npk, lmaxx
