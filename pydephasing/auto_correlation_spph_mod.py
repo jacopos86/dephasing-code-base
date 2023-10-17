@@ -197,10 +197,10 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     ft[:] = (1.+nph) * exp_iwt[:] + nph * cc_exp_iwt[:]
                     # (eV^2) units
                     self.acf_sp[:,0,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
-                    # (eV^2 ps) units
                     ft[:] = 0.
                     ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE-1j*nu)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE+1j*nu))
                     self.acf_sp[:,1,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
+                    # (eV^2 ps) units
             iql += 1
     #
     # compute <Delta V(1) \Delta V(1)>(w)
@@ -231,7 +231,8 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     T = p.temperatures[iT]
                     # bose occ.
                     nph = bose_occup(Eql, T)
-                    # eV/ps^2*eV*ps^2*eV^-1 = eV
+                    # eV ps^2 eV^-1 eV/ps^2 = 
+                    # [eV] units
                     self.acf_sp[:,iT] += wq[iq] * A_lq[iql] ** 2 * ((1.+nph)*ltza[:] + nph*ltzb[:]) * F_lq[iql] * F_lq[iql].conjugate()
             iql += 1
     #
@@ -269,6 +270,7 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     ft = np.zeros(p.nt2, dtype=np.complex128)
                     ft[:] = (1.+nph) * exp_iwt[:] + nph * cc_exp_iwt[:]
                     for jax in range(3*nat):
+                        # eV ps^2 * eV/ps^2
                         # (eV^2) units
                         # ph. resolved
                         if p.ph_resolved:
@@ -282,11 +284,11 @@ class CPU_acf_sp_ph(acf_sp_ph):
                             ia = atoms.index_to_ia_map[jax] - 1
                             self.acf_atr_sp[:,0,ia,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
                     # integral
+                    # eV ps^2 ps eV/ps^2
                     # (eV^2 ps) units
                     ft[:] = 0.
                     ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE-1j*nu)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE+1j*nu))
                     for jax in range(3*nat):
-                        # (eV^2) units
                         # ph. resolved
                         if p.ph_resolved:
                             ii = p.wql_grid_index[iq,il]
@@ -421,7 +423,7 @@ class CPU_acf_sp_ph(acf_sp_ph):
                 for iT in range(p.ntmp):
                     T = p.temperatures[iT]
                     nqlp_T = bose_occup(Eqlp, T)
-                    #
+                    # (eV ps^2)^2 eV^-1 ps^-4
                     # (eV) units
                     self.acf_sp[:,iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * nql_T[iT] * (1.+nqlp_T) * ltz[:] * F_llp * F_llp.conjugate()
                 iqlp += 1
@@ -466,6 +468,7 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     ft = np.zeros(p.nt2, dtype=np.complex128)
                     ft[:] = nql_T[iT] * (1. + nqlp_T) * exp_iwt[:]
                     for jax in range(3*nat):
+                        # (eV ps^2)^2 ps^-4 = eV^2
                         # (eV^2) units
                         # ph. resolved
                         if p.ph_resolved:
@@ -483,7 +486,8 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     ft[:] = 0.
                     ft[:] = nql_T[iT] * (1.+nqlp_T) * (exp_iwt[:] - 1.)/(-1j*(dE+wqlp-wql-1j*nu))
                     for jax in range(3*nat):
-                        # (eV^2) units
+                        # (eV ps^2)^2 eV^-1 ps^-4
+                        # (eV) units
                         # ph. resolved
                         if p.ph_resolved:
                             ii = p.wql_grid_index[iq,il]
