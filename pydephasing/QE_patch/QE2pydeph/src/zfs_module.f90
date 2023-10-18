@@ -223,20 +223,37 @@ MODULE zfs_module
       !   f1(G), f2(G) and f3(G) are computed by Fourier Transform
       !   of f1(r), f2(r) and f3(r)
       
-      
+      USE fft_base,              ONLY : dffts
+      USE gvect,                 ONLY : ngm
       
       
       implicit none
       
+      !  input variables
+
+      integer, intent(in)             :: ik
+      ! k pt.
+      integer, intent(in)             :: ib1, ib2
+      ! bands index
+      complex(DP), intent(out)        :: rhog (1:ngm)
+      ! rho(G,-G)
+      
       !  internal variables
+      real(DP), allocatable           :: gk (:)
+      ! |G+k|^2
+      complex(DP), allocatable        :: evc1_r (:,:)
+      ! real space wfc1
+      integer                         :: ir
+      ! grid index
+      integer                         :: ipol
+      ! spin index
+      integer                         :: ierr
       
       
-
-
       !
       !  plane waves
       !
-
+      
       ALLOCATE ( gk (1:npwx) )
       npw = ngk (ik)
       gk (:) = 0._DP
@@ -314,7 +331,7 @@ MODULE zfs_module
          
       END DO
       
-      
+      WRITE(6,*) f1_G (1,:)
 
 
 

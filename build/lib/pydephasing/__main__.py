@@ -11,12 +11,21 @@ from pydephasing.T2_classes import print_dephas_data, print_dephas_data_phr, pri
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.timer import timer
+from pydephasing.parser import parser
+#
+# parser
+args = parser.parse_args()
 #
 # set up parallelization
 #
 if mpi.rank == mpi.root:
-    log.info("start pydephasing                              ")
+    log.info("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    log.info("++++++                                                                                  ++++++")
+    log.info("++++++                           PYDEPHASING   CODE                                     ++++++")
+    log.info("++++++                                                                                  ++++++")
+    log.info("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 #
+sys.exit()
 if len(sys.argv) < 5:
     if sys.argv[1] == "--init":
         pass

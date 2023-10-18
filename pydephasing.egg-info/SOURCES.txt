@@ -17,6 +17,7 @@ pydephasing/compute_zfs_dephas.py
 pydephasing/compute_zfs_hfi_dephas.py
 pydephasing/create_displ_struct_files.py
 pydephasing/energy_fluct_mod.py
+pydephasing/extract_dephas_data.py
 pydephasing/extract_ph_data.py
 pydephasing/global_params.py
 pydephasing/gpu.py
@@ -26,6 +27,7 @@ pydephasing/input_parameters.py
 pydephasing/log.py
 pydephasing/mpi.py
 pydephasing/nuclear_spin_config.py
+pydephasing/parser.py
 pydephasing/ph_ampl_module.py
 pydephasing/ph_resolved_quant.py
 pydephasing/phys_constants.py

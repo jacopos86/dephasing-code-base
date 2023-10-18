@@ -5,15 +5,17 @@ from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.input_parameters import p
 import yaml
 # T2 inverse class
-class T2i_ofT:
+class T2i_ofT(object):
     # T2i is in ps^-1
     def __init__(self, nat):
-        self.T2_sec = np.zeros((2,p.ntmp))
+        self.T2_sec = np.zeros(p.ntmp)
         if p.at_resolved:
-            self.T2s_atr = np.zeros((2,nat,p.ntmp))
+            self.T2s_atr = np.zeros((nat,p.ntmp))
         if p.ph_resolved:
-            self.T2s_phr = np.zeros((2,len(p.phm_list),p.ntmp))
-            self.T2s_wql = np.zeros((2,p.nwbn,p.ntmp))
+            self.T2s_phr = np.zeros((len(p.phm_list),p.ntmp))
+            self.T2s_wql = np.zeros((p.nwbn,p.ntmp))
+    def generate_instance(self):
+        pass
     def get_T2_sec(self):
         return self.T2_sec
     def set_T2(self, iT, T2i):

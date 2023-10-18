@@ -81,6 +81,7 @@ class data_input():
         # hyperfine parameters
         # n. spins list
         self.nsp = 0
+        self.nconf = 0
         ######################################
         # dyn. decoupl. parameters
         # n. pulses
