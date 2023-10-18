@@ -282,15 +282,37 @@ MODULE zfs_module
          call invfft ('Wave', evc1_r (:,2), dffts)
          !
       END IF
-
-      !
-      allocate ( f1_r (1:dffts%nnr, 1:npol), stat=ierr )
-      f1_r (:,:) = cmplx (0._dp, 0._dp, kind=dp)
-      !
-      do ir= 1, dffts%nnr
-         f1_r (ir,:) = evc1_r (ir,:) * conjg (evc1_r (ir,:))
-      end do
       
+      !
+      allocate ( f1_aux (1:dffts%nnr), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating f1_aux', ABS(ierr))
+      !
+      allocate ( f1_G (1:ngm, 1:npol), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating f1_G', ABS(ierr))
+      f1_G (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+      
+      !
+      !  run : ipol
+      !
+      
+      DO ipol= 1, npol
+         !
+         f1_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         !
+         do ir= 1, dffts%nnr
+            f1_aux (ir) = evc1_r (ir,ipol) * conjg (evc1_r (ir,ipol))
+         end do
+         
+         !
+         !  compute f1(G)
+         !
+         
+         call fwfft ('Rho', f1_aux, dffts)
+         
+         !
+         f1_G (1:ngm, ipol) = f1_aux (dffts%nl (1:ngm))
+         
+      END DO
       
       
 
