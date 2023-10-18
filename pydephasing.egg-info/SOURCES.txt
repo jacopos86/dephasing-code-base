@@ -24,10 +24,10 @@ pydephasing/gpu.py
 pydephasing/gradient_interactions.py
 pydephasing/hf_stat_struct.py
 pydephasing/input_parameters.py
+pydephasing/input_parser.py
 pydephasing/log.py
 pydephasing/mpi.py
 pydephasing/nuclear_spin_config.py
-pydephasing/parser.py
 pydephasing/ph_ampl_module.py
 pydephasing/ph_resolved_quant.py
 pydephasing/phys_constants.py

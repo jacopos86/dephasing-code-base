@@ -5,12 +5,11 @@
 #
 import numpy as np
 import logging
-from pydephasing.phys_constants import THz_to_ev, eps
+from pydephasing.phys_constants import eps
 from pydephasing.T2_calc import T2_eval
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.input_parameters import p
-from pydephasing.utility_functions import bose_occup
 from pydephasing.extract_ph_data import set_ql_list_red_qgrid, set_iqlp_list
 from tqdm import tqdm
 from pydephasing.ph_resolved_quant import compute_ph_amplitude_q, transf_1st_order_force_phr, phr_force_2nd_order

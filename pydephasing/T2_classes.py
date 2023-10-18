@@ -3,19 +3,24 @@ from pydephasing.mpi import mpi
 from pydephasing.phys_constants import hbar
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.input_parameters import p
+from pydephasing.log import log
 import yaml
 # T2 inverse class
 class T2i_ofT(object):
     # T2i is in ps^-1
-    def __init__(self, nat):
-        self.T2_sec = np.zeros(p.ntmp)
-        if p.at_resolved:
-            self.T2s_atr = np.zeros((nat,p.ntmp))
-        if p.ph_resolved:
-            self.T2s_phr = np.zeros((len(p.phm_list),p.ntmp))
-            self.T2s_wql = np.zeros((p.nwbn,p.ntmp))
+    def __init__(self):
+        self.T2_sec = None
+        self.T2s_atr = None
+        self.T2s_phr = None
+        self.T2s_wql = None
     def generate_instance(self):
-        pass
+        if not p.deph and not p.relax:
+            if p.dyndec:
+                return T2i_inhom_dd ()
+            else:
+                return T2i_inhom()
+        else:
+            return T2i_homo_ofT().generate_instance()
     def get_T2_sec(self):
         return self.T2_sec
     def set_T2(self, iT, T2i):
@@ -64,12 +69,42 @@ class T2i_ofT(object):
         T2s_wql_full = mpi.collect_array(self.T2s_wql[:,:,iT])
         self.T2s_wql[:,:,iT] = 0.
         self.T2s_wql[:,:,iT] = T2s_wql_full[:,:]
-# T2 dd
-class T2i_dd_ofT:
+# T2i abstract
+class T2i_homo_ofT(T2i_ofT):
+    def __init__(self, nat):
+        super(T2i_homo_ofT, self).__init__()
+        self.T2_sec = np.zeros(p.ntmp)
+        if p.at_resolved:
+            self.T2s_atr = np.zeros((nat,p.ntmp))
+        if p.ph_resolved:
+            if p.nphr > 0:
+                self.T2s_phr = np.zeros((p.nphr,p.ntmp))
+            self.T2s_wql = np.zeros((p.nwbn,p.ntmp))
+    def generate_instance(self):
+        if p.time_resolved:
+            return T2i_time_resolved ()
+        elif p.w_resolved:
+            return T2i_w_resolved ()
+        else:
+            log.error("neither time nor freq. resolved...")
+# concrete T2i -> time resolved 
+# calculation
+class T2i_time_resolved(T2i_homo_ofT):
+    def __init__(self):
+        super(T2i_time_resolved, self).__init__()
+# concrete T2i -> time resolved 
+# calculation
+class T2i_w_resolved(T2i_homo_ofT):
+    def __init__(self):
+        super(T2i_w_resolved, self).__init__()
+#
+# -> T2i dd class
+class T2i_inhom_dd(T2i_ofT):
     # T2i is in ps^-1
     def __init__(self):
+        super(T2i_inhom_dd, self).__init__()
         npl = len(p.n_pulses)
-        self.T2_sec = np.zeros((2,npl,p.ntmp))
+        self.T2_psec = np.zeros((npl,p.ntmp))
     def get_T2_sec(self):
         return self.T2_sec
     def set_T2(self, ipl, iT, T2i):
@@ -84,9 +119,10 @@ class T2i_dd_ofT:
         self.T2_sec[:,:,iT] = 0.
         self.T2_sec[:,:,iT] = T2s_full[:,:]
 # T2 inverse class
-class T2i_inhom:
+class T2i_inhom(T2i_ofT):
     # T2i is in ps^-1
     def __init__(self, nconf):
+        super(T2i_inhom, self).__init__()
         self.T2_psec = np.zeros(nconf+1)
     def get_T2_psec(self):
         return self.T2_psec
