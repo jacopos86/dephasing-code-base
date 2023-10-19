@@ -16,7 +16,7 @@ class T2i_ofT(object):
     def generate_instance(self):
         if not p.deph and not p.relax:
             if p.dyndec:
-                return T2i_inhom_dd ()
+                return T2i_inhom_dd()
             else:
                 return T2i_inhom()
         else:

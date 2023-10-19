@@ -1,9 +1,7 @@
-import sys
 from pydephasing.create_displ_struct_files import gen_poscars, gen_2ndorder_poscar
 from pydephasing.input_parameters import p
 from pydephasing.compute_zfs_hfi_dephas import compute_full_dephas
 from pydephasing.compute_zfs_dephas import compute_homo_dephas
-from pydephasing.compute_dyndec_dephas import compute_homo_dyndec_dephas
 from pydephasing.compute_exc_dephas import compute_homo_exc_dephas
 from pydephasing.compute_hfi_dephas import compute_hfi_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
@@ -79,7 +77,7 @@ if calc_type1 == "energy":
                 print_dephas_data_phr(T2_obj, tauc_obj, Delt_obj, lw_obj)
 elif calc_type1 == "spin":
     if mpi.rank == mpi.root:
-        log.info("-----------                   SPIN - PHONON CALCULATION        -------------")
+        log.info("------------------                   SPIN - PHONON CALCULATION        --------------------")
     # prepare spin dephasing calculation
     calc_type2 = parser.parse_args().ct2
     deph_type = parser.parse_args().typ
@@ -93,8 +91,9 @@ elif calc_type1 == "spin":
             p.deph = True
             p.relax= False
             if mpi.rank == mpi.root:
-                log.info("-----------                  T2 CALCULATION -> STARTING        -------------")
-                log.info("---------                  HOMOGENEOUS SPIN - DEPHASING           ----------")
+                log.info("----------------                  T2 CALCULATION -> STARTING        --------------")
+                log.info("------------                  HOMOGENEOUS SPIN - DEPHASING           -------------")
+                log.info("----------------------------------------------------------------------------------")
         elif deph_type == "relax":
             p.deph = False
             p.relax= True
