@@ -21,17 +21,6 @@ class T2i_ofT(object):
                 return T2i_inhom()
         else:
             return T2i_homo_ofT().generate_instance()
-    def get_T2_sec(self):
-        return self.T2_sec
-    def set_T2(self, iT, T2i):
-        for ic in range(2):
-            if T2i[ic] == 0.:
-                self.T2_sec[ic,iT] = np.inf
-            else:
-                self.T2_sec[ic,iT] = 1./T2i[ic] * 1.E-12
-        # sec units
-    def get_T2_atr_sec(self):
-        return self.T2s_atr
     def set_T2_atr(self, ia, iT, T2ai):
         for ic in range(2):
             if T2ai[ic] == 0.:
@@ -39,10 +28,6 @@ class T2i_ofT(object):
             else:
                 self.T2s_atr[ic,ia,iT] = 1./T2ai[ic] * 1.E-12
         # sec
-    def get_T2_phr_sec(self):
-        return self.T2s_phr
-    def get_T2_wql_sec(self):
-        return self.T2s_wql
     def set_T2_phr(self, iph, iT, T2pi):
         for ic in range(2):
             if T2pi[ic] == 0.:
@@ -57,18 +42,6 @@ class T2i_ofT(object):
             else:
                 self.T2s_wql[:,iwb,iT] = 1./T2pi[:] * 1.E-12
         # sec
-    def collect_atr_from_other_proc(self, iT):
-        T2s_atr_full = mpi.collect_array(self.T2s_atr[:,:,iT])
-        self.T2s_atr[:,:,iT] = 0.
-        self.T2s_atr[:,:,iT] = T2s_atr_full[:,:]
-    def collect_phr_from_other_proc(self, iT):
-        T2s_phr_full = mpi.collect_array(self.T2s_phr[:,:,iT])
-        self.T2s_phr[:,:,iT] = 0.
-        self.T2s_phr[:,:,iT] = T2s_phr_full[:,:]
-        # wql
-        T2s_wql_full = mpi.collect_array(self.T2s_wql[:,:,iT])
-        self.T2s_wql[:,:,iT] = 0.
-        self.T2s_wql[:,:,iT] = T2s_wql_full[:,:]
 # T2i abstract
 class T2i_homo_ofT(T2i_ofT):
     def __init__(self, nat):
@@ -87,37 +60,73 @@ class T2i_homo_ofT(T2i_ofT):
             return T2i_w_resolved ()
         else:
             log.error("neither time nor freq. resolved...")
-# concrete T2i -> time resolved 
+    def get_T2_sec(self):
+        return self.T2_sec
+    def get_T2_atr_sec(self):
+        return self.T2s_atr
+    def get_T2_phr_sec(self):
+        return self.T2s_phr
+    def get_T2_wql_sec(self):
+        return self.T2s_wql
+    def collect_atr_from_other_proc(self, iT):
+        T2s_atr_full = mpi.collect_array(self.T2s_atr[:,iT])
+        self.T2s_atr[:,iT] = 0.
+        self.T2s_atr[:,iT] = T2s_atr_full[:]
+    def collect_phr_from_other_proc(self, iT):
+        if p.nphr > 0:
+            T2s_phr_full = mpi.collect_array(self.T2s_phr[:,iT])
+            self.T2s_phr[:,iT] = 0.
+            self.T2s_phr[:,iT] = T2s_phr_full[:]
+        # wql
+        T2s_wql_full = mpi.collect_array(self.T2s_wql[:,iT])
+        self.T2s_wql[:,iT] = 0.
+        self.T2s_wql[:,iT] = T2s_wql_full[:]
+# concrete T2i -> time resolved
 # calculation
 class T2i_time_resolved(T2i_homo_ofT):
     def __init__(self):
         super(T2i_time_resolved, self).__init__()
+    # compute deph/relax time
+    def set_T2(self, iT):
+        if T2i[ic] == 0.:
+            self.T2_sec[ic,iT] = np.inf
+        else:
+            self.T2_sec[ic,iT] = 1./T2i[ic] * 1.E-12
+        # sec
 # concrete T2i -> time resolved 
 # calculation
 class T2i_w_resolved(T2i_homo_ofT):
     def __init__(self):
         super(T2i_w_resolved, self).__init__()
+    # compute deph/relax time
+    def set_T2(self, iT):
+        if T2i[ic] == 0.:
+            self.T2_sec[ic,iT] = np.inf
+        else:
+            self.T2_sec[ic,iT] = 1./T2i[ic] * 1.E-12
+        # sec
 #
 # -> T2i dd class
 class T2i_inhom_dd(T2i_ofT):
     # T2i is in ps^-1
-    def __init__(self):
+    def __init__(self, nconf):
         super(T2i_inhom_dd, self).__init__()
         npl = len(p.n_pulses)
-        self.T2_psec = np.zeros((npl,p.ntmp))
+        self.T2_psec = np.zeros((npl,nconf+1))
+    def get_T2_psec(self):
+        return self.T2_psec
     def get_T2_sec(self):
-        return self.T2_sec
-    def set_T2(self, ipl, iT, T2i):
-        for ic in range(2):
-            if T2i[ic] == 0.:
-                self.T2_sec[ic,ipl,iT] = np.inf
-            else:
-                self.T2_sec[ic,ipl,iT] = 1./T2i[ic] * 1.E-12
-        # sec units
-    def collect_from_other_proc(self, iT):
-        T2s_full = mpi.collect_array(self.T2_sec[:,:,iT])
-        self.T2_sec[:,:,iT] = 0.
-        self.T2_sec[:,:,iT] = T2s_full[:,:]
+        return self.T2_psec * 1.E-12
+    def set_T2_psec(self, ipl, ic):
+        if T2i[ic] == 0.:
+            self.T2_psec[ipl,ic] = np.inf
+        else:
+            self.T2_psec[ipl,ic] = 1./T2i[ic] * 1.E-12
+        # psec units
+    def collect_from_other_proc(self, ipl):
+        T2s_full = mpi.collect_array(self.T2_sec[ipl,:])
+        self.T2_sec[ipl,:] = 0.
+        self.T2_sec[ipl,:] = T2s_full[:]
 # T2 inverse class
 class T2i_inhom(T2i_ofT):
     # T2i is in ps^-1

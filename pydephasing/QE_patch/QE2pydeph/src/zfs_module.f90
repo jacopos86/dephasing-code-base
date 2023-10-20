@@ -209,7 +209,7 @@ MODULE zfs_module
 
     !
     ! ------------------------------------------------------------
-    SUBROUTINE compute_rho12_G ( ik, ib1, ib2, rhog )
+    SUBROUTINE compute_rho12_G ( ik )
       ! ----------------------------------------------------------
       !
       !   Compute rho(G, -G) for two electrons.
@@ -233,9 +233,7 @@ MODULE zfs_module
 
       integer, intent(in)             :: ik
       ! k pt.
-      integer, intent(in)             :: ib1, ib2
-      ! bands index
-      complex(DP), intent(out)        :: rhog (1:ngm)
+      !complex(DP), intent(out)        :: rhog (1:ngm)
       ! rho(G,-G)
       
       !  internal variables
@@ -267,84 +265,128 @@ MODULE zfs_module
       !
       !  read the wavefunction
       !
-
-      call davcio (evc, 2*nwordwfc, iunwfc, ik, -1)
       
-      ! -----------------------------------------
-      !     compute f1(r)
-      ! -----------------------------------------
+      call davcio (evc, 2*nwordwfc, iunwfc, ik, -1)
 
       !
-      !  real space wfc
+      ! allocate arrays
       !
-
+      
       allocate ( evc1_r (1:dffts%nnr, 1:npol), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating evc1_r', ABS(ierr))
-
-      !
-      evc1_r (:,:) = cmplx (0._dp, 0._dp, kind=dp)
-      do ig= 1, npw
-         evc1_r (dffts%nl (igk_k(ig,ik)), 1) = evc (ig,ib1)
-      end do
-
-      !
-      call invfft ('Wave', evc1_r (:,1), dffts)
-      !
-      IF (noncolin) THEN
-         !
-         do ig= 1, npw
-            evc1_r (dffts%nl (igk_k(ig,ik)), 2) = evc (ig+npwx,ib1)
-         end do
-         !
-         call invfft ('Wave', evc1_r (:,2), dffts)
-         !
-      END IF
-      
       !
       allocate ( f1_aux (1:dffts%nnr), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f1_aux', ABS(ierr))
       !
       allocate ( f1_G (1:ngm, 1:npol), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f1_G', ABS(ierr))
-      f1_G (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+      !
+      allocate ( evc2_r (1:dffts%nnr, 1:npol), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating evc2_r', ABS(ierr))
       
       !
-      !  run : ipol
+      !  iterate ib1 : 1 -> nmax
       !
       
-      DO ipol= 1, npol
+      DO ib1= 1, nmax
+         
+         ! -----------------------------------------
+         !     compute f1(r)
+         ! -----------------------------------------
+         
          !
-         f1_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         !  real space wfc
          !
-         do ir= 1, dffts%nnr
-            f1_aux (ir) = evc1_r (ir,ipol) * conjg (evc1_r (ir,ipol))
+         
+         evc1_r (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+         do ig= 1, npw
+            evc1_r (dffts%nl (igk_k(ig,ik)), 1) = evc (ig,ib1)
          end do
          
          !
-         !  compute f1(G)
+         call invfft ('Wave', evc1_r (:,1), dffts)
+         !
+         IF (noncolin) THEN
+            !
+            do ig= 1, npw
+               evc1_r (dffts%nl (igk_k(ig,ik)), 2) = evc (ig+npwx,ib1)
+            end do
+            !
+            call invfft ('Wave', evc1_r (:,2), dffts)
+            !
+         END IF
+         
+         !
+         f1_G (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+         
+         !
+         !  run : ipol
          !
          
-         call fwfft ('Rho', f1_aux, dffts)
+         DO ipol= 1, npol
+            !
+            f1_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+            !
+            do ir= 1, dffts%nnr
+               f1_aux (ir) = evc1_r (ir,ipol) * conjg (evc1_r (ir,ipol))
+            end do
+            
+            !
+            !  compute f1(G)
+            !
+            
+            call fwfft ('Rho', f1_aux, dffts)
+            
+            !
+            f1_G (1:ngm, ipol) = f1_aux (dffts%nl (1:ngm))
+            
+         END DO
+         
+         WRITE(6,*) f1_G (1,:)
          
          !
-         f1_G (1:ngm, ipol) = f1_aux (dffts%nl (1:ngm))
+         !  run over ib2 : 1 -> ib1
+         !
          
+         DO ib2= 1, ib1
+
+            ! ----------------------------------------
+            !   compute f2(r)
+            ! ----------------------------------------
+            
+            !
+            !  real space evc2_r
+            !
+
+            evc2_r (:,:) = cmplx (0._dp, 0._dp) 
+            !
+            do ig= 1, npw
+               evc2_r (dffts%nl (igk_k(ig,ik)), 1) = evc (ig,ib2)
+            end do
+            
+            !
+            call invfft ('Wave', evc2_r (:,1), dffts)
+            
+            !
+            IF (noncolin) THEN
+               !
+               do ig= 1, npw
+                  evc2_r (dffts%nl (igk_k(ig,ik)), 2) = evc (ig+npwx,ib2)
+               end do
+               !
+               call invfft ('Wave', evc2_r (:,2), dffts)
+               !
+            END IF
+            !
+            
+            
+            
+            
+            
+         END DO
+         
+         !
       END DO
-      
-      WRITE(6,*) f1_G (1,:)
-
-
-
-
-
-
-      
-      
-      
-      
-      
-      
-      
       
       !
     END SUBROUTINE compute_rho12_G

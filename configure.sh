@@ -64,3 +64,5 @@
 	read ngy
 	echo "  - $ngy" >> config.yml
  fi
+ 
+ # update input test file paths
