@@ -18,6 +18,9 @@ MODULE zfs_module
   real(DP), allocatable         :: ddi_r (:,:,:)
   !
   !  dip. dip. inter. (r)
+  integer                       :: nmax
+  !  n. occupied states
+  !  max iter. index in sum
   
   
   CONTAINS
@@ -224,7 +227,16 @@ MODULE zfs_module
       !   of f1(r), f2(r) and f3(r)
       
       USE fft_base,              ONLY : dffts
-      USE gvect,                 ONLY : ngm
+      USE gvect,                 ONLY : ngm, g
+      USE gvecw,                 ONLY : ecutwfc
+      USE io_files,              ONLY : iunwfc, nwordwfc
+      USE io_global,             ONLY : stdout
+      USE noncollin_module,      ONLY : noncolin, npol
+      USE wavefunctions,         ONLY : evc
+      USE wvfct,                 ONLY : npwx
+      USE cell_base,             ONLY : tpiba2
+      USE klist,                 ONLY : ngk, xk, igk_k
+      USE fft_interfaces,        ONLY : invfft, fwfft
       
       
       implicit none
@@ -233,18 +245,27 @@ MODULE zfs_module
 
       integer, intent(in)             :: ik
       ! k pt.
-      !complex(DP), intent(out)        :: rhog (1:ngm)
-      ! rho(G,-G)
       
       !  internal variables
       real(DP), allocatable           :: gk (:)
       ! |G+k|^2
       complex(DP), allocatable        :: evc1_r (:,:)
       ! real space wfc1
-      integer                         :: ir
+      complex(DP), allocatable        :: evc2_r (:,:)
+      ! real space wfc2
+      complex(DP), allocatable        :: f1_aux (:), f2_aux (:), f3_aux (:)
+      ! aux. real space arrays
+      complex(DP), allocatable        :: f1_G (:,:), f2_G (:,:), f3_G (:,:)
+      ! aux. rec. space arrays
+      complex(DP), allocatable        :: rhog (:,:)
+      ! rho_12(G,-G)
+      integer                         :: ir, ig
       ! grid index
       integer                         :: ipol
       ! spin index
+      integer                         :: ib1, ib2
+      ! band index
+      integer                         :: npw
       integer                         :: ierr
       
       
@@ -296,7 +317,7 @@ MODULE zfs_module
       allocate ( f3_G (1:ngm, 1:npol), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f3_G', ABS(ierr))
       !
-      allocate ( rhog (1:ngm), stat=ierr )
+      allocate ( rhog (1:ngm, 1:npol), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating rhog', ABS(ierr))
       
       !
@@ -451,8 +472,8 @@ MODULE zfs_module
             
             END DO
 
-            rhog (:) = cmplx (0._dp, 0._dp, kind=dp)
-            rhog (:) = f1_G (:) * conjg (f2_G (:)) - f3_G (:) * conjg (f3_G (:))
+            rhog (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+            rhog (:,:) = f1_G (:,:) * conjg (f2_G (:,:)) - f3_G (:,:) * conjg (f3_G (:,:))
 
             !
             !   compute ZFS

@@ -1,4 +1,4 @@
-working_dir : /home/jacopo/Documents/dephasing-code-base/examples/NV-diamond
+working_dir : /home/jacopo/PROJECTS/dephasing-code-base/examples/NV-diamond
 output_dir : T2-SP-DEPHC_TEST
 displ_poscar_dir : 
   - DISPLACEMENT-FILES-01
@@ -21,11 +21,10 @@ phonon_res : False
 nwbn : 30
 ph_list :
   - 0
-  - 1
+  - 10
 nwg : 1000
-min_freq : 1.0E-2
 eta : 6.6E-8
-lorentz_thres : 1.0E-8
+min_freq : 1.E-2
 temperature :
   - 1.0
   - 10.0

@@ -17,8 +17,9 @@ PROGRAM QE_pydeph
   USE mp,                        ONLY : mp_bcast
   USE environment,               ONLY : environment_start, environment_end
   USE input_parameters,          ONLY : ZFS, HFI, nconfig
-  USE zfs_module,                ONLY : compute_ddig_space, compute_invfft_ddiG
-  
+  USE zfs_module,                ONLY : compute_ddig_space, compute_invfft_ddiG,     &
+       compute_rho12_G, allocate_array_variables
+  USE noncollin_module,          ONLY : npol
   
   
   IMPLICIT NONE
@@ -80,18 +81,32 @@ PROGRAM QE_pydeph
   
   !
   IF (npool > 1) call errore (code, 'pools not implemented', npool)
-  
+
+  !
+  !  allocate space for pwscf variables
+  !
+
+  call read_file
+  call openfil_pp
+
+  call weights ( )
+  !
+  call init_us_1
   
   !
   !  prepare ZFS calculation : if required
   !
   
   IF (ZFS) THEN
-
+     !
+     IF (npol > 1) call errore (code, 'non collinearity not implemented', npol)
+     
+     call allocate_array_variables ( )
+     
      !
      !  compute ddi (G)
      !
-
+     
      call compute_ddig_space ( )
      call stop_pp
      !
@@ -99,6 +114,12 @@ PROGRAM QE_pydeph
      !
      
      call compute_invfft_ddiG ( )
+
+     !
+     !  compute rho_12(G,-G)
+     !
+
+     call compute_rho12_G ( 1 )
      
      !
   END IF
