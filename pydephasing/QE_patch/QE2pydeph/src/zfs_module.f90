@@ -283,6 +283,21 @@ MODULE zfs_module
       !
       allocate ( evc2_r (1:dffts%nnr, 1:npol), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating evc2_r', ABS(ierr))
+      !
+      allocate ( f2_aux (1:dffts%nnr), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating f2_aux', ABS(ierr))
+      !
+      allocate ( f2_G (1:ngm, 1:npol), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating f2_G', ABS(ierr))
+      !
+      allocate ( f3_aux (1:dffts%nnr), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating f3_aux', ABS(ierr))
+      !
+      allocate ( f3_G (1:ngm, 1:npol), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating f3_G', ABS(ierr))
+      !
+      allocate ( rhog (1:ngm), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating rhog', ABS(ierr))
       
       !
       !  iterate ib1 : 1 -> nmax
@@ -379,9 +394,70 @@ MODULE zfs_module
             END IF
             !
             
+            f2_G (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+            
+            !
+            !  run : ipol
+            !
+            
+            DO ipol= 1, npol
+               !
+               f2_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+               !
+               do ir= 1, dffts%nnr
+                  f2_aux (ir) = evc2_r (ir,ipol) * conjg (evc2_r (ir,ipol))
+               end do
+
+               !
+               !  compute f2(G)
+               !
+
+               call fwfft ('Rho', f2_aux, dffts)
+            
+               !
+               f2_G (1:ngm, ipol) = f2_aux (dffts%nl (1:ngm))
+
+            END DO
+
+            WRITE(stdout,*) f2_G (1,:)
+
+            !
+            !  compute -> f3(r) = psi1(r)* psi2(r)
+            !
+
+            f3_G (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+
+            !
+            !  run : ipol
+            !
+
+            DO ipol= 1, npol
+               !
+               f3_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+               !
+               do ir= 1, dffts%nnr
+                  f3_aux (ir) = conjg (evc1_r (ir,ipol)) * evc2_r (ir,ipol)
+               end do
+
+               !
+               !  compute f3 (G)
+               !
+
+               call fwfft ('Rho', f3_aux, dffts)
+
+               !
+               f3_G (1:ngm, ipol) = f3_aux (dffts%nl (1:ngm))
             
             
-            
+            END DO
+
+            rhog (:) = cmplx (0._dp, 0._dp, kind=dp)
+            rhog (:) = f1_G (:) * conjg (f2_G (:)) - f3_G (:) * conjg (f3_G (:))
+
+            !
+            !   compute ZFS
+            !
+
             
          END DO
          

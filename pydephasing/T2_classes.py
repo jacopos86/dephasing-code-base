@@ -147,29 +147,53 @@ class T2i_inhom(T2i_ofT):
         T2ps_full = mpi.collect_array(self.T2_psec)
         self.T2_psec[:] = 0.
         self.T2_psec[:] = T2ps_full[:]
+# --------------------------------------------------
+#
 # Delta class
-class Delta_ofT:
+# --------------------------------------------------
+class Delta_ofT(object):
     # Delta is in eV
+    # acf(t=0) -> only time resolved calcuations
     def __init__(self, nat):
+        self.Delt = None
+        self.Delt_atr = None
+        self.Delt_phr = None
+        self.Delt_wql = None
+    def generate_instance(self):
+        if not p.deph and not p.relax:
+            if p.dyndec:
+                return Delta_inhom_dd()
+            else:
+                return Delta_inhom()
+        else:
+            if p.time_resolved:
+                return Delta_homo_ofT()
+            else:
+                return None
+    def get_Delt(self):
+        return self.Delt
+        # eV
+class Delta_homo_ofT(Delta_ofT):
+    def __init__(self, nat):
+        super(Delta_homo_ofT, self).__init__()
         self.Delt = np.zeros(p.ntmp)
         if p.at_resolved:
             self.Delt_atr = np.zeros((nat,p.ntmp))
         if p.ph_resolved:
-            self.Delt_phr = np.zeros((len(p.phm_list),p.ntmp))
+            if p.nphr > 0:
+                self.Delt_phr = np.zeros((p.nphr,p.ntmp))
             self.Delt_wql = np.zeros((p.nwbn,p.ntmp))
-    def get_Delt(self):
-        return self.Delt
-    def set_Delt(self, iT, D2):
-        self.Delt[iT] = np.sqrt(D2)
-        # eV units
     def get_Delt_atr(self):
         return self.Delt_atr
-    def set_Delt_atr(self, ia, iT, D2):
-        self.Delt_atr[ia,iT] = np.sqrt(D2)
     def get_Delt_phr(self):
         return self.Delt_phr
     def get_Delt_wql(self):
         return self.Delt_wql
+    def set_Delt(self, iT, D2):
+        self.Delt[iT] = np.sqrt(D2)
+        # eV units
+    def set_Delt_atr(self, ia, iT, D2):
+        self.Delt_atr[ia,iT] = np.sqrt(D2)
     def set_Delt_phr(self, iph, iT, D2):
         self.Delt_phr[iph,iT] = np.sqrt(D2)
     def set_Delt_wql(self, iwb, iT, D2):
@@ -179,35 +203,33 @@ class Delta_ofT:
         self.Delt_atr[:,iT] = 0.
         self.Delt_atr[:,iT] = Delt_atr_full[:]
     def collect_phr_from_other_proc(self, iT):
-        Delt_phr_full = mpi.collect_array(self.Delt_phr[:,iT])
-        self.Delt_phr[:,iT] = 0.
-        self.Delt_phr[:,iT] = Delt_phr_full[:]
+        if p.nphr > 0:
+            Delt_phr_full = mpi.collect_array(self.Delt_phr[:,iT])
+            self.Delt_phr[:,iT] = 0.
+            self.Delt_phr[:,iT] = Delt_phr_full[:]
         # wql
         Delt_wql_full = mpi.collect_array(self.Delt_wql[:,iT])
         self.Delt_wql[:,iT] = 0.
         self.Delt_wql[:,iT] = Delt_wql_full[:]
-# Delta class
-class Delta_dd_ofT:
+class Delta_inhom_dd(Delta_ofT):
     # Delta is in eV
-    def __init__(self):
+    def __init__(self, nconf):
+        super(Delta_inhom_dd, self).__init__()
         npl = len(p.n_pulses)
-        self.Delt = np.zeros((npl,p.ntmp))
-    def get_Delt(self):
-        return self.Delt
+        self.Delt = np.zeros((npl,nconf+1))
     def set_Delt(self, ipl, iT, D2):
         self.Delt[ipl,iT] = np.sqrt(D2)
         # eV units
-    def collect_from_other_proc(self, iT):
-        Delt_full = mpi.collect_array(self.Delt[:,iT])
-        self.Delt[:,iT] = 0.
-        self.Delt[:,iT] = Delt_full[:]
+    def collect_from_other_proc(self, ic):
+        Delt_full = mpi.collect_array(self.Delt[:,ic])
+        self.Delt[:,ic] = 0.
+        self.Delt[:,ic] = Delt_full[:]
 # Delta inhom class
-class Delta_inhom:
+class Delta_inhom(Delta_ofT):
     # Delta is in eV
     def __init__(self, nconf):
+        super(Delta_inhom, self).__init__()
         self.Delt = np.zeros(nconf+1)
-    def get_Delt(self):
-        return self.Delt
     def set_Delt(self, ic, D2):
         self.Delt[ic] = np.sqrt(D2)
         # eV units
@@ -216,16 +238,18 @@ class Delta_inhom:
         self.Delt[:] = 0.
         self.Delt[:] = Delt_full[:]
         # eV
-# tauc class
-class tauc_ofT:
+# ---------------------------------------------------
+# 
+#         tauc class
+# ---------------------------------------------------
+class tauc_ofT(object):
+    # -> only time resolved calculation 
     # tauc is in ps
-    def __init__(self, nat):
-        self.tauc_ps = np.zeros((2,p.ntmp))
-        if p.at_resolved:
-            self.tauc_atr = np.zeros((2,nat,p.ntmp))
-        if p.ph_resolved:
-            self.tauc_phr = np.zeros((2,len(p.phm_list),p.ntmp))
-            self.tauc_wql = np.zeros((2,p.nwbn,p.ntmp))
+    def __init__(self):
+        self.tauc_ps = None
+        self.tauc_atr = None
+        self.tauc_phr = None
+        self.tauc_wql = None
     def set_tauc(self, iT, tau_c):
         self.tauc_ps[:,iT] = tau_c[:]
         # ps units
@@ -258,10 +282,19 @@ class tauc_ofT:
         tauc_wql_full = mpi.collect_array(self.tauc_wql[:,:,iT])
         self.tauc_wql[:,:,iT] = 0.
         self.tauc_wql[:,:,iT] = tauc_wql_full[:,:]
-# tauc dd class
-class tauc_dd_ofT:
+class tauc_homo_ofT(tauc_ofT):
+    def __init__(self, nat):
+        super(tauc_homo_ofT, self).__init__()
+        self.tauc_ps = np.zeros(p.ntmp)
+        if p.at_resolved:
+            self.tauc_atr = np.zeros((nat, p.ntmp))
+        if p.ph_resolved:
+            if p.nphr > 0:
+                self.tauc_phr = np.zeros((p.nphr,p.ntmp))
+            self.tauc_wql = np.zeros((p.nwbn,p.ntmp))
+class tauc_inhom_dd(tauc_ofT):
     # tauc is in ps
-    def __init__(self):
+    def __init__(self, nconf):
         npl = len(p.n_pulses)
         self.tauc_ps = np.zeros((2,npl,p.ntmp))
     def set_tauc(self, ipl, iT, tau_c):
@@ -269,12 +302,12 @@ class tauc_dd_ofT:
         # ps units
     def get_tauc(self):
         return self.tauc_ps
-    def collect_from_other_proc(self, iT):
-        tauc_full = mpi.collect_array(self.tauc_ps[:,:,iT])
-        self.tauc_ps[:,:,iT] = 0.
-        self.tauc_ps[:,:,iT] = tauc_full[:,:]
+    def collect_from_other_proc(self, ic):
+        tauc_full = mpi.collect_array(self.tauc_ps[:,ic])
+        self.tauc_ps[:,ic] = 0.
+        self.tauc_ps[:,ic] = tauc_full[:]
 # tauc class inhom
-class tauc_inhom:
+class tauc_inhom(tauc_ofT):
     # tauc is in ps
     def __init__(self, nconf):
         self.tauc_ps = np.zeros(nconf+1)
