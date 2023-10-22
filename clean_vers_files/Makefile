@@ -1,4 +1,4 @@
-QEpath = /home/jacopo/Documents/q-e-qe-6.5
+QEpath = LOCAL-PATH
 
 build :
 	pip install -r requirements.txt
@@ -13,4 +13,4 @@ clean :
 test :
 	cd ./tests; python -m unittest test_unit; rm -r __pycache__
 QE2pydeph :
-	cd $(QEpath); pwd
+	cd $(QEpath); make QE2pydeph

@@ -217,8 +217,8 @@ class Delta_inhom_dd(Delta_ofT):
         super(Delta_inhom_dd, self).__init__()
         npl = len(p.n_pulses)
         self.Delt = np.zeros((npl,nconf+1))
-    def set_Delt(self, ipl, iT, D2):
-        self.Delt[ipl,iT] = np.sqrt(D2)
+    def set_Delt(self, ipl, ic, D2):
+        self.Delt[ipl,ic] = np.sqrt(D2)
         # eV units
     def collect_from_other_proc(self, ic):
         Delt_full = mpi.collect_array(self.Delt[:,ic])
@@ -250,58 +250,68 @@ class tauc_ofT(object):
         self.tauc_atr = None
         self.tauc_phr = None
         self.tauc_wql = None
-    def set_tauc(self, iT, tau_c):
-        self.tauc_ps[:,iT] = tau_c[:]
-        # ps units
+    def generate_instance(self):
+        if not p.deph and not p.relax:
+            if p.dyndec:
+                return tauc_inhom_dd()
+            else:
+                return tauc_inhom()
+        else:
+            if p.time_resolved:
+                return tauc_homo_ofT()
+            else:
+                return None
     def get_tauc(self):
         return self.tauc_ps
-    def set_tauc_atr(self, ia, iT, tau_ca):
-        self.tauc_atr[:,ia,iT] = tau_ca[:]
-        # ps units
-    def get_tauc_atr(self):
-        return self.tauc_atr
-    def set_tauc_phr(self, iph, iT, tau_cp):
-        self.tauc_phr[:,iph,iT] = tau_cp[:]
-        # ps units
-    def set_tauc_wql(self, iwb, iT, tau_cp):
-        self.tauc_wql[:,iwb,iT] = tau_cp[:]
-        # ps units
-    def get_tauc_phr(self):
-        return self.tauc_phr
-    def get_tauc_wql(self):
-        return self.tauc_wql
-    def collect_atr_from_other_proc(self, iT):
-        tauc_atr_full = mpi.collect_array(self.tauc_atr[:,:,iT])
-        self.tauc_atr[:,:,iT] = 0.
-        self.tauc_atr[:,:,iT] = tauc_atr_full[:,:]
-    def collect_phr_from_other_proc(self, iT):
-        tauc_phr_full = mpi.collect_array(self.tauc_phr[:,:,iT])
-        self.tauc_phr[:,:,iT] = 0.
-        self.tauc_phr[:,:,iT] = tauc_phr_full[:,:]
-        # wql
-        tauc_wql_full = mpi.collect_array(self.tauc_wql[:,:,iT])
-        self.tauc_wql[:,:,iT] = 0.
-        self.tauc_wql[:,:,iT] = tauc_wql_full[:,:]
 class tauc_homo_ofT(tauc_ofT):
     def __init__(self, nat):
         super(tauc_homo_ofT, self).__init__()
         self.tauc_ps = np.zeros(p.ntmp)
         if p.at_resolved:
-            self.tauc_atr = np.zeros((nat, p.ntmp))
+            self.tauc_atr = np.zeros((nat,p.ntmp))
         if p.ph_resolved:
             if p.nphr > 0:
                 self.tauc_phr = np.zeros((p.nphr,p.ntmp))
             self.tauc_wql = np.zeros((p.nwbn,p.ntmp))
+    def get_tauc_atr(self):
+        return self.tauc_atr
+    def get_tauc_phr(self):
+        return self.tauc_phr
+    def get_tauc_wql(self):
+        return self.tauc_wql
+    def set_tauc(self, iT, tau_c):
+        self.tauc_ps[iT] = tau_c
+        # ps units
+    def set_tauc_atr(self, ia, iT, tau_c):
+        self.tauc_atr[ia,iT] = tau_c
+        # ps units
+    def set_tauc_phr(self, iph, iT, tau_c):
+        self.tauc_phr[iph,iT] = tau_c
+        # ps units
+    def set_tauc_wql(self, iwb, iT, tau_c):
+        self.tauc_wql[iwb,iT] = tau_c
+        # ps units
+    def collect_atr_from_other_proc(self, iT):
+        tauc_atr_full = mpi.collect_array(self.tauc_atr[:,iT])
+        self.tauc_atr[:,iT] = 0.
+        self.tauc_atr[:,iT] = tauc_atr_full[:]
+    def collect_phr_from_other_proc(self, iT):
+        if p.nphr > 0:
+            tauc_phr_full = mpi.collect_array(self.tauc_phr[:,iT])
+            self.tauc_phr[:,iT] = 0.
+            self.tauc_phr[:,iT] = tauc_phr_full[:]
+        # wql
+        tauc_wql_full = mpi.collect_array(self.tauc_wql[:,iT])
+        self.tauc_wql[:,iT] = 0.
+        self.tauc_wql[:,iT] = tauc_wql_full[:]
 class tauc_inhom_dd(tauc_ofT):
     # tauc is in ps
     def __init__(self, nconf):
         npl = len(p.n_pulses)
-        self.tauc_ps = np.zeros((2,npl,p.ntmp))
-    def set_tauc(self, ipl, iT, tau_c):
-        self.tauc_ps[:,ipl,iT] = tau_c[:]
+        self.tauc_ps = np.zeros((npl,nconf+1))
+    def set_tauc(self, ipl, ic, tau_c):
+        self.tauc_ps[ipl,ic] = tau_c
         # ps units
-    def get_tauc(self):
-        return self.tauc_ps
     def collect_from_other_proc(self, ic):
         tauc_full = mpi.collect_array(self.tauc_ps[:,ic])
         self.tauc_ps[:,ic] = 0.
@@ -314,13 +324,14 @@ class tauc_inhom(tauc_ofT):
     def set_tauc(self, ic, tau_c):
         self.tauc_ps[ic] = tau_c
         # ps units
-    def get_tauc(self):
-        return self.tauc_ps
     def collect_from_other_proc(self):
         tauc_full = mpi.collect_array(self.tauc_ps)
         self.tauc_ps[:] = 0.
         self.tauc_ps[:] = tauc_full[:]
-# lw class
+# -----------------------------------------------
+#
+#         lw class
+# -----------------------------------------------
 class lw_ofT:
     # lw in eV units
     def __init__(self, nat):
