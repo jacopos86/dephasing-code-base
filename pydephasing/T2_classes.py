@@ -335,45 +335,60 @@ class tauc_inhom(tauc_ofT):
 class lw_ofT:
     # lw in eV units
     def __init__(self, nat):
-        self.lw_eV = np.zeros((2,p.ntmp))
+        self.lw_eV = np.zeros(p.ntmp)
         if p.at_resolved:
-            self.lw_atr = np.zeros((2,nat,p.ntmp))
+            self.lw_atr = np.zeros((nat,p.ntmp))
         if p.ph_resolved:
-            self.lw_phr = np.zeros((2,len(p.phm_list),p.ntmp))
-            self.lw_wql = np.zeros((2,p.nwbn,p.ntmp))
+            if p.nphr > 0:
+                self.lw_phr = np.zeros((p.nphr,p.ntmp))
+            self.lw_wql = np.zeros((p.nwbn,p.ntmp))
     def set_lw(self, iT, T2i):
-        self.lw_eV[:,iT] = 2.*np.pi*hbar*T2i[:]
+        self.lw_eV[iT] = 2.*np.pi*hbar*T2i
     def get_lw(self):
         return self.lw_eV
-    def set_lw_atr(self, ia, iT, T2ai):
-        self.lw_atr[:,ia,iT] = 2.*np.pi*hbar*T2ai[:]
+    def set_lw_atr(self, ia, iT, T2i):
+        self.lw_atr[ia,iT] = 2.*np.pi*hbar*T2i
     def get_lw_atr(self):
         return self.lw_atr
-    def set_lw_phr(self, iph, iT, T2pi):
-        self.lw_phr[:,iph,iT] = 2.*np.pi*hbar*T2pi[:]
-    def set_lw_wql(self, iwb, iT, T2pi):
-        self.lw_wql[:,iwb,iT] = 2.*np.pi*hbar*T2pi[:]
+    def set_lw_phr(self, iph, iT, T2i):
+        self.lw_phr[iph,iT] = 2.*np.pi*hbar*T2i
+    def set_lw_wql(self, iwb, iT, T2i):
+        self.lw_wql[iwb,iT] = 2.*np.pi*hbar*T2i
     def get_lw_phr(self):
         return self.lw_phr
     def get_lw_wql(self):
         return self.lw_wql
     def collect_atr_from_other_proc(self, iT):
-        lw_atr_full = mpi.collect_array(self.lw_atr[:,:,iT])
-        self.lw_atr[:,:,iT] = 0.
-        self.lw_atr[:,:,iT] = lw_atr_full[:,:]
+        lw_atr_full = mpi.collect_array(self.lw_atr[:,iT])
+        self.lw_atr[:,iT] = 0.
+        self.lw_atr[:,iT] = lw_atr_full[:]
     def collect_phr_from_other_proc(self, iT):
-        lw_phr_full = mpi.collect_array(self.lw_phr[:,:,iT])
-        self.lw_phr[:,:,iT] = 0.
-        self.lw_phr[:,:,iT] = lw_phr_full[:,:]
+        if p.nphr > 0:
+            lw_phr_full = mpi.collect_array(self.lw_phr[:,iT])
+            self.lw_phr[:,iT] = 0.
+            self.lw_phr[:,iT] = lw_phr_full[:]
         # wql
-        lw_wql_full = mpi.collect_array(self.lw_wql[:,:,iT])
-        self.lw_wql[:,:,iT] = 0.
-        self.lw_wql[:,:,iT] = lw_wql_full[:,:]
+        lw_wql_full = mpi.collect_array(self.lw_wql[:,iT])
+        self.lw_wql[:,iT] = 0.
+        self.lw_wql[:,iT] = lw_wql_full[:]
 #
 # ext. function : print dephasing data
 #
-def print_dephas_data(T2_obj, tauc_obj, Delt_obj, lw_obj=None):
+def print_decoher_data(data):
 	# first print data on dict
+    if not p.deph and not p.relax:
+        if p.dyndec:
+            print_data_dyndec(data)
+        else:
+            print_data_stat(data)
+    else:
+        if p.time_resolved:
+            print_time_resolved(data)
+        elif p.w_resolved:
+            print_freq_resolved(data)
+        else:
+            if mpi.rank == mpi.root:
+                log.error("either time or freq. resolved...")
     deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'temperature' : None}
     deph_dict['T2']   = T2_obj.get_T2_sec()
     deph_dict['Delt'] = Delt_obj.get_Delt()

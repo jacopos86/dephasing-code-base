@@ -76,14 +76,47 @@
  
  # update input test file paths
  
+ # test 1 -> init
  cd ./TESTS/1
  wd=$(pwd)
  cp ../../clean_vers_files/TESTS/1/input.yml ${wd}
+ #DIR=${wd}/"GS"
+ #if [ ! -d "$DIR" ]; then
+ #	cp -r ../../examples/CC-TEST/GS ${wd}
+ #fi
+ #DIR=${wd}/"COPY-FOLDER"
+ #if [ ! -d "$DIR" ]; then
+ #	cp -r ../../examples/CC-TEST/COPY-FOLDER ${wd}
+ #fi
  sed -i "s,LOCAL-PATH,$wd," ./input.yml
+ 
+ # test 2 -> pydephasing - NV center
  cd ../2
  wd=$(pwd)
  cp ../../clean_vers_files/TESTS/2/inputA.yml ${wd}
  cp ../../clean_vers_files/TESTS/2/inputB.yml ${wd}
+ DIR=${wd}/"DISPLACEMENT-FILES-01"
+ if [ ! -d "$DIR" ]; then
+ 	cp -r ../../examples/NV-diamond/DISPLACEMENT-FILES-01 ${wd}
+ 	cp -r ../../examples/NV-diamond/DISPLACEMENT-FILES-0001 ${wd}
+ 	cp -r ../../examples/NV-diamond/DISPLACEMENT-FILES-2NDORDER ${wd}
+ fi
+ DIR=${wd}/"DISPL-01"
+ if [ ! -d "$DIR" ]; then
+ 	cp -r ../../examples/NV-diamond/DISPL-01 ${wd}
+ 	cp -r ../../examples/NV-diamond/DISPL-0001 ${wd}
+ 	cp -r ../../examples/NV-diamond/DISPL-2NDORDER ${wd}
+ fi
+ DIR=${wd}/"GS"
+ if [ ! -d "$DIR" ]; then
+ 	cp -r ../../examples/NV-diamond/GS ${wd}
+ fi
+ FIL=${wd}/"mesh-nosymm_3x3x3.hdf5"
+ if [ ! -f "$FIL" ]; then
+ 	cp -r ../../examples/NV-diamond/info.yml ${wd}
+ 	cp -r ../../examples/NV-diamond/phonopy*.yaml ${wd}
+ 	cp -r ../../examples/NV-diamond/mesh-nosymm_3x3x3.hdf5 ${wd}
+ fi
  sed -i "s,LOCAL-PATH,$wd," ./inputA.yml
  sed -i "s,LOCAL-PATH,$wd," ./inputB.yml
  
