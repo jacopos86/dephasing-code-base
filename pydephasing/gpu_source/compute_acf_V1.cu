@@ -1,6 +1,6 @@
 #include <pycuda-complex.hpp>
 #include <math.h>
-#include "/home/jacopo/Documents/dephasing-code-base/pydephasing/gpu_source/extern_func.cuh"
+#include "/home/jacopo/PROJECTS/dephasing-code-base/pydephasing/gpu_source/extern_func.cuh"
 #define PI 3.141592653589793
 typedef pycuda::complex<double> cmplx;
 

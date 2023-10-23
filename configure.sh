@@ -80,14 +80,14 @@
  cd ./TESTS/1
  wd=$(pwd)
  cp ../../clean_vers_files/TESTS/1/input.yml ${wd}
- #DIR=${wd}/"GS"
- #if [ ! -d "$DIR" ]; then
- #	cp -r ../../examples/CC-TEST/GS ${wd}
- #fi
- #DIR=${wd}/"COPY-FOLDER"
- #if [ ! -d "$DIR" ]; then
- #	cp -r ../../examples/CC-TEST/COPY-FOLDER ${wd}
- #fi
+ DIR=${wd}/"GS"
+ if [ ! -d "$DIR" ]; then
+ 	cp -r ../../examples/CC-TEST/GS ${wd}
+ fi
+ DIR=${wd}/"COPY-FOLDER"
+ if [ ! -d "$DIR" ]; then
+ 	cp -r ../../examples/CC-TEST/COPY-FOLDER ${wd}
+ fi
  sed -i "s,LOCAL-PATH,$wd," ./input.yml
  
  # test 2 -> pydephasing - NV center

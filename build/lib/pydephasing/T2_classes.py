@@ -115,8 +115,8 @@ class T2i_inhom_dd(T2i_ofT):
         self.T2_psec = np.zeros((npl,nconf+1))
     def get_T2_psec(self):
         return self.T2_psec
-    def get_T2_musec(self):
-        return self.T2_psec * 1.E-6
+    def get_T2_sec(self):
+        return self.T2_psec * 1.E-12
     def set_T2_psec(self, ipl, ic):
         if T2i[ic] == 0.:
             self.T2_psec[ipl,ic] = np.inf
@@ -151,10 +151,10 @@ class T2i_inhom(T2i_ofT):
 #
 # Delta class
 # --------------------------------------------------
-class Delta_class(object):
+class Delta_ofT(object):
     # Delta is in eV
     # acf(t=0) -> only time resolved calcuations
-    def __init__(self):
+    def __init__(self, nat):
         self.Delt = None
         self.Delt_atr = None
         self.Delt_phr = None
@@ -173,7 +173,7 @@ class Delta_class(object):
     def get_Delt(self):
         return self.Delt
         # eV
-class Delta_homo_ofT(Delta_class):
+class Delta_homo_ofT(Delta_ofT):
     def __init__(self, nat):
         super(Delta_homo_ofT, self).__init__()
         self.Delt = np.zeros(p.ntmp)
@@ -211,7 +211,7 @@ class Delta_homo_ofT(Delta_class):
         Delt_wql_full = mpi.collect_array(self.Delt_wql[:,iT])
         self.Delt_wql[:,iT] = 0.
         self.Delt_wql[:,iT] = Delt_wql_full[:]
-class Delta_inhom_dd(Delta_class):
+class Delta_inhom_dd(Delta_ofT):
     # Delta is in eV
     def __init__(self, nconf):
         super(Delta_inhom_dd, self).__init__()
@@ -225,7 +225,7 @@ class Delta_inhom_dd(Delta_class):
         self.Delt[:,ic] = 0.
         self.Delt[:,ic] = Delt_full[:]
 # Delta inhom class
-class Delta_inhom(Delta_class):
+class Delta_inhom(Delta_ofT):
     # Delta is in eV
     def __init__(self, nconf):
         super(Delta_inhom, self).__init__()
@@ -242,7 +242,7 @@ class Delta_inhom(Delta_class):
 # 
 #         tauc class
 # ---------------------------------------------------
-class tauc_class(object):
+class tauc_ofT(object):
     # -> only time resolved calculation 
     # tauc is in ps
     def __init__(self):
@@ -263,7 +263,7 @@ class tauc_class(object):
                 return None
     def get_tauc(self):
         return self.tauc_ps
-class tauc_homo_ofT(tauc_class):
+class tauc_homo_ofT(tauc_ofT):
     def __init__(self, nat):
         super(tauc_homo_ofT, self).__init__()
         self.tauc_ps = np.zeros(p.ntmp)
@@ -304,7 +304,7 @@ class tauc_homo_ofT(tauc_class):
         tauc_wql_full = mpi.collect_array(self.tauc_wql[:,iT])
         self.tauc_wql[:,iT] = 0.
         self.tauc_wql[:,iT] = tauc_wql_full[:]
-class tauc_inhom_dd(tauc_class):
+class tauc_inhom_dd(tauc_ofT):
     # tauc is in ps
     def __init__(self, nconf):
         npl = len(p.n_pulses)
@@ -317,7 +317,7 @@ class tauc_inhom_dd(tauc_class):
         self.tauc_ps[:,ic] = 0.
         self.tauc_ps[:,ic] = tauc_full[:]
 # tauc class inhom
-class tauc_inhom(tauc_class):
+class tauc_inhom(tauc_ofT):
     # tauc is in ps
     def __init__(self, nconf):
         self.tauc_ps = np.zeros(nconf+1)
@@ -328,33 +328,6 @@ class tauc_inhom(tauc_class):
         tauc_full = mpi.collect_array(self.tauc_ps)
         self.tauc_ps[:] = 0.
         self.tauc_ps[:] = tauc_full[:]
-# tauc class inhom (T)
-class tauc_inhom_ofT(tauc_class):
-    # tauc in ps
-    def __init__(self, nat, nconf):
-        self.tauc_ps = np.zeros((nconf+1,p.ntmp))
-        if p.at_resolved:
-            self.tauc_atr = np.zeros((nat,nconf+1,p.ntmp))
-        if p.ph_resolved:
-            if p.nphr > 0:
-                self.tauc_phr = np.zeros((p.nphr,nconf+1,p.ntmp))
-            self.tauc_wql = np.zeros((p.nwbn,nconf+1,p.ntmp))
-    def set_tauc(self, ic, iT, tau_c):
-        self.tauc_ps[ic,iT] = tau_c
-        # ps units
-    def collect_atr_from_other_proc(self, ic, iT):
-        tauc_atr_full = mpi.collect_array(self.tauc_atr[:,ic,iT])
-        self.tauc_atr[:,ic,iT] = 0.
-        self.tauc_atr[:,ic,iT] = tauc_atr_full[:]
-    def collect_phr_from_other_proc(self, ic, iT):
-        if p.nphr > 0:
-            tauc_phr_full = mpi.collect_array(self.tauc_phr[:,ic,iT])
-            self.tauc_phr[:,ic,iT] = 0.
-            self.tauc_phr[:,ic,iT] = tauc_phr_full[:]
-        # wql
-        tauc_wql_full = mpi.collect_array(self.tauc_wql[:,ic,iT])
-        self.tauc_wql[:,ic,iT] = 0.
-        self.tauc_wql[:,ic,iT] = tauc_wql_full[:]
 # -----------------------------------------------
 #
 #         lw class
@@ -405,11 +378,17 @@ def print_decoher_data(data):
 	# first print data on dict
     if not p.deph and not p.relax:
         if p.dyndec:
-            print_decoher_data_dyndec(data)
+            print_data_dyndec(data)
         else:
-            print_decoher_data_stat(data)
+            print_data_stat(data)
     else:
-        print_decoher_dyn_data(data)
+        if p.time_resolved:
+            print_time_resolved(data)
+        elif p.w_resolved:
+            print_freq_resolved(data)
+        else:
+            if mpi.rank == mpi.root:
+                log.error("either time or freq. resolved...")
     deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'temperature' : None}
     deph_dict['T2']   = T2_obj.get_T2_sec()
     deph_dict['Delt'] = Delt_obj.get_Delt()
@@ -417,44 +396,25 @@ def print_decoher_data(data):
     deph_dict['temperature'] = p.temperatures
     if lw_obj != None:
         deph_dict['lw_eV'] = lw_obj.get_lw()
+    # write yaml file
+    namef = "T2-data.yml"
+    with open(p.write_dir+'/'+namef, 'w') as out_file:
+        yaml.dump(deph_dict, out_file)
 #
 #  dynamical decoupling
 #
-def print_decoher_data_dyndec(data):
-    T2_obj   = data['T2']
-    Delt_obj = data['Delt']
-    tauc_obj = data['tau_c']
+def print_dephas_data_dyndec(T2_obj, tauc_obj, Delt_obj):
 	# first print data on dict
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'pulses' : None}
-    deph_dict['T2']   = T2_obj.get_T2_musec()
+    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'temperature' : None, 'pulses' : None}
+    deph_dict['T2']   = T2_obj.get_T2_sec()
     deph_dict['Delt'] = Delt_obj.get_Delt()
     deph_dict['tau_c']= tauc_obj.get_tauc()
+    deph_dict['temperature'] = p.temperatures
     deph_dict['pulses'] = p.n_pulses
     # write yaml file
     namef = "T2-data.yml"
     with open(p.write_dir+'/'+namef, 'w') as out_file:
         yaml.dump(deph_dict, out_file)
-#
-# ext. function : print dephasing data (static)
-#
-def print_decoher_data_stat(data):
-    T2_obj   = data['T2']
-    Delt_obj = data['Delt']
-    tauc_obj = data['tau_c']
-	# first print data on dict
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None}
-    deph_dict['T2']   = T2_obj.get_T2_musec()
-    deph_dict['Delt'] = Delt_obj.get_Delt()
-    deph_dict['tau_c']= tauc_obj.get_tauc()
-    # write yaml file
-    namef = "T2-data.yml"
-    with open(p.write_dir+'/'+namef, 'w') as out_file:
-        yaml.dump(deph_dict, out_file)
-#
-# dynamical decoherence data
-#
-def print_decoher_dyn_data(data):
-
 #
 # ph. res. data
 #
@@ -570,5 +530,18 @@ def print_dephas_data_phr_hfi(T2_obj_lst, tauc_obj_lst, Delt_obj_lst):
     deph_dict['w_ql'] = wiph
     # write yaml file
     namef = "T2-phr-data.yml"
+    with open(p.write_dir+'/'+namef, 'w') as out_file:
+        yaml.dump(deph_dict, out_file)
+#
+# ext. function : print dephasing data (static)
+#
+def print_dephas_data_stat(T2_obj, tauc_obj, Delt_obj):
+	# first print data on dict
+    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None}
+    deph_dict['T2']   = T2_obj.get_T2_musec()
+    deph_dict['Delt'] = Delt_obj.get_Delt()
+    deph_dict['tau_c']= tauc_obj.get_tauc()
+    # write yaml file
+    namef = "T2-data.yml"
     with open(p.write_dir+'/'+namef, 'w') as out_file:
         yaml.dump(deph_dict, out_file)
