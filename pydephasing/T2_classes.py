@@ -434,7 +434,22 @@ class tauc_inhom(tauc_class):
 # -----------------------------------------------
 class lw_ofT:
     # lw in eV units
+    def __init__(self):
+        self.lw_eV = None
+        self.lw_atr= None
+        self.lw_phr= None
+        self.lw_wql= None
+    def get_lw(self):
+        return self.lw_eV
+    def get_lw_atr(self):
+        return self.lw_atr
+    def get_lw_phr(self):
+        return self.lw_phr
+    def get_lw_wql(self):
+        return self.lw_wql
+class lw_homo_ofT(lw_ofT):
     def __init__(self, nat):
+        super(lw_homo_ofT, self).__init__()
         self.lw_eV = np.zeros(p.ntmp)
         if p.at_resolved:
             self.lw_atr = np.zeros((nat,p.ntmp))
@@ -444,20 +459,12 @@ class lw_ofT:
             self.lw_wql = np.zeros((p.nwbn,p.ntmp))
     def set_lw(self, iT, T2i):
         self.lw_eV[iT] = 2.*np.pi*hbar*T2i
-    def get_lw(self):
-        return self.lw_eV
     def set_lw_atr(self, ia, iT, T2i):
         self.lw_atr[ia,iT] = 2.*np.pi*hbar*T2i
-    def get_lw_atr(self):
-        return self.lw_atr
     def set_lw_phr(self, iph, iT, T2i):
         self.lw_phr[iph,iT] = 2.*np.pi*hbar*T2i
     def set_lw_wql(self, iwb, iT, T2i):
         self.lw_wql[iwb,iT] = 2.*np.pi*hbar*T2i
-    def get_lw_phr(self):
-        return self.lw_phr
-    def get_lw_wql(self):
-        return self.lw_wql
     def collect_atr_from_other_proc(self, iT):
         lw_atr_full = mpi.collect_array(self.lw_atr[:,iT])
         self.lw_atr[:,iT] = 0.
@@ -471,6 +478,37 @@ class lw_ofT:
         lw_wql_full = mpi.collect_array(self.lw_wql[:,iT])
         self.lw_wql[:,iT] = 0.
         self.lw_wql[:,iT] = lw_wql_full[:]
+class lw_inhom_ofT(lw_ofT):
+    def __init__(self, nat, nconf):
+        super(lw_inhom_ofT, self).__init__()
+        self.lw_eV = np.zeros((nconf+1,p.ntmp))
+        if p.at_resolved:
+            self.lw_atr = np.zeros((nat,nconf+1,p.ntmp))
+        if p.ph_resolved:
+            if p.nphr > 0:
+                self.lw_phr = np.zeros((p.nphr,nconf+1,p.ntmp))
+            self.lw_wql = np.zeros((p.nwbn,nconf+1,p.ntmp))
+    def set_lw(self, ic, iT, T2i):
+        self.lw_eV[ic,iT] = 2.*np.pi*hbar*T2i
+    def set_lw_atr(self, ia, ic, iT, T2i):
+        self.lw_atr[ia,ic,iT] = 2.*np.pi*hbar*T2i
+    def set_lw_phr(self, iph, ic, iT, T2i):
+        self.lw_phr[iph,ic,iT] = 2.*np.pi*hbar*T2i
+    def set_lw_wql(self, iwb, ic, iT, T2i):
+        self.lw_wql[iwb,ic,iT] = 2.*np.pi*hbar*T2i
+    def collect_atr_from_other_proc(self, ic, iT):
+        lw_atr_full = mpi.collect_array(self.lw_atr[:,ic,iT])
+        self.lw_atr[:,ic,iT] = 0.
+        self.lw_atr[:,ic,iT] = lw_atr_full[:]
+    def collect_phr_from_other_proc(self, ic, iT):
+        if p.nphr > 0:
+            lw_phr_full = mpi.collect_array(self.lw_phr[:,ic,iT])
+            self.lw_phr[:,ic,iT] = 0.
+            self.lw_phr[:,ic,iT] = lw_phr_full[:]
+        # wql
+        lw_wql_full = mpi.collect_array(self.lw_wql[:,ic,iT])
+        self.lw_wql[:,ic,iT] = 0.
+        self.lw_wql[:,ic,iT] = lw_wql_full[:]
 #
 # ext. function : print dephasing data
 #
@@ -483,13 +521,10 @@ def print_decoher_data(data):
             print_decoher_data_stat(data)
     else:
         print_decoher_dyn_data(data)
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'temperature' : None}
-    deph_dict['T2']   = T2_obj.get_T2_sec()
-    deph_dict['Delt'] = Delt_obj.get_Delt()
-    deph_dict['tau_c']= tauc_obj.get_tauc()
-    deph_dict['temperature'] = p.temperatures
-    if lw_obj != None:
-        deph_dict['lw_eV'] = lw_obj.get_lw()
+        if p.at_resolved:
+            print_decoher_data_atr(data)
+        if p.ph_resolved:
+            print_decoher_data_phr(data)
 #
 #  dynamical decoupling
 #
@@ -527,11 +562,32 @@ def print_decoher_data_stat(data):
 # dynamical decoherence data
 #
 def print_decoher_dyn_data(data):
-    pass
+    T2_obj   = data['T2']
+    lw_obj   = data['lw']
+    if p.time_resolved:
+        Delt_obj = data['Delt']
+        tauc_obj = data['tau_c']
+        # print data on dict
+        deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'temperature' : None}
+        deph_dict['T2']   = T2_obj.get_T2_sec()
+        deph_dict['Delt'] = Delt_obj.get_Delt()
+        deph_dict['tau_c']= tauc_obj.get_tauc()
+        deph_dict['lw_eV']= lw_obj.get_lw()
+        deph_dict['temperature'] = p.temperatures
+    elif p.w_resolved:
+        # print data on dict
+        deph_dict = {'T2' : None, 'lw_eV' : None, 'temperature' : None}
+        deph_dict['T2']   = T2_obj.get_T2_sec()
+        deph_dict['lw_eV']= lw_obj.get_lw()
+        deph_dict['temperature'] = p.temperatures
+    # write yaml file
+    namef = "T2-data.yml"
+    with open(p.write_dir+'/'+namef, 'w') as out_file:
+        yaml.dump(deph_dict, out_file)
 #
 # ph. res. data
 #
-def print_dephas_data_phr(T2_obj, tauc_obj, Delt_obj, lw_obj=None):
+def print_decoher_data_phr(data):
     deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'temperature' : None, 'w_lambda' : None}
     u, wu, nq, qpts, wq, mesh = extract_ph_data()
     assert mesh[0]*mesh[1]*mesh[2] == nq
@@ -566,14 +622,25 @@ def print_dephas_data_phr(T2_obj, tauc_obj, Delt_obj, lw_obj=None):
 #
 # at res. data
 #
-def print_dephas_data_atr(T2_obj, tauc_obj, Delt_obj, lw_obj=None):
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'temperature' : None}
-    deph_dict['T2']   = T2_obj.get_T2_atr_sec()
-    deph_dict['Delt'] = Delt_obj.get_Delt_atr()
-    deph_dict['tau_c']= tauc_obj.get_tauc_atr()
-    if lw_obj != None:
-        deph_dict['lw_eV'] = lw_obj.get_lw_atr()
-    deph_dict['temperature'] = p.temperatures
+def print_decoher_data_atr(data):
+    T2_obj   = data['T2']
+    lw_obj   = data['lw']
+    if p.time_resolved:
+        Delt_obj = data['Delt']
+        tauc_obj = data['tau_c']
+        # print data on dict
+        deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'temperature' : None}
+        deph_dict['T2']   = T2_obj.get_T2_atr_sec()
+        deph_dict['Delt'] = Delt_obj.get_Delt_atr()
+        deph_dict['tau_c']= tauc_obj.get_tauc_atr()
+        deph_dict['lw_eV']= lw_obj.get_lw_atr()
+        deph_dict['temperature'] = p.temperatures
+    elif p.w_resolved:
+        # print data on dict
+        deph_dict = {'T2' : None, 'lw_eV' : None, 'temperature' : None}
+        deph_dict['T2']   = T2_obj.get_T2_atr_sec()
+        deph_dict['lw_eV']= lw_obj.get_lw_atr()
+        deph_dict['temperature'] = p.temperatures
     # write yaml file
     namef = "T2-atr_data.yml"
     with open(p.write_dir+'/'+namef, 'w') as out_file:
