@@ -5,7 +5,7 @@ from pydephasing.compute_zfs_dephas import compute_homo_dephas
 from pydephasing.compute_exc_dephas import compute_homo_exc_dephas
 from pydephasing.compute_hfi_dephas import compute_hfi_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
-from pydephasing.T2_classes import print_dephas_data, print_dephas_data_phr, print_dephas_data_atr, print_dephas_data_hfi, print_dephas_data_atr_hfi, print_dephas_data_phr_hfi, print_dephas_data_stat, print_dephas_data_dyndec
+from pydephasing.T2_classes import print_decoher_data
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.timer import timer
@@ -63,18 +63,14 @@ if calc_type1 == "energy":
         # read input file
         p.read_yml_data(yml_file)
         # compute auto correl. function first
-        T2_obj, Delt_obj, tauc_obj, lw_obj = compute_homo_exc_dephas()
+        data = compute_homo_exc_dephas()
         # finalize calculation
         if mpi.rank == mpi.root:
             log.info("-----------                   PRINT DATA ON FILES         --------------")
             # write T2 yaml files
-            print_dephas_data(T2_obj, tauc_obj, Delt_obj, lw_obj)
-            # if atom resolved
-            if p.at_resolved:
-                print_dephas_data_atr(T2_obj, tauc_obj, Delt_obj, lw_obj)
-            # if phonon resolved
-            if p.ph_resolved:
-                print_dephas_data_phr(T2_obj, tauc_obj, Delt_obj, lw_obj)
+            print_decoher_data(data)
+        mpi.comm.Barrier()
+        # energy branch -> END
 elif calc_type1 == "spin":
     if mpi.rank == mpi.root:
         log.info("------------------                   SPIN - PHONON CALCULATION        --------------------")
@@ -103,19 +99,14 @@ elif calc_type1 == "spin":
         # read input file
         p.read_yml_data(yml_file)
         # compute auto correl. function first
-        T2_obj, Delt_obj, tauc_obj, lw_obj = compute_homo_dephas()
+        data = compute_homo_dephas()
         # finalize calculation
         if mpi.rank == mpi.root:
             log.info("-----------                   PRINT DATA ON FILES         --------------")
             # write T2 yaml files
-            print_dephas_data(T2_obj, tauc_obj, Delt_obj)
-            # if atom resolved
-            if p.at_resolved:
-                print_dephas_data_atr(T2_obj, tauc_obj, Delt_obj)
-            # if phonon resolved
-            if p.ph_resolved:
-                print_dephas_data_phr(T2_obj, tauc_obj, Delt_obj)
+            print_decoher_data(data)
         mpi.comm.Barrier()
+        # homo spin branch -> END
     # --------------------------------------------------------------
     # 
     #    FULL CALC. (HFI + ZFS)
@@ -137,19 +128,14 @@ elif calc_type1 == "spin":
         # read input file
         p.read_yml_data(yml_file)
         # compute auto correl. function first
-        T2_obj, Delt_obj, tauc_obj, lw_obj = compute_full_dephas()
+        data = compute_full_dephas()
         # finalize calculation
         if mpi.rank == mpi.root:
             log.info("-----------                   PRINT DATA ON FILES         --------------")
             # write T2 yaml files
-            print_dephas_data(T2_obj, tauc_obj, Delt_obj)
-            # if atom resolved
-            if p.at_resolved:
-                print_dephas_data_atr(T2_obj, tauc_obj, Delt_obj)
-            # if phonon resolved
-            if p.ph_resolved:
-                print_dephas_data_phr(T2_obj, tauc_obj, Delt_obj)
+            print_decoher_data(data)
         mpi.comm.Barrier()
+        # full spin branch -> END
     # --------------------------------------------------------------
     # 
     #    SIMPLE INHOMOGENEOUS CALC. (HFI ONLY)
@@ -173,19 +159,14 @@ elif calc_type1 == "spin":
                     log.info("-----------                T1* CALCULATION -> STARTING        -------------")
                     log.info("---------                  INHOMOGENEOUS SPIN - RELAXATION       ----------")
             # compute the dephas. time
-            T2_obj, Delt_obj, tauc_obj, lw_obj = compute_hfi_dephas()
+            data = compute_hfi_dephas()
             # finalize calculation
             if mpi.rank == mpi.root:
                 log.info("-----------                   PRINT DATA ON FILES         --------------")
                 # write T2 yaml files
-                print_dephas_data_hfi(T2_obj, tauc_obj, Delt_obj, lw_obj)
-                # if atom resolved
-                if p.at_resolved:
-                    print_dephas_data_atr_hfi(T2_obj, tauc_obj, Delt_obj, lw_obj)
-                # if phonon resolved
-                if p.ph_resolved:
-                    print_dephas_data_phr_hfi(T2_obj, tauc_obj, Delt_obj, lw_obj)
+                print_decoher_data(data)
             mpi.comm.Barrier()
+            # inhomo spin branch -> END
         elif deph_type == "stat" or deph_type == "statdd":
             if deph_type == "statdd":
                 p.dyndec = True
@@ -196,13 +177,14 @@ elif calc_type1 == "spin":
                 log.info("-----------                T2* CALCULATION -> STARTING        ------------------")
                 log.info("-----------              INHOMOGENEOUS STATIC SPIN - DEPHASING        ----------")
             # compute dephasing time
-            T2_obj, Delt_obj, tauc_obj, lw_obj = compute_hfi_stat_dephas()
+            data = compute_hfi_stat_dephas()
             # finalize calculation
             if mpi.rank == mpi.root:
                 log.info("-----------                   PRINT DATA ON FILES         --------------")
                 # write T2 yaml files
-                print_dephas_data_stat(T2_obj, tauc_obj, Delt_obj, lw_obj)
+                print_decoher_data(data)
             mpi.comm.Barrier()
+            # inhomo static branch -> END
         else:
             if mpi.rank == 0:
                 log.warning("->           code usage: \n")

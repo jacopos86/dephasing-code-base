@@ -5,11 +5,128 @@
 #
 import numpy as np
 import scipy
+from pydephasing.T2_classes import T2i_class
 from pydephasing.phys_constants import hbar
 from pydephasing.log import log
 from pydephasing.input_parameters import p
+from abc import ABC, abstractmethod
 import warnings
 warnings.filterwarnings("ignore")
+#
+# functions : Exp ExpSin exp_gt gt
+#
+def Exp(x, c):
+	return np.exp(-c * x)
+#
+def ExpSin(x, a, b, c):
+	r = np.exp(-c * x) * np.sin(a * x + b)
+	return r
+# fit gaussian+lorentzian decay
+def Explg(x, a, b, c, sig):
+	return a * np.exp(-c * x) + b * np.exp(-x**2 / 2 / sig**2)
+#
+#   abstract T2_eval_class
+class T2_eval_class_time_res(ABC):
+	def __init__(self):
+		self.T2_obj = None
+		self.lw_obj = None
+		self.tauc_obj = None
+		self.Delt_obj = None
+	@classmethod
+	def parameter_eval_driver(self, acf):
+		# first evaluate tau_c, Delt
+		self.evaluate_tauc_Delt(acf)
+	@abstractmethod
+	def set_up_param_objects(self):
+		self.T2_obj = T2i_class().generate_instance()
+	@abstractmethod
+	def evaluate_tauc_Delt(self, acf):
+		'''method to implement'''
+		return
+	@abstractmethod
+	def evaluate_T2(self, D2, tau_c):
+		'''method to implement'''
+		return
+	@abstractmethod
+	def get_T2_data(self):
+		decoher_dict = {'T2' : None, 'lw' : None, 'Delt' : None, 'tau_c' : None}
+		decoher_dict['T2']   = self.T2_obj
+		decoher_dict['Delt'] = self.Delt_obj
+		decoher_dict['tau_c']= self.tauc_obj
+#
+#  time resolved calculation -> concrete class implementation
+class T2_eval_class_fit_model_stat(T2_eval_class_time_res):
+	def __init__(self):
+		super().__init__()
+	def get_T2_data(self):
+		super().get_T2_data()
+	#
+	# e^-g(t) -> g(t)=D2*tau_c^2[e^(-t/tau_c)+t/tau_c-1]
+	# D2 -> eV^2
+	# tau_c -> ps
+	def exp_gt(self, x, D2, tau_c):
+		r = np.exp(-self.gt(x, D2, tau_c))
+		return r
+	#
+	def gt(self, x, D2, tau_c):
+		r = np.zeros(len(x))
+		r[:] = D2 / hbar ** 2 * tau_c ** 2 * (np.exp(-x[:]/tau_c) + x[:]/tau_c - 1)
+		return r
+	#
+	# compute T2*
+	# input : t, Ct, D2
+	# output: tauc, T2_inv, [expsin, fit]
+	def evaluate_T2(self, D2, tauc_ps, x_ps):
+		# check non Nan
+		if not np.isfinite(Ct).all():
+			return [None, None, None]
+		# perform the fit
+		p0 = [1., 1., 1.]
+		res = scipy.optimize.curve_fit(ExpSin, t, Ct, p0, maxfev=self.maxiter)
+		p = res[0]
+		# p = 1/tau_c (mus^-1)
+		tau_c = 1./p[2]
+		# tau_c (mu sec)
+		r = np.sqrt(D2) / hbar * tau_c * 1.E+6
+		#
+		# check limit r conditions
+		if r < 1.E-4:
+			T2_inv = D2 / hbar ** 2 * tau_c * 1.E+6
+			# ps^-1
+		elif r > 1.E+4:
+			T2_inv = np.sqrt(D2) / hbar * 1.E+6
+			# ps^-1
+		else:
+			# -> implement here
+			# call 
+			tauc_ps = tau_c * 1.E+6
+			# fft sample points
+			N = self.N
+			T = self.T
+			x = np.linspace(0.0, N*T, N, endpoint=False)
+			x_ps = x * 1.E+6
+			y = self.exp_gt(x_ps, D2, tauc_ps)
+			try:
+				c0 = D2 / hbar ** 2 * tauc_ps * 1.E+6   # mu s^-1
+				s0 = hbar / np.sqrt(D2) * 1.E-6         # mu sec
+				p0 = [0.5, 0.5, c0, s0]                 # start with values close to those expected
+				res = scipy.optimize.curve_fit(Explg, x, y, p0, maxfev=self.maxiter)
+				p1 = res[0]
+				# gauss vs lorentzian
+				if p1[0] > p1[1]:
+					# T2 -> lorentzian (mu sec)
+					T2_inv = p1[2]
+					# ps^-1
+					T2_inv = T2_inv * 1.E-6
+				else:
+					T2_inv = 1./p1[3]
+					# mu s^-1 units
+					T2_inv = T2_inv * 1.E-6
+					# ps^-1 units
+			except RuntimeError:
+				T2_inv = None
+		return tau_c, T2_inv, ExpSin(t, p[0], p[1], p[2])
+
 #
 # generate initial parameters function
 def generate_initial_params(r, D2, tau_c):
@@ -29,30 +146,6 @@ def generate_initial_params(r, D2, tau_c):
 	p0.append(s0)
 	#
 	return p0
-#
-# functions : Exp ExpSin exp_gt gt
-#
-def Exp(x, c):
-	return np.exp(-c * x)
-#
-def ExpSin(x, a, b, c):
-	r = np.exp(-c * x) * np.sin(a * x + b)
-	return r
-# fit gaussian+lorentzian decay
-def Explg(x, a, b, c, sig):
-	return a * np.exp(-c * x) + b * np.exp(-x**2 / 2 / sig**2)
-#
-# e^-g(t) -> g(t)=D2*tau_c^2[e^(-t/tau_c)+t/tau_c-1]
-# D2 -> eV^2
-# tau_c -> ps
-def exp_gt(x, D2, tau_c):
-	r = np.exp(-gt(x, D2, tau_c))
-	return r
-#
-def gt(x, D2, tau_c):
-	r = np.zeros(len(x))
-	r[:] = D2 / hbar ** 2 * tau_c ** 2 * (np.exp(-x[:]/tau_c) + x[:]/tau_c - 1)
-	return r
 #
 # class T2_eval definition
 #
@@ -175,57 +268,4 @@ class T2_eval:
 				log.warning("T2_inv is None")
 				T2_inv = None
 		#
-		return tau_c, T2_inv, ExpSin(t, p[0], p[1], p[2])
-	#
-	# 3)   compute T2*
-	# input : t, Ct, D2
-	# output: tauc, T2_inv, [expsin, fit]
-	def extract_T2_star(self, t, Ct, D2):
-		# check non Nan
-		if not np.isfinite(Ct).all():
-			return [None, None, None]
-		# perform the fit
-		p0 = [1., 1., 1.]
-		res = scipy.optimize.curve_fit(ExpSin, t, Ct, p0, maxfev=self.maxiter)
-		p = res[0]
-		# p = 1/tau_c (mus^-1)
-		tau_c = 1./p[2]
-		# tau_c (mu sec)
-		r = np.sqrt(D2) / hbar * tau_c * 1.E+6
-		#
-		# check limit r conditions
-		if r < 1.E-4:
-			T2_inv = D2 / hbar ** 2 * tau_c * 1.E+6
-			# ps^-1
-		elif r > 1.E+4:
-			T2_inv = np.sqrt(D2) / hbar * 1.E+6
-			# ps^-1
-		else:
-			tauc_ps = tau_c * 1.E+6
-			# fft sample points
-			N = self.N
-			T = self.T
-			x = np.linspace(0.0, N*T, N, endpoint=False)
-			x_ps = x * 1.E+6
-			y = exp_gt(x_ps, D2, tauc_ps)
-			try:
-				c0 = D2 / hbar ** 2 * tauc_ps * 1.E+6   # mu s^-1
-				s0 = hbar / np.sqrt(D2) * 1.E-6         # mu sec
-				p0 = [0.5, 0.5, c0, s0]                 # start with values close to those expected
-				res = scipy.optimize.curve_fit(Explg, x, y, p0, maxfev=self.maxiter)
-				p1 = res[0]
-				# gauss vs lorentzian
-				if p1[0] > p1[1]:
-					# T2 -> lorentzian (mu sec)
-					T2_inv = p1[2]
-					# ps^-1
-					T2_inv = T2_inv * 1.E-6
-				else:
-					T2_inv = 1./p1[3]
-					# mu s^-1 units
-					T2_inv = T2_inv * 1.E-6
-					# ps^-1 units
-			except RuntimeError:
-				# T2_inv = None
-				T2_inv = None
 		return tau_c, T2_inv, ExpSin(t, p[0], p[1], p[2])

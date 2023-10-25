@@ -520,7 +520,7 @@ def print_decoher_data(data):
         else:
             print_decoher_data_stat(data)
     else:
-        print_decoher_dyn_data(data)
+        print_decoher_ph_data(data)
         if p.at_resolved:
             print_decoher_data_atr(data)
         if p.ph_resolved:
@@ -561,7 +561,7 @@ def print_decoher_data_stat(data):
 #
 # dynamical decoherence data
 #
-def print_decoher_dyn_data(data):
+def print_decoher_ph_data(data):
     T2_obj   = data['T2']
     lw_obj   = data['lw']
     if p.time_resolved:
@@ -588,33 +588,51 @@ def print_decoher_dyn_data(data):
 # ph. res. data
 #
 def print_decoher_data_phr(data):
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'temperature' : None, 'w_lambda' : None}
-    u, wu, nq, qpts, wq, mesh = extract_ph_data()
-    assert mesh[0]*mesh[1]*mesh[2] == nq
-    assert len(qpts) == nq
-    assert len(u) == nq
-    wl = np.zeros(len(wu[0]))
-    for iq in range(nq):
-        wuq = wu[iq]
-        wl[:] = wl[:] + wq[iq] * wuq[:]
-    wiph = np.zeros(p.nphr)
-    for iph in range(p.nphr):
-        im = p.phm_list[iph]
-        wiph[iph] = wl[im]
-    deph_dict['T2']   = T2_obj.get_T2_phr_sec()
-    deph_dict['Delt'] = Delt_obj.get_Delt_phr()
-    deph_dict['tau_c']= tauc_obj.get_tauc_phr()
-    deph_dict['temperature'] = p.temperatures
-    deph_dict['w_ql'] = wiph
-    if lw_obj != None:
-        deph_dict['lw_eV'] = lw_obj.get_lw_phr()
-    # wql data
-    deph_dict['wql_bins'] = p.wql_grid
-    deph_dict['T2_bins'] = T2_obj.get_T2_wql_sec()
-    deph_dict['Delt_bins'] = Delt_obj.get_Delt_wql()
-    deph_dict['tauc_bins'] = tauc_obj.get_tauc_wql()
-    if lw_obj != None:
+    deph_dict = {'T2' : None, 'T2_bins' : None, 'Delt' : None, 'Delt_bins' : None, 
+                 'tau_c' : None, 'tauc_bins' : None, 'lw_eV' : None, 'lw_eV_bins' : None, 
+                 'temperature' : None, 'wql' : None, 'wql_bins' : None}
+    if p.nphr > 0:
+        # extract vibrational data
+        u, wu, nq, qpts, wq, mesh = extract_ph_data()
+        assert mesh[0]*mesh[1]*mesh[2] == nq
+        assert len(qpts) == nq
+        assert len(u) == nq
+        # extract ph. mode energy
+        wql = np.zeros(len(wu[0]))
+        for iq in range(nq):
+            wuq = wu[iq]
+            wql[:] += wq[iq] * wuq[:]
+        wiph = np.zeros(p.nphr)
+        for iph in range(p.nphr):
+            im = p.phm_list[iph]
+            wiph[iph] = wql[im]
+        deph_dict['wql'] = wiph
+    T2_obj = data['T2']
+    lw_obj = data['lw']
+    if p.time_resolved:
+        Delt_obj = data['Delt']
+        tauc_obj = data['tau_c']
+        # set up dictionary
+        if p.nphr > 0:
+            deph_dict['T2']   = T2_obj.get_T2_phr_sec()
+            deph_dict['Delt'] = Delt_obj.get_Delt_phr()
+            deph_dict['tau_c']= tauc_obj.get_tauc_phr()
+            deph_dict['lw_eV']= lw_obj.get_lw_phr()
+        # wql data
+        deph_dict['T2_bins'] = T2_obj.get_T2_wql_sec()
+        deph_dict['Delt_bins'] = Delt_obj.get_Delt_wql()
+        deph_dict['tauc_bins'] = tauc_obj.get_tauc_wql()
         deph_dict['lw_eV_bins'] = lw_obj.get_lw_wql()
+    elif p.w_resolved:
+        # set up dictionary
+        if p.nphr > 0:
+            deph_dict['T2']   = T2_obj.get_T2_phr_sec()
+            deph_dict['lw_eV']= lw_obj.get_lw_phr()
+        # wql data
+        deph_dict['T2_bins'] = T2_obj.get_T2_wql_sec()
+        deph_dict['lw_eV_bins'] = lw_obj.get_lw_wql()
+    deph_dict['wql_bins'] = p.wql_grid
+    deph_dict['temperature'] = p.temperatures
     # write yaml file
     namef = "T2-phr-data.yml"
     with open(p.write_dir+'/'+namef, 'w') as out_file:
@@ -643,72 +661,5 @@ def print_decoher_data_atr(data):
         deph_dict['temperature'] = p.temperatures
     # write yaml file
     namef = "T2-atr_data.yml"
-    with open(p.write_dir+'/'+namef, 'w') as out_file:
-        yaml.dump(deph_dict, out_file)
-#
-# HFI functions
-#
-def print_dephas_data_hfi(T2_obj_lst, tauc_obj_lst, Delt_obj_lst):
-    # first print data on dict
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'temperature' : None}
-    deph_dict['T2']  = []
-    for ic in range(len(T2_obj_lst)):
-        deph_dict['T2'].append(T2_obj_lst[ic].get_T2_sec())
-    deph_dict['Delt'] = []
-    for ic in range(len(Delt_obj_lst)):
-        deph_dict['Delt'].append(Delt_obj_lst[ic].get_Delt())
-    deph_dict['tau_c'] = []
-    for ic in range(len(tauc_obj_lst)):
-        deph_dict['tau_c'].append(tauc_obj_lst[ic].get_tauc())
-    deph_dict['temperature'] = p.temperatures
-    # write yaml file
-    namef = "T2-data.yml"
-    with open(p.write_dir+'/'+namef, 'w') as out_file:
-        yaml.dump(deph_dict, out_file)
-#
-def print_dephas_data_atr_hfi(T2_obj_lst, tauc_obj_lst, Delt_obj_lst):
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'temperature' : None}
-    deph_dict['T2']   = []
-    for ic in range(len(T2_obj_lst)):
-        deph_dict['T2'].append(T2_obj_lst[ic].get_T2_atr_sec())
-    deph_dict['Delt'] = []
-    for ic in range(len(Delt_obj_lst)):
-        deph_dict['Delt'].append(Delt_obj_lst[ic].get_Delt_atr())
-    deph_dict['tau_c'] = []
-    for ic in range(len(tauc_obj_lst)):
-        deph_dict['tau_c'].append(tauc_obj_lst[ic].get_tauc_atr())
-    deph_dict['temperature'] = p.temperatures
-    # write yaml file
-    namef = "T2-atr-data.yml"
-    with open(p.write_dir+'/'+namef, 'w') as out_file:
-        yaml.dump(deph_dict, out_file)
-#
-def print_dephas_data_phr_hfi(T2_obj_lst, tauc_obj_lst, Delt_obj_lst):
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'temperature' : None, 'w_ql' : None}
-    u, wu, nq, qpts, wq, mesh = extract_ph_data()
-    assert mesh[0]*mesh[1]*mesh[2] == nq
-    assert len(qpts) == nq
-    assert len(u) == nq
-    wl = np.zeros(len(wu[0]))
-    for iq in range(nq):
-        wuq = wu[iq]
-        wl[:] = wl[:] + wq[iq] * wuq[:]
-    wiph = np.zeros(p.nphr)
-    for iph in range(p.nphr):
-        im = p.phm_list[iph]
-        wiph[iph] = wl[im]
-    deph_dict['T2']   = []
-    for ic in range(len(T2_obj_lst)):
-        deph_dict['T2'].append(T2_obj_lst[ic].get_T2_phr_sec())
-    deph_dict['Delt'] = []
-    for ic in range(len(Delt_obj_lst)):
-        deph_dict['Delt'].append(Delt_obj_lst[ic].get_Delt_phr())
-    deph_dict['tau_c'] = []
-    for ic in range(len(tauc_obj_lst)):
-        deph_dict['tau_c'].append(tauc_obj_lst[ic].get_tauc_phr())
-    deph_dict['temperature'] = p.temperatures
-    deph_dict['w_ql'] = wiph
-    # write yaml file
-    namef = "T2-phr-data.yml"
     with open(p.write_dir+'/'+namef, 'w') as out_file:
         yaml.dump(deph_dict, out_file)
