@@ -35,14 +35,29 @@ class T2_eval_class_time_res(ABC):
 	@classmethod
 	def parameter_eval_driver(self, acf_obj):
 		# first evaluate tau_c, Delt
-		self.parametrize_acf(acf_obj)
+		acf_oft = acf_obj.acf
+		self.parametrize_acf(p.time, acf_oft)
 	@abstractmethod
 	def set_up_param_objects(self):
 		self.T2_obj = T2i_class().generate_instance()
-	@abstractmethod
-	def parametrize_acf(self, acf_obj):
-		'''method to implement'''
-		return
+	@classmethod
+	def parametrize_acf(self, t, acf_oft):
+		D2 = acf_oft[0]
+		Ct = acf_oft / D2
+		# set parametrization
+		if p.param == 0:
+			# e^-t/tau parametrization
+			# fit over exp. function
+			p0 = 1    # start with values near those we expect
+			res = scipy.optimize.curve_fit(Exp, t, Ct, p0, maxfev=self.maxiter)
+			p = res[0]
+			# p = 1/tau_c (ps^-1)
+			tauc_ps = 1./p[0]
+		elif p.param == 1:
+			# e^-t/tau sin(wt) 
+			# parametrization
+			pass
+		return D2, tauc_ps
 	@abstractmethod
 	def evaluate_T2(self, D2, tau_c):
 		'''method to implement'''

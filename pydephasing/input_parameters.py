@@ -50,6 +50,8 @@ class data_input():
         self.w_resolved = False
         # zfs 2nd order correction
         self.order_2_correct = False
+        # acf parametrization -> default : ExpSin
+        self.param = 1
         #
         ####################################
         # physical parameters : deph - relax
@@ -183,6 +185,13 @@ class data_input():
             self.dt = float(data['dt'])
         if 'eta' in data:
             self.eta = float(data['eta'])
+        if 'acf_parametrization' in data:
+            if data['acf_parametrization'] == "Exp":
+                self.param = 0
+            elif data['acf_parametrization'] == "ExpSin":
+                self.param = 1
+            else:
+                log.error("acf_parametrization : (1) Exp; (2) ExpSin")
         # frequency grid parameters
         if 'nwg' in data:
             self.w_resolved = True
