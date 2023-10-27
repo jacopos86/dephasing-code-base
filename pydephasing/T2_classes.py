@@ -432,15 +432,39 @@ class tauc_inhom(tauc_class):
 #
 #         lw class
 # -----------------------------------------------
-class lw_ofT:
-    # lw in eV units
+class lw_class(object): 
+    # lw in eV in all classes
     def __init__(self):
         self.lw_eV = None
         self.lw_atr= None
         self.lw_phr= None
         self.lw_wql= None
+    def generate_instance(self):
+        if not p.deph and not p.relax:
+            if p.dyndec:
+                return lw_inhom_dd()
+            else:
+                return lw_inhom()
+        else:
+            if p.time_resolved:
+                return lw_ofT().generate_instance()
+            else:
+                return None
     def get_lw(self):
         return self.lw_eV
+class lw_ofT(lw_class):
+    # lw in eV units
+    def __init__(self):
+        super(lw_ofT, self).__init__()
+    def generate_instance(self):
+        calc_type2 = parser.parse_args().ct2
+        if calc_type2 == "homo":
+            return lw_homo_ofT()
+        elif calc_type2 == "inhomo" or calc_type2 == "full":
+            return lw_inhom_ofT()
+        else:
+            if mpi.rank == mpi.root:
+                log.error("wrong calc_type2 value")
     def get_lw_atr(self):
         return self.lw_atr
     def get_lw_phr(self):
@@ -509,6 +533,30 @@ class lw_inhom_ofT(lw_ofT):
         lw_wql_full = mpi.collect_array(self.lw_wql[:,ic,iT])
         self.lw_wql[:,ic,iT] = 0.
         self.lw_wql[:,ic,iT] = lw_wql_full[:]
+class lw_inhom_dd(lw_class):
+    # lw is in eV
+    def __init__(self, nconf):
+        npl = len(p.n_pulses)
+        self.lw_eV = np.zeros((npl,nconf+1))
+    def set_tauc(self, ipl, ic, T2i):
+        self.lw_eV[ipl,ic] = 2.*np.pi*hbar*T2i
+        # eV units
+    def collect_from_other_proc(self, ic):
+        lw_full = mpi.collect_array(self.lw_eV[:,ic])
+        self.lw_eV[:,ic] = 0.
+        self.lw_eV[:,ic] = lw_full[:]
+# tauc class inhom
+class lw_inhom(lw_class):
+    # lw is in eV
+    def __init__(self, nconf):
+        self.lw_eV = np.zeros(nconf+1)
+    def set_tauc(self, ic, T2i):
+        self.lw_eV[ic] = 2.*np.pi*hbar*T2i
+        # eV units
+    def collect_from_other_proc(self):
+        lw_full = mpi.collect_array(self.lw_eV)
+        self.lw_eV[:] = 0.
+        self.lw_eV[:] = lw_full[:]
 #
 # ext. function : print dephasing data
 #
@@ -532,11 +580,13 @@ def print_decoher_data_dyndec(data):
     T2_obj   = data['T2']
     Delt_obj = data['Delt']
     tauc_obj = data['tau_c']
+    lw_obj   = data['lw']
 	# first print data on dict
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'pulses' : None}
+    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'pulses' : None}
     deph_dict['T2']   = T2_obj.get_T2_musec()
     deph_dict['Delt'] = Delt_obj.get_Delt()
     deph_dict['tau_c']= tauc_obj.get_tauc()
+    deph_dict['lw_eV']= lw_obj.get_lw()
     deph_dict['pulses'] = p.n_pulses
     # write yaml file
     namef = "T2-data.yml"
@@ -549,11 +599,13 @@ def print_decoher_data_stat(data):
     T2_obj   = data['T2']
     Delt_obj = data['Delt']
     tauc_obj = data['tau_c']
+    lw_obj   = data['lw']
 	# first print data on dict
-    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None}
+    deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None}
     deph_dict['T2']   = T2_obj.get_T2_musec()
     deph_dict['Delt'] = Delt_obj.get_Delt()
     deph_dict['tau_c']= tauc_obj.get_tauc()
+    deph_dict['lw_eV']= lw_obj.get_lw()
     # write yaml file
     namef = "T2-data.yml"
     with open(p.write_dir+'/'+namef, 'w') as out_file:
