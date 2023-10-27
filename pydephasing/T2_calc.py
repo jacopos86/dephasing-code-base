@@ -5,7 +5,7 @@
 #
 import numpy as np
 import scipy
-from pydephasing.T2_classes import T2i_class
+from pydephasing.T2_classes import T2i_class, Delta_class, tauc_class
 from pydephasing.phys_constants import hbar
 from pydephasing.log import log
 from pydephasing.input_parameters import p
@@ -32,34 +32,36 @@ class T2_eval_class_time_res(ABC):
 		self.lw_obj = None
 		self.tauc_obj = None
 		self.Delt_obj = None
-	@classmethod
+	@abstractmethod
 	def parameter_eval_driver(self, acf_obj):
-		# first evaluate tau_c, Delt
-		acf_oft = acf_obj.acf
-		self.parametrize_acf(p.time, acf_oft)
+		'''method to implement'''
+		return
 	@abstractmethod
 	def set_up_param_objects(self):
-		self.T2_obj = T2i_class().generate_instance()
+		self.T2_obj   = T2i_class().generate_instance()
+		self.Delt_obj = Delta_class().generate_instance()
+		self.tauc_obj = tauc_class().generate_instance()
 	@classmethod
 	def parametrize_acf(self, t, acf_oft):
+		# units of tau_c depends on units of t
+		# if it is called by static calculation -> mu sec
+		# otherwise p sec
 		D2 = acf_oft[0]
 		Ct = acf_oft / D2
+		# check non Nan
+		if not np.isfinite(Ct).all():
+			return None, None]
 		# set parametrization
-		if p.param == 0:
-			# e^-t/tau parametrization
-			# fit over exp. function
-			p0 = 1    # start with values near those we expect
-			res = scipy.optimize.curve_fit(Exp, t, Ct, p0, maxfev=self.maxiter)
-			p = res[0]
-			# p = 1/tau_c (ps^-1)
-			tauc_ps = 1./p[0]
-		elif p.param == 1:
-			# e^-t/tau sin(wt) 
-			# parametrization
-			pass
-		return D2, tauc_ps
+		# e^-t/tau parametrization
+		# fit over exp. function
+		p0 = 1    # start with values near those we expect
+		res = scipy.optimize.curve_fit(Exp, t, Ct, p0, maxfev=self.maxiter)
+		p = res[0]
+		# p = 1/tau_c (ps^-1/musec^-1)
+		tau_c = 1./p[0]
+		return D2, tau_c
 	@abstractmethod
-	def evaluate_T2(self, D2, tau_c):
+	def evaluate_T2(self, D2, tauc_ps):
 		'''method to implement'''
 		return
 	@abstractmethod
@@ -68,6 +70,7 @@ class T2_eval_class_time_res(ABC):
 		decoher_dict['T2']   = self.T2_obj
 		decoher_dict['Delt'] = self.Delt_obj
 		decoher_dict['tau_c']= self.tauc_obj
+'''
 # --------------------------------------------------------------
 #  time resolved calculation -> concrete class implementation
 #  fit the autocorrelation over 
@@ -78,6 +81,12 @@ class T2_eval_class_time_res(ABC):
 class T2_eval_fit_model_class(T2_eval_class_time_res):
 	def __init__(self):
 		super().__init__()
+		# fft sample points
+		self.N = p.N_df
+        # sample spacing -> ps
+		self.T = p.T_df
+		# max iteration curve fitting
+		self.maxiter = p.maxiter
 	def get_T2_data(self):
 		super().get_T2_data()
 	def generate_instance(self):
@@ -127,13 +136,23 @@ class T2_eval_fit_model_class(T2_eval_class_time_res):
 			T2_inv = self.T2inv_interp_eval(D2, tauc_ps)
 			
 		return tau_c, T2_inv, ExpSin(t, p[0], p[1], p[2])
+'''
 # -------------------------------------------------------------
 # subclass -> to be used for static inhomogeneous
 # calculations
 # -------------------------------------------------------------
-class T2_eval_fit_model_stat_class(T2_eval_fit_model_class):
+class T2_eval_fit_model_stat_class(T2_eval_class_time_res):
 	def __init__(self):
-		super(T2_eval_fit_model_stat_class, self).__init__()
+		super().__init__()
+	def parameter_eval_driver(self, acf_obj):
+		# store acf_oft
+		acf_oft = acf_obj.acf
+		# parametrize acf_oft
+		D2, tauc_mus = self.parametrize_acf(p.time, acf_oft)
+		# convert to psec
+		tauc_ps = tauc_mus * 1.E+6
+		# compute T2_inv
+		T2_inv = self.evaluate_T2(D2, tauc_ps)
 	def T2inv_interp_eval(self, D2, tauc_ps):
 		# fft sample points
 		N = self.N
@@ -161,6 +180,14 @@ class T2_eval_fit_model_stat_class(T2_eval_fit_model_class):
 		except RuntimeError:
 			T2_inv = None
 		return T2_inv
+# -------------------------------------------------------------
+# subclass of the fitting model
+# to be used for dynamical calculation -> different fitting
+# time domain wrt to static calculations
+# -------------------------------------------------------------
+class T2_eval_fit_model_dyn_class(T2_eval_class_time_res):
+	def __init__(self):
+		super(T2_eval_fit_model_dyn_class, self).__init__()
 # -------------------------------------------------------------
 # this class is unique for dynamical calculations
 # relax / dephas calculations
