@@ -16,6 +16,7 @@ from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.ph_ampl_module import PhononAmplitude
 from pydephasing.auto_correlation_driver import acf_ph
 from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT
+from pydephasing.T2_calc_handler import set_T2_calc_handler
 import sys
 #
 def compute_homo_dephas():
@@ -54,6 +55,9 @@ def compute_homo_dephas():
     atoms.compute_index_to_idx_map(nat)
     # set atoms dict
     atoms.extract_atoms_coords(nat)
+    T2_calc_handler = set_T2_calc_handler()
+    print('OK')
+    sys.exit()
     # zfs 2nd order
     # TODO : uncomment here
     '''
@@ -161,6 +165,7 @@ def compute_homo_dephas():
     mpi.comm.Barrier()
     sys.exit()
     # prepare data arrays
+    T2_calc_handler.set_up_param_objects()
     T2_obj = T2i_ofT(nat)
     Delt_obj= Delta_ofT(nat)
     tauc_obj= tauc_ofT(nat)

@@ -2,6 +2,7 @@ LICENSE.txt
 README.md
 setup.py
 pydephasing/T2_calc.py
+pydephasing/T2_calc_handler.py
 pydephasing/T2_classes.py
 pydephasing/__init__.py
 pydephasing/__main__.py

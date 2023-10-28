@@ -50,7 +50,6 @@ class data_input():
         self.w_resolved = False
         # zfs 2nd order correction
         self.order_2_correct = False
-        #
         ####################################
         # physical parameters : deph - relax
         self.index_qs0 = None
