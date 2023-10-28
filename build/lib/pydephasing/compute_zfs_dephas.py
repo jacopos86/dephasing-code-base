@@ -56,7 +56,6 @@ def compute_homo_dephas():
     # set atoms dict
     atoms.extract_atoms_coords(nat)
     T2_calc_handler = set_T2_calc_handler()
-    print('OK')
     sys.exit()
     # zfs 2nd order
     # TODO : uncomment here
@@ -165,6 +164,7 @@ def compute_homo_dephas():
     mpi.comm.Barrier()
     sys.exit()
     # prepare data arrays
+    T2_calc_handler.set_up_param_objects()
     T2_obj = T2i_ofT(nat)
     Delt_obj= Delta_ofT(nat)
     tauc_obj= tauc_ofT(nat)

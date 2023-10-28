@@ -149,13 +149,6 @@ class T2_eval_from_integ_class(T2_eval_class_time_res):
         # extract C(t)
         Ct = acf_obj.acf
         # set parametrization
-        if p.param == 0:
-            # e^-t/tau parametrization
-            pass
-        elif p.param == 1:
-            # e^-t/tau sin(wt) 
-            # parametrization
-            pass
 # -------------------------------------------------------------
 # subclass -> template for pure fitting calculation
 # this is also abstract -> real class we must specifiy
@@ -208,6 +201,16 @@ class T2_eval_fit_model_class(T2_eval_class_time_res):
 class T2_eval_fit_model_dyn_class(T2_eval_fit_model_class):
     def __init__(self):
         super(T2_eval_fit_model_dyn_class, self).__init__()
+    def evaluate_T2(self, D2, tauc_ps):
+        pass
+# -------------------------------------------------------------
+# subclass of the fitting model
+# to be used for dynamical inhomo calculation -> different fitting
+# time domain wrt to static calculations
+# -------------------------------------------------------------
+class T2_eval_fit_model_dyninhom_class(T2_eval_fit_model_class):
+    def __init__(self):
+        super(T2_eval_fit_model_dyninhom_class, self).__init__()
     def evaluate_T2(self, D2, tauc_ps):
         pass
 #

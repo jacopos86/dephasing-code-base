@@ -46,6 +46,9 @@ class data_input():
         self.dyndec = False
         # time resolved
         self.time_resolved = False
+        # fit Ct
+        self.fit_acf_oft = True
+        self.integ_acf_oft = False
         # freq. resolved
         self.w_resolved = False
         # zfs 2nd order correction
@@ -182,6 +185,10 @@ class data_input():
             self.dt = float(data['dt'])
         if 'eta' in data:
             self.eta = float(data['eta'])
+        if 'integ_acf_oft' in data:
+            self.integ_acf_oft = data['integ_acf_oft']
+        if 'fit_acf_oft' in data:
+            self.fit_acf_oft = data['fit_acf_oft']
         # frequency grid parameters
         if 'nwg' in data:
             self.w_resolved = True

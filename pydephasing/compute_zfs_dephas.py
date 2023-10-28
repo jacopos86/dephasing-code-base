@@ -56,7 +56,6 @@ def compute_homo_dephas():
     # set atoms dict
     atoms.extract_atoms_coords(nat)
     T2_calc_handler = set_T2_calc_handler()
-    print('OK')
     sys.exit()
     # zfs 2nd order
     # TODO : uncomment here
