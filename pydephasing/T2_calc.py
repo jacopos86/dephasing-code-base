@@ -225,6 +225,10 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
             # compute T2_inv
             T2_inv = self.evaluate_T2(D2, tauc_ps)
             self.T2_obj.set_T2_sec(iT, T2_inv)
+            # lw obj
+            self.lw_obj.set_lw(iT, T2_inv)
+            # save acf data
+            # TODO
 # -------------------------------------------------------------
 # subclass of the fitting model
 # to be used for dynamical inhomo calculation -> different fitting
