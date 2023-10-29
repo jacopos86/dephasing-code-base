@@ -157,15 +157,6 @@ class T2_eval_from_integ_class(T2_eval_class_time_res):
 class T2_eval_fit_model_class(T2_eval_class_time_res):
     def __init__(self):
         super().__init__()
-    def parameter_eval_driver(self, acf_obj):
-        # store acf_oft
-        acf_oft = acf_obj.acf
-        # parametrize acf_oft
-        D2, tauc_mus = self.parametrize_acf(p.time, acf_oft)
-        # convert to psec
-        tauc_ps = tauc_mus * 1.E+6
-        # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
     def T2inv_interp_eval(self, D2, tauc_ps):
         # fft sample points
         N = self.N
@@ -194,25 +185,89 @@ class T2_eval_fit_model_class(T2_eval_class_time_res):
             T2_inv = None
         return T2_inv
 # -------------------------------------------------------------
-# subclass of the fitting model
-# to be used for dynamical calculation -> different fitting
-# time domain wrt to static calculations
+# abstract subclass of the fitting model
+# template for homo/inhomo dynamical calculations
 # -------------------------------------------------------------
 class T2_eval_fit_model_dyn_class(T2_eval_fit_model_class):
     def __init__(self):
         super(T2_eval_fit_model_dyn_class, self).__init__()
     def evaluate_T2(self, D2, tauc_ps):
-        pass
+        # compute r = Delta tau_c
+        # dynamical calculations -> r << 1
+        r = np.sqrt(D2) / hbar * tauc_ps
+        if r < 1.E-4:
+            # lorentzian decay
+            T2_inv = D2 / hbar ** 2 * tauc_ps
+            # ps^-1
+        else:
+            log.warning("dynamica calc: r >~ 1 : " + str(r))
+            T2_inv = None
+        return T2_inv
+# -------------------------------------------------------------
+# subclass of the fitting model
+# to be used for dynamical calculation -> different fitting
+# time domain wrt to static calculations
+# -------------------------------------------------------------
+class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
+    def __init__(self):
+        super(T2_eval_fit_model_dyn_homo_class, self).__init__()
+    def parameter_eval_driver(self, acf_obj):
+        acf_oft = np.zeros(p.nt)
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # store acf_oft
+            acf_oft[:] = 0.
+            acf_oft = np.real(acf_obj.acf[:,iT])
+            # parametrize acf_oft
+            D2, tauc_ps = self.parametrize_acf(p.time, acf_oft)
+            self.Delt_obj.set_Delt(iT, D2)
+            self.tauc_obj.set_tauc(iT, tauc_ps)
+            # compute T2_inv
+            T2_inv = self.evaluate_T2(D2, tauc_ps)
+            self.T2_obj.set_T2_sec(iT, T2_inv)
 # -------------------------------------------------------------
 # subclass of the fitting model
 # to be used for dynamical inhomo calculation -> different fitting
 # time domain wrt to static calculations
 # -------------------------------------------------------------
-class T2_eval_fit_model_dyninhom_class(T2_eval_fit_model_class):
+class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
     def __init__(self):
-        super(T2_eval_fit_model_dyninhom_class, self).__init__()
-    def evaluate_T2(self, D2, tauc_ps):
-        pass
+        super(T2_eval_fit_model_dyn_inhom_class, self).__init__()
+    def parameter_eval_driver(self, acf_obj, ic):
+        acf_oft = np.zeros(p.nt)
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # store acf_oft
+            acf_oft[:] = 0.
+            acf_oft[:] = np.real(acf_obj.acf[:,iT])
+            # parametrize acf_oft
+            D2, tauc_ps = self.parametrize_acf(p.time, acf_oft)
+            self.Delt_obj.set_Delt(ic, iT, D2)
+            self.tauc_obj.set_tauc(ic, iT, tauc_ps)
+            # compute T2_inv
+            T2_inv = self.evaluate_T2(D2, tauc_ps)
+            # store results in objects
+            self.T2_obj.set_T2_sec(ic, iT, T2_inv)
+            # lw object
+            self.lw_obj.set_lw(ic, iT, T2_inv)
+            # save acf_oft data
+            # TODO
+# -------------------------------------------------------------
+# subclass of the fitting model
+# to be used for static calculation -> different fitting
+# -------------------------------------------------------------
+class T2_eval_fit_model_stat_class(T2_eval_fit_model_class):
+    def __init__(self):
+        super(T2_eval_fit_model_stat_class, self).__init__()
+    def parameter_eval_driver(self, acf_obj):
+        # store acf_oft
+        acf_oft = acf_obj.acf
+        # parametrize acf_oft
+        D2, tauc_mus = self.parametrize_acf(p.time, acf_oft)
+        # convert to psec
+        tauc_ps = tauc_mus * 1.E+6
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(D2, tauc_ps)
 #
 # generate initial parameters function
 def generate_initial_params(r, D2, tau_c):
