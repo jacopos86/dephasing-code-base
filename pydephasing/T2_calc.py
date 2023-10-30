@@ -47,7 +47,7 @@ class T2_eval_class_time_res(ABC):
         Ct = acf_oft / D2
         # check non Nan
         if not np.isfinite(Ct).all():
-            return None, None
+            return None, None, None
         # set parametrization
         # e^-t/tau parametrization
         # fit over exp. function
@@ -56,9 +56,9 @@ class T2_eval_class_time_res(ABC):
         p = res[0]
         # p = 1/tau_c (ps^-1/musec^-1)
         tau_c = 1./p[0]
-        return D2, tau_c
+        return D2, tau_c, Exp(t, p)
     @abstractmethod
-    def evaluate_T2(self, D2, tauc_ps):
+    def evaluate_T2(self, D2, tauc_ps, acf_int_oft=None):
         '''method to implement'''
         return
     @classmethod
@@ -145,10 +145,49 @@ class T2_eval_from_integ_class(T2_eval_class_time_res):
         super().__init__()
     def get_T2_data(self):
         super().get_T2_data()
-    def parametrize_acf(self, acf_obj):
-        # extract C(t)
-        Ct = acf_obj.acf
-        # set parametrization
+# -------------------------------------------------------------
+# subclass of the integral model
+# to be used for dynamical homogeneous calculations
+# -------------------------------------------------------------
+class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
+    def __init__(self):
+        super(T2_eval_from_integ_homo_class, self).__init__()
+    def parameter_eval_driver(self, acf_obj):
+        acf_oft = np.zeros(p.nt)
+        acf_integ_oft = np.zeros(p.nt)
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # storing acf_oft
+            acf_oft[:] = 0.
+            acf_oft[:] = np.real(acf_obj.acf[:,0,iT])
+            # parametrize acf_oft
+            D2, tauc_ps, ft = self.parametrize_acf(p.time, acf_oft)
+            self.Delt_obj.set_Delt(iT, D2)
+            self.tauc_obj.set_tauc(iT, tauc_ps)
+            # compute T2_inv
+            acf_integ_oft[:] = 0.
+            acf_integ_oft[:] = np.real(acf_obj.acf[:,1,iT])
+            self.evaluate_T2(D2, tauc_ps, acf_integ_oft)
+# -------------------------------------------------------------
+# subclass of the integral model
+# to be used for dynamical inhomogeneous calculations
+# -------------------------------------------------------------
+class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
+    def __init__(self):
+        super(T2_eval_from_integ_inhom_class, self).__init__()
+    def parameter_eval_driver(self, acf_obj, ic):
+        acf_oft = np.zeros(p.nt)
+        acf_integ_oft = np.zeros(p.nt)
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # storing acf_oft
+            acf_oft[:] = 0.
+            acf_oft[:] = np.real(acf_obj.acf[:,0,iT])
+            # parametrize acf_oft
+            D2, tauc_ps, ft = self.parametrize_acf(p.time, acf_oft)
+            self.Delt_obj.set_Delt(ic, iT, D2)
+            self.tauc_obj.set_tauc(ic, iT, tauc_ps)
+            # compute T2_inv
 # -------------------------------------------------------------
 # subclass -> template for pure fitting calculation
 # this is also abstract -> real class we must specifiy
@@ -219,7 +258,7 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
             acf_oft[:] = 0.
             acf_oft = np.real(acf_obj.acf[:,iT])
             # parametrize acf_oft
-            D2, tauc_ps = self.parametrize_acf(p.time, acf_oft)
+            D2, tauc_ps, ft = self.parametrize_acf(p.time, acf_oft)
             self.Delt_obj.set_Delt(iT, D2)
             self.tauc_obj.set_tauc(iT, tauc_ps)
             # compute T2_inv
@@ -245,7 +284,7 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
             acf_oft[:] = 0.
             acf_oft[:] = np.real(acf_obj.acf[:,iT])
             # parametrize acf_oft
-            D2, tauc_ps = self.parametrize_acf(p.time, acf_oft)
+            D2, tauc_ps, ft = self.parametrize_acf(p.time, acf_oft)
             self.Delt_obj.set_Delt(ic, iT, D2)
             self.tauc_obj.set_tauc(ic, iT, tauc_ps)
             # compute T2_inv
@@ -267,11 +306,13 @@ class T2_eval_fit_model_stat_class(T2_eval_fit_model_class):
         # store acf_oft
         acf_oft = acf_obj.acf
         # parametrize acf_oft
-        D2, tauc_mus = self.parametrize_acf(p.time, acf_oft)
+        D2, tauc_mus, ft = self.parametrize_acf(p.time, acf_oft)
         # convert to psec
         tauc_ps = tauc_mus * 1.E+6
         # compute T2_inv
         T2_inv = self.evaluate_T2(D2, tauc_ps)
+    def evaluate_T2(self, D2, tauc_ps):
+        pass
 #
 # generate initial parameters function
 def generate_initial_params(r, D2, tau_c):
