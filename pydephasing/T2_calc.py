@@ -28,10 +28,6 @@ class T2_eval_class_time_res(ABC):
         self.lw_obj = None
         self.tauc_obj = None
         self.Delt_obj = None
-    @abstractmethod
-    def parameter_eval_driver(self, acf_obj):
-        '''method to implement'''
-        return
     @classmethod
     def set_up_param_objects(self):
         self.T2_obj   = T2i_class().generate_instance()
@@ -57,10 +53,6 @@ class T2_eval_class_time_res(ABC):
         # p = 1/tau_c (ps^-1/musec^-1)
         tau_c = 1./p[0]
         return D2, tau_c, Exp(t, p)
-    @abstractmethod
-    def evaluate_T2(self, D2, tauc_ps, acf_int_oft=None):
-        '''method to implement'''
-        return
     @classmethod
     def get_T2_data(self):
         decoher_dict = {'T2' : None, 'lw' : None, 'Delt' : None, 'tau_c' : None}
@@ -145,6 +137,10 @@ class T2_eval_from_integ_class(T2_eval_class_time_res):
         super().__init__()
     def get_T2_data(self):
         super().get_T2_data()
+    @classmethod
+    def evaluate_T2(self, acf_int_oft):
+        '''method to implement'''
+        return
 # -------------------------------------------------------------
 # subclass of the integral model
 # to be used for dynamical homogeneous calculations
@@ -162,12 +158,25 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
             acf_oft[:] = np.real(acf_obj.acf[:,0,iT])
             # parametrize acf_oft
             D2, tauc_ps, ft = self.parametrize_acf(p.time, acf_oft)
+            Ct = acf_oft / D2
             self.Delt_obj.set_Delt(iT, D2)
             self.tauc_obj.set_tauc(iT, tauc_ps)
             # compute T2_inv
             acf_integ_oft[:] = 0.
             acf_integ_oft[:] = np.real(acf_obj.acf[:,1,iT])
-            self.evaluate_T2(D2, tauc_ps, acf_integ_oft)
+            self.evaluate_T2(acf_integ_oft)
+            # write acf data on file
+            name_file = p.write_dir + "/acf-data-iT" + str(iT+1) + ".yml"
+            print_acf_dict(p.time, Ct, ft, name_file)
+    # atom resolved version
+    def atr_parameter_eval_driver(self, acf_obj, ia):
+        acf_oft = np.zeros(p.nt2)
+        acf_integ_oft = np.zeros(p.nt2)
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # storing acf_oft
+            acf_oft[:] = 0.
+            acf_oft[:] = np.real(acf_obj.acf_atr[:,0,ia,iT])
 # -------------------------------------------------------------
 # subclass of the integral model
 # to be used for dynamical inhomogeneous calculations
@@ -185,9 +194,16 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
             acf_oft[:] = np.real(acf_obj.acf[:,0,iT])
             # parametrize acf_oft
             D2, tauc_ps, ft = self.parametrize_acf(p.time, acf_oft)
+            Ct = acf_oft / D2
             self.Delt_obj.set_Delt(ic, iT, D2)
             self.tauc_obj.set_tauc(ic, iT, tauc_ps)
             # compute T2_inv
+            acf_integ_oft[:] = 0.
+            acf_integ_oft[:] = np.real(acf_obj.acf[:,1,iT])
+            self.evaluate_T2(acf_integ_oft)
+            # write acf data on file
+            name_file = p.write_dir + "/acf-data-ic" + str(ic+1) + "-iT" + str(iT+1) + ".yml"
+            print_acf_dict(p.time, Ct, ft, name_file)
 # -------------------------------------------------------------
 # subclass -> template for pure fitting calculation
 # this is also abstract -> real class we must specifiy
@@ -196,6 +212,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
 class T2_eval_fit_model_class(T2_eval_class_time_res):
     def __init__(self):
         super().__init__()
+    @abstractmethod
+    def evaluate_T2(self, D2, tauc_ps):
+        '''method to implement'''
+        return
     def T2inv_interp_eval(self, D2, tauc_ps):
         # fft sample points
         N = self.N

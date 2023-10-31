@@ -25,6 +25,9 @@ import sys
 # 8) print ZPL gradient data
 #    input : gradZPL, hessZPL, outdir
 #    output: None
+# 9) print ACF data
+#    input : Ct, ft, name_file
+#    output: None
 #
 #  function 1)
 #

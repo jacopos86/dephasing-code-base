@@ -6,7 +6,6 @@ from pydephasing.T2_calc import T2_eval_from_integ_class, T2_eval_fit_model_dyn_
 #   here we define the T2 calculation handler
 #
 def set_T2_calc_handler():
-    print('OK')
     if p.fit_acf_oft and p.integ_acf_oft:
         log.error("fit_acf_oft and integ_acf_oft cannot be both True")
     if not p.fit_acf_oft and not p.integ_acf_oft:
