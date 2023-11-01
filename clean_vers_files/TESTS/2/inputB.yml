@@ -26,6 +26,7 @@ T :
   - 1.0
   - 0.5
 dt : 0.0007
+T2_extract_method : fit
 min_freq : 1.0E-2
 eta : 6.6E-8
 lorentz_thres : 1.0E-8

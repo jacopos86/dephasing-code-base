@@ -32,14 +32,26 @@ class acf_sp_ph(acf_ph):
         self.dE = 0.0
         # single proc. ACFs
         self.acf_sp = None
-    def allocate_acf_arrays(self):
+    def allocate_acf_arrays(self, nat):
         if p.time_resolved:
             if p.ACF_FIT:
                 self.acf_sp = np.zeros((p.nt, p.ntmp), dtype=np.complex128)
+                if p.ph_resolved:
+                    if p.nphr > 0:
+                        self.acf_phr_sp = np.zeros((p.nt2, p.nphr, p.ntmp), dtype=np.complex128)
+                    self.acf_wql_sp = np.zeros((p.nt2, p.nwbn, p.ntmp), dtype=np.complex128)
+                if p.at_resolved:
+                    self.acf_atr_sp = np.zeros((p.nt2, nat, p.ntmp), dtype=np.complex128)
             elif p.ACF_INTEG:
                 self.acf_sp = np.zeros((p.nt, 2, p.ntmp), dtype=np.complex128)
         elif p.w_resolved:
             self.acf_sp = np.zeros((p.nwg, p.ntmp), dtype=np.complex128)
+            if p.ph_resolved:
+                if p.nphr > 0:
+                    self.acf_phr_sp = np.zeros((p.nwg, p.nphr, p.ntmp), dtype=np.complex128)
+                self.acf_wql_sp = np.zeros((p.nwg, p.nwbn, p.ntmp), dtype=np.complex128)
+            if p.at_resolved:
+                self.acf_atr_sp = np.zeros((p.nwg, nat, p.ntmp), dtype=np.complex128)
     # set dE
     def set_dE(self, H):
         if p.relax:
@@ -248,11 +260,6 @@ class CPU_acf_sp_ph(acf_sp_ph):
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')> -> ph / at resolved
     def compute_acf_V1_atphr_oft(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
-        if p.ph_resolved:
-            self.acf_phr_sp = np.zeros((p.nt2,2,p.nphr,p.ntmp), dtype=np.complex128)
-            self.acf_wql_sp = np.zeros((p.nt2,2,p.nwbn,p.ntmp), dtype=np.complex128)
-        if p.at_resolved:
-            self.acf_atr_sp = np.zeros((p.nt2,2,nat,p.ntmp), dtype=np.complex128)
         if not p.ph_resolved and not p.at_resolved:
             return
         # dE (ps^-1)
@@ -282,43 +289,51 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     for jax in range(3*nat):
                         # eV ps^2 * eV/ps^2
                         # (eV^2) units
+                        acf_tmp = wq[iq] * A_lq[iql] ** 2 * ft * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
                         # ph. resolved
                         if p.ph_resolved:
                             ii = p.wql_grid_index[iq,il]
-                            self.acf_wql_sp[:,0,ii,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                            if p.ACF_FIT:
+                                self.acf_wql_sp[:,ii,iT] += acf_tmp[:]
+                            elif p.ACF_INTEG:
+                                self.acf_wql_sp[:,0,ii,iT] += acf_tmp[:]
                             if il in p.phm_list:
                                 iph = p.phm_list.index(il)
-                                self.acf_phr_sp[:,0,iph,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                                if p.ACF_FIT:
+                                    self.acf_phr_sp[:,iph,iT] += acf_tmp[:]
+                                elif p.ACF_INTEG:
+                                    self.acf_phr_sp[:,0,iph,iT] += acf_tmp[:]
                         # at. resolved
                         if p.at_resolved:
                             ia = atoms.index_to_ia_map[jax] - 1
-                            self.acf_atr_sp[:,0,ia,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
-                    # integral
-                    # eV ps^2 ps eV/ps^2
-                    # (eV^2 ps) units
-                    ft[:] = 0.
-                    ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE-1j*nu)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE+1j*nu))
-                    for jax in range(3*nat):
-                        # ph. resolved
-                        if p.ph_resolved:
-                            ii = p.wql_grid_index[iq,il]
-                            self.acf_wql_sp[:,1,ii,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
-                            if il in p.phm_list:
-                                iph = p.phm_list.index(il)
-                                self.acf_phr_sp[:,1,iph,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
-                        # at. resolved
-                        if p.at_resolved:
-                            ia = atoms.index_to_ia_map[jax] - 1
-                            self.acf_atr_sp[:,1,ia,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                            if p.ACF_FIT:
+                                self.acf_atr_sp[:,ia,iT] += acf_tmp[:]
+                            elif p.ACF_INTEG:
+                                self.acf_atr_sp[:,0,ia,iT] += acf_tmp[:]
+                    if p.ACF_INTEG:
+                        #
+                        # integral
+                        # eV ps^2 ps eV/ps^2
+                        # (eV^2 ps) units
+                        ft[:] = 0.
+                        ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE-1j*nu)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE+1j*nu))
+                        for jax in range(3*nat):
+                            acf_tmp = wq[iq] * A_lq[iql] ** 2 * ft * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                            # ph. resolved
+                            if p.ph_resolved:
+                                ii = p.wql_grid_index[iq,il]
+                                self.acf_wql_sp[:,1,ii,iT] += acf_tmp[:]
+                                if il in p.phm_list:
+                                    iph = p.phm_list.index(il)
+                                    self.acf_phr_sp[:,1,iph,iT] += acf_tmp[:]
+                            # at. resolved
+                            if p.at_resolved:
+                                ia = atoms.index_to_ia_map[jax] - 1
+                                self.acf_atr_sp[:,1,ia,iT] += acf_tmp[:]
             iql += 1
     #
     # compute <Delta V(1) \Delta V(1)>(w) / at-ph res.
     def compute_acf_V1_atphr_ofw(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
-        if p.ph_resolved:
-            self.acf_phr_sp = np.zeros((p.nwg,p.nphr,p.ntmp), dtype=np.complex128)
-            self.acf_wql_sp = np.zeros((p.nwg,p.nwbn,p.ntmp), dtype=np.complex128)
-        if p.at_resolved:
-            self.acf_atr_sp = np.zeros((p.nwg,nat,p.ntmp), dtype=np.complex128)
         if not p.ph_resolved and not p.at_resolved:
             return
         # dE (eV)
@@ -345,17 +360,18 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     nph = bose_occup(Eql, T)
                     for jax in range(3*nat):
                         # eV/ps^2*eV*ps^2*eV^-1 = eV
+                        acf_tmp = wq[iq] * A_lq[iql] ** 2 * ((1.+nph)*ltza + nph*ltzb) * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
                         # ph. resolved
                         if p.ph_resolved:
                             ii = p.wql_grid_index[iq,il]
-                            self.acf_wql_sp[:,ii,iT] += wq[iq] * A_lq[iql] ** 2 * ((1.+nph)*ltza[:] + nph*ltzb[:]) * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                            self.acf_wql_sp[:,ii,iT] += acf_tmp
                             if il in p.phm_list:
                                 iph = p.phm_list.index(il)
-                                self.acf_phr_sp[:,iph,iT] += wq[iq] * A_lq[iql] ** 2 * ((1.+nph)*ltza[:] + nph*ltzb[:]) * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                                self.acf_phr_sp[:,iph,iT] += acf_tmp
                         # at. resolved
                         if p.at_resolved:
                             ia = atoms.index_to_ia_map[jax] - 1
-                            self.acf_atr_sp[:,ia,iT] += wq[iq] * A_lq[iql] ** 2 * ((1.+nph)*ltza[:] + nph*ltzb[:]) * Fjax_lq[jax,iql] * Fjax_lq[jax,iql].conjugate()
+                            self.acf_atr_sp[:,ia,iT] += acf_tmp
             iql += 1
     # ---------------------------------------------------------------------
     # compute <Delta V^(2)(t) Delta V^(2)(t')>_c
