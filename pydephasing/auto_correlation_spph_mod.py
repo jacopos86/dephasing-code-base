@@ -30,6 +30,16 @@ class acf_sp_ph(acf_ph):
     def __init__(self):
         super(acf_sp_ph, self).__init__()
         self.dE = 0.0
+        # single proc. ACFs
+        self.acf_sp = None
+    def allocate_acf_arrays(self):
+        if p.time_resolved:
+            if p.ACF_FIT:
+                self.acf_sp = np.zeros((p.nt, p.ntmp), dtype=np.complex128)
+            elif p.ACF_INTEG:
+                self.acf_sp = np.zeros((p.nt, 2, p.ntmp), dtype=np.complex128)
+        elif p.w_resolved:
+            self.acf_sp = np.zeros((p.nwg, p.ntmp), dtype=np.complex128)
     # set dE
     def set_dE(self, H):
         if p.relax:
@@ -167,8 +177,6 @@ class CPU_acf_sp_ph(acf_sp_ph):
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')>
     def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq):
-        # initialize acf_sp -> 0 acf -> 1 integral
-        self.acf_sp = np.zeros((p.nt, 2, p.ntmp), dtype=np.complex128)
         # dE
         dE = self.dE / hbar
         nu = p.eta / hbar
@@ -195,18 +203,20 @@ class CPU_acf_sp_ph(acf_sp_ph):
                     nph = bose_occup(Eql, T)
                     ft = np.zeros(p.nt, dtype=np.complex128)
                     ft[:] = (1.+nph) * exp_iwt[:] + nph * cc_exp_iwt[:]
-                    # (eV^2) units
-                    self.acf_sp[:,0,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
-                    ft[:] = 0.
-                    ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE-1j*nu)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE+1j*nu))
-                    self.acf_sp[:,1,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
-                    # (eV^2 ps) units
+                    if p.ACF_FIT:
+                        # (eV^2) units
+                        self.acf_sp[:,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
+                    elif p.ACF_INTEG:
+                        # (eV^2) units
+                        self.acf_sp[:,0,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
+                        ft[:] = 0.
+                        ft[:] = (1.+nph) * (exp_iwt[:] - 1.)/(-1j*(wql+dE-1j*nu)) + nph * (cc_exp_iwt[:] - 1.)/(1j*(wql-dE+1j*nu))
+                        self.acf_sp[:,1,iT] += wq[iq] * A_lq[iql] ** 2 * ft[:] * F_lq[iql] * F_lq[iql].conjugate()
+                        # (eV^2 ps) units
             iql += 1
     #
     # compute <Delta V(1) \Delta V(1)>(w)
     def compute_acf_V1_ofw(self, wq, wu, ql_list, A_lq, F_lq):
-        # initialize acf_sp -> 0 acf -> 1 integral
-        self.acf_sp = np.zeros((p.nwg, p.ntmp), dtype=np.complex128)
         # dE (eV)
         dE = self.dE
         ltza = np.zeros(p.nwg)

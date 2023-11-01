@@ -409,8 +409,8 @@ class tauc_inhom_dd(tauc_class):
     def __init__(self, nconf):
         npl = len(p.n_pulses)
         self.tauc_ps = np.zeros((npl,nconf+1))
-    def set_tauc(self, ipl, ic, tau_c):
-        self.tauc_ps[ipl,ic] = tau_c
+    def set_tauc(self, ipl, ic, tauc_mus):
+        self.tauc_ps[ipl,ic] = tauc_mus * 1.E6
         # ps units
     def collect_from_other_proc(self, ic):
         tauc_full = mpi.collect_array(self.tauc_ps[:,ic])
@@ -421,8 +421,8 @@ class tauc_inhom(tauc_class):
     # tauc is in ps
     def __init__(self, nconf):
         self.tauc_ps = np.zeros(nconf+1)
-    def set_tauc(self, ic, tau_c):
-        self.tauc_ps[ic] = tau_c
+    def set_tauc(self, ic, tauc_mus):
+        self.tauc_ps[ic] = tauc_mus * 1.E6
         # ps units
     def collect_from_other_proc(self):
         tauc_full = mpi.collect_array(self.tauc_ps)
@@ -538,7 +538,7 @@ class lw_inhom_dd(lw_class):
     def __init__(self, nconf):
         npl = len(p.n_pulses)
         self.lw_eV = np.zeros((npl,nconf+1))
-    def set_tauc(self, ipl, ic, T2i):
+    def set_lw(self, ipl, ic, T2i):
         self.lw_eV[ipl,ic] = 2.*np.pi*hbar*T2i
         # eV units
     def collect_from_other_proc(self, ic):
@@ -550,7 +550,7 @@ class lw_inhom(lw_class):
     # lw is in eV
     def __init__(self, nconf):
         self.lw_eV = np.zeros(nconf+1)
-    def set_tauc(self, ic, T2i):
+    def set_lw(self, ic, T2i):
         self.lw_eV[ic] = 2.*np.pi*hbar*T2i
         # eV units
     def collect_from_other_proc(self):

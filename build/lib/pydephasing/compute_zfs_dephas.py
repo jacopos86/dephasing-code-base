@@ -55,9 +55,6 @@ def compute_homo_dephas():
     atoms.compute_index_to_idx_map(nat)
     # set atoms dict
     atoms.extract_atoms_coords(nat)
-    T2_calc_handler = set_T2_calc_handler()
-    print('OK')
-    sys.exit()
     # zfs 2nd order
     # TODO : uncomment here
     '''
@@ -139,6 +136,10 @@ def compute_homo_dephas():
     if mpi.rank == mpi.root and p.w_resolved:
         plt.plot(p.w_grid, acf.acf[:,0])
         plt.savefig('./examples/NV-diamond/F_1_REL_ofw.png')
+    T2_calc_handler = set_T2_calc_handler()
+    print('OK')
+    print(p.ACF_INTEG, p.ACF_FIT)
+    sys.exit()
     #
     # print average atom displ
     if log.level <= logging.DEBUG:

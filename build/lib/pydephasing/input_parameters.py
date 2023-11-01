@@ -67,6 +67,9 @@ class data_input():
         self.T  = 0.0
         self.T2 = 0.0
         self.T_mus = 0.0
+        # integral / fit
+        self.ACF_INTEG = False
+        self.ACF_FIT = False
         # eta decay parameter
         self.eta = 1e-5
         # in eV units
@@ -174,6 +177,18 @@ class data_input():
                 self.T2= float(data['T'][1])
             else:
                 log.error("only two T values 1) normal calc. 2) ph/at resolved")
+            # T2 extraction method
+            if 'T2_extract_method' in data:
+                if data['T2_extract_method'] == "fit":
+                    self.ACF_FIT = True
+                    self.ACF_INTEG = False
+                elif data['T2_extract_method'] == "integ":
+                    self.ACF_FIT = False
+                    self.ACF_INTEG = True
+                else:
+                    log.error("T2_extract_method : fit / integ")
+            else:
+                log.error("T2_extract_method : fit / integ must be given in input")
             # min. frequency
             if 'min_freq' in data:
                 self.min_freq = data['min_freq']
