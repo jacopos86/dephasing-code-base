@@ -22,8 +22,7 @@ if mpi.rank == mpi.root:
 #
 yml_file = parser.parse_args().yml_inp[0]
 if yml_file is None:
-    if mpi.rank == mpi.root:
-        log.error("-> yml file name missing")
+    log.error("-> yml file name missing")
 nargs = 2
 if parser.parse_args().ct2 is not None:
     nargs += 1
@@ -36,7 +35,7 @@ if nargs < 4:
         if mpi.rank == mpi.root:
             log.warning("->           code usage: \n")
             log.warning("->           python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
-            log.error("-----          wrong execution parameters: pydephasing stops                -------")
+        log.error("-----          wrong execution parameters: pydephasing stops                -------")
 timer.start_execution()
 calc_type1 = parser.parse_args().ct1[0]
 if calc_type1 == "energy":
@@ -57,8 +56,9 @@ if calc_type1 == "energy":
             if mpi.rank == mpi.root:
                 log.info("-----------                   homogeneous - relaxation calculation         --------------")
         else:
-            log.warning("->           code usage: \n")
-            log.warning("->           python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
+            if mpi.rank == mpi.root:
+                log.warning("->           code usage: \n")
+                log.warning("->           python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
             log.error("-----          deph or --relax notspecified                                  -------")
         # read input file
         p.read_yml_data(yml_file)
@@ -189,7 +189,7 @@ elif calc_type1 == "spin":
             if mpi.rank == 0:
                 log.warning("->           code usage: \n")
                 log.warning("->           python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
-                log.error("-----          Wrong action type flag: pydephasing stops                -------")
+            log.error("-----          Wrong action type flag: pydephasing stops                -------")
 elif calc_type1 == "init":
     # read data file
     order = parser.parse_args().o
@@ -207,7 +207,7 @@ elif calc_type1 == "init":
         if mpi.rank == mpi.root:
             log.warning("-------           Wrong order flag            ---------")
             log.warning("-------           order=1 or 2                ---------")
-            log.error("--------       Wrong displacement order flag    ---------")
+        log.error("--------       Wrong displacement order flag    ---------")
 elif calc_type1 == "--post":
     # post process output data from VASP
     pass
@@ -215,7 +215,7 @@ else:
     if mpi.rank == mpi.root:
         log.warning("-------           CALC. TYPE NOT RECOGNIZED       ---------")
         log.warning("-------           QUIT PROGRAM                    ---------")
-        log.error("-------            WRONG CALC. FLAG                 ---------")
+    log.error("-------            WRONG CALC. FLAG                 ---------")
 # end execution
 timer.end_execution()
 if mpi.rank == mpi.root:
