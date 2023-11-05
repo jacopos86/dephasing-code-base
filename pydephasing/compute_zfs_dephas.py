@@ -122,6 +122,7 @@ def compute_homo_dephas():
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)
     #
+    print('OK1')
     T2_calc_handler = set_T2_calc_handler()
     #
     # compute acf over local (q,l) list
@@ -138,6 +139,7 @@ def compute_homo_dephas():
     if mpi.rank == mpi.root and p.w_resolved:
         plt.plot(p.w_grid, acf.acf[:,0])
         plt.savefig('./examples/NV-diamond/F_1_REL_ofw.png')
+    print('OK')
     sys.exit()
     #
     # print average atom displ
