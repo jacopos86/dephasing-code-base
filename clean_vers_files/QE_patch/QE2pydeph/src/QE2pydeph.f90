@@ -18,7 +18,7 @@ PROGRAM QE_pydeph
   USE environment,               ONLY : environment_start, environment_end
   USE input_parameters,          ONLY : ZFS, HFI, nconfig
   USE zfs_module,                ONLY : compute_ddig_space, compute_invfft_ddiG,     &
-       compute_rho12_G, allocate_array_variables
+       compute_Dab_ij, allocate_array_variables
   USE noncollin_module,          ONLY : npol
   
   
@@ -108,19 +108,19 @@ PROGRAM QE_pydeph
      !
      
      call compute_ddig_space ( )
-     call stop_pp
+     
      !
      !  compute ddi real space
      !
      
      call compute_invfft_ddiG ( )
-
+     
      !
      !  compute rho_12(G,-G)
      !
 
-     call compute_rho12_G ( 1 )
-     
+     call compute_Dab_ij ( 1 )
+     call stop_pp
      !
   END IF
   !
