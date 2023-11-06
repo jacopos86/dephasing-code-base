@@ -140,6 +140,7 @@ class T2_eval_from_integ_class(T2_eval_class_time_res):
     @classmethod
     def evaluate_T2(self, acf_int_oft):
         '''method to implement'''
+        '''use y(x) = offset + a * cos(x) / (b + c * exp(d*x))'''
         return
 # -------------------------------------------------------------
 # subclass of the integral model
@@ -159,10 +160,10 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc(iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf[:,1,iT])
-        T2_inv = self.evaluate_T2(acf_integ_oft)
+        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_sec(iT, T2_inv)
         self.lw_obj.set_lw(iT, T2_inv)
-        return Ct, ft
+        return Ct, ft, C_it, f_it
     # atom resolved version
     def atr_parameter_eval_driver(self, acf_obj, ia, iT):
         acf_oft = np.zeros(p.nt2)
@@ -175,13 +176,42 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_atr(ia, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_atr[:,1,ia,iT])
-        T2_inv = self.evaluate_T2(acf_integ_oft)
-        self.set_T2_atr(ia, iT, T2_inv)
+        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
+        self.T2_obj.set_T2_atr(ia, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, iT, T2_inv)
-        return Ct, ft
+        return Ct, ft, C_it, f_it
     # ph. res. version
     def phr_parameter_eval_driver(self, acf_obj, iph, iT):
-        pass
+        acf_oft = np.zeros(p.nt2)
+        acf_integ_oft = np.zeros(p.nt2)
+        # storing acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_phr[:,0,iph,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_phr(iph, iT, D2)
+        self.tauc_obj.set_tauc_phr(iph, iT, tauc_ps)
+        # compute T2_inv
+        acf_integ_oft[:] = np.real(acf_obj.acf_phr[:,1,iph,iT])
+        T2_inv = self.evaluate_T2(acf_integ_oft)
+        self.T2_obj.set_T2_phr(iph, iT, T2_inv)
+        self.lw_obj.set_lw_phr(iph, iT, T2_inv)
+        return Ct, ft
+    # wql resolved
+    def wql_parameter_eval_driver(self, acf_obj, iwql, iT):
+        acf_oft = np.zeros(p.nt2)
+        acf_integ_oft = np.zeros(p.nt2)
+        # storing acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_wql[:,0,iwql,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_wql(iwql, iT, D2)
+        self.tauc_obj.set_tauc_wql(iwql, iT, tauc_ps)
+        # compute T2_inv
+        acf_integ_oft[:] = np.real(acf_obj.acf_wql[:,1,iwql,iT])
+        T2_inv = self.evaluate_T2(acf_integ_oft)
+        self.T2_obj.set_T2_wql(iwql, iT, T2_inv)
+        self.lw_obj.set_lw_wql(iwql, iT, T2_inv)
+        return Ct, ft
 # -------------------------------------------------------------
 # subclass of the integral model
 # to be used for dynamical inhomogeneous calculations
@@ -220,6 +250,25 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
         return Ct, ft
+    # ph. resolved version
+    def phr_parameter_eval_driver(self, acf_obj, iph, ic, iT):
+        acf_oft = np.zeros(p.nt2)
+        acf_integ_oft = np.zeros(p.nt2)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_phr[:,0,iph,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_phr(iph, ic, iT, D2)
+        self.tauc_obj.set_tauc_phr(iph, iT, tauc_ps)
+        # compute T2_inv
+        acf_integ_oft[:] = np.real(acf_obj.acf_phr[:,1,iph,iT])
+        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
+        self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
+        self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
+        return Ct, ft, C_it, f_it
+    # wql resolved version
+    def wql_parameter_eval_driver(self, acf_obj, iwql, iT):
+        pass
 # -------------------------------------------------------------
 # subclass -> template for pure fitting calculation
 # this is also abstract -> real class we must specifiy

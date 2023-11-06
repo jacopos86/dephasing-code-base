@@ -53,6 +53,14 @@ MODULE zfs_module
       
       allocate ( ddi_r (dfftp%nnr, 3, 3), stat=ierr )
       if (ierr/=0) call errore ('allocate_array_variables', 'allocating ddi_r', abs(ierr))
+
+      !
+      !    allocate Dab(i,j)
+      !
+      
+      allocate ( Dab_ij (1:nmax*(nmax+1)/2, 1:3, 1:3), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating Dab_ij', ABS(ierr))
+      Dab_ij = cmplx (0._dp, 0._dp)
       
       
       
@@ -212,7 +220,7 @@ MODULE zfs_module
 
     !
     ! ------------------------------------------------------------
-    SUBROUTINE compute_rho12_G ( ik )
+    SUBROUTINE compute_Dab_ij ( ik )
       ! ----------------------------------------------------------
       !
       !   Compute rho(G, -G) for two electrons.
@@ -299,7 +307,7 @@ MODULE zfs_module
       allocate ( f1_aux (1:dffts%nnr), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f1_aux', ABS(ierr))
       !
-      allocate ( f1_G (1:ngm, 1:npol), stat=ierr )
+      allocate ( f1_G (1:ngm), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f1_G', ABS(ierr))
       !
       allocate ( evc2_r (1:dffts%nnr, 1:npol), stat=ierr )
@@ -308,22 +316,23 @@ MODULE zfs_module
       allocate ( f2_aux (1:dffts%nnr), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f2_aux', ABS(ierr))
       !
-      allocate ( f2_G (1:ngm, 1:npol), stat=ierr )
+      allocate ( f2_G (1:ngm), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f2_G', ABS(ierr))
       !
       allocate ( f3_aux (1:dffts%nnr), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f3_aux', ABS(ierr))
       !
-      allocate ( f3_G (1:ngm, 1:npol), stat=ierr )
+      allocate ( f3_G (1:ngm), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f3_G', ABS(ierr))
       !
-      allocate ( rhog (1:ngm, 1:npol), stat=ierr )
+      allocate ( rhog (1:ngm), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating rhog', ABS(ierr))
       
       !
       !  iterate ib1 : 1 -> nmax
       !
       
+      ij = 1
       DO ib1= 1, nmax
          
          ! -----------------------------------------
@@ -341,44 +350,27 @@ MODULE zfs_module
          
          !
          call invfft ('Wave', evc1_r (:,1), dffts)
-         !
-         IF (noncolin) THEN
-            !
-            do ig= 1, npw
-               evc1_r (dffts%nl (igk_k(ig,ik)), 2) = evc (ig+npwx,ib1)
-            end do
-            !
-            call invfft ('Wave', evc1_r (:,2), dffts)
-            !
-         END IF
          
          !
-         f1_G (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+         f1_G (:) = cmplx (0._dp, 0._dp, kind=dp)
          
          !
-         !  run : ipol
+         f1_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         !
+         do ir= 1, dffts%nnr
+            f1_aux (ir) = evc1_r (ir,1) * conjg (evc1_r (ir,1))
+         end do
+         
+         !
+         !  compute f1(G)
          !
          
-         DO ipol= 1, npol
-            !
-            f1_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
-            !
-            do ir= 1, dffts%nnr
-               f1_aux (ir) = evc1_r (ir,ipol) * conjg (evc1_r (ir,ipol))
-            end do
-            
-            !
-            !  compute f1(G)
-            !
-            
-            call fwfft ('Rho', f1_aux, dffts)
-            
-            !
-            f1_G (1:ngm, ipol) = f1_aux (dffts%nl (1:ngm))
-            
-         END DO
+         call fwfft ('Rho', f1_aux, dffts)
          
-         WRITE(6,*) f1_G (1,:)
+         !
+         f1_G (1:ngm) = f1_aux (dffts%nl (1:ngm))
+         WRITE(6,*) f1_G (1)
+         call stop_pp
          
          !
          !  run over ib2 : 1 -> ib1
@@ -472,21 +464,31 @@ MODULE zfs_module
             
             END DO
 
-            rhog (:,:) = cmplx (0._dp, 0._dp, kind=dp)
-            rhog (:,:) = f1_G (:,:) * conjg (f2_G (:,:)) - f3_G (:,:) * conjg (f3_G (:,:))
-
-            !
-            !   compute ZFS
-            !
-
+            rhog (:) = cmplx (0._dp, 0._dp, kind=dp)
+            rhog (:) = f1_G (:,:) * conjg (f2_G (:,:)) - f3_G (:,:) * conjg (f3_G (:,:))
             
+            !
+            !   compute Dab_ij
+            !
+
+            do ig= 1, ngm
+               Dab_ij (ij,:,:) = Dab_ij (ij,:,:) + rhog (ig) * ddi_G (ig,:,:)
+            end do
+            
+            !
+            ij = ij + 1
+            !
          END DO
          
          !
       END DO
       
+      !   ADJUST UNITS
+      Dab_ij (:,:,:) = Dab_ij (:,:,:) * omega
+      ! bohr ^ -3
+      
       !
-    END SUBROUTINE compute_rho12_G
+    END SUBROUTINE compute_Dab_ij
     
     !
     ! --------------------------------------------------
@@ -510,7 +512,7 @@ MODULE zfs_module
       
       
       
-      
+      IF (npol > 1) call errore ('compute_zfs_tensor','calculation must be collinear', 1)
       
       
       
