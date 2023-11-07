@@ -20,6 +20,11 @@ def Exp(x, c):
 # fit gaussian+lorentzian decay
 def Explg(x, a, b, c, sig):
     return a * np.exp(-c * x) + b * np.exp(-x**2 / 2 / sig**2)
+# fitting function int_0^t acf(t)
+def fitting_function(x, offset, a, b, c, d):
+    '''use y(x) = offset + a * cos(x) / (b + c * exp(d*x))'''
+    y = offset + a * np.cos(x) / (b + c * np.exp(d * x))
+    return y
 #
 #   abstract T2_eval_class
 class T2_eval_class_time_res(ABC):
@@ -138,10 +143,12 @@ class T2_eval_from_integ_class(T2_eval_class_time_res):
     def get_T2_data(self):
         super().get_T2_data()
     @classmethod
-    def evaluate_T2(self, acf_int_oft):
-        '''method to implement'''
+    def evaluate_T2(self, t, acf_int_oft):
         '''use y(x) = offset + a * cos(x) / (b + c * exp(d*x))'''
-        return
+        p0 = [1., 1., 1., 1., 1.]              # start with values close to those expected
+        p = scipy.optimize.curve_fit(fitting_function, t, acf_int_oft, p0, maxfev=self.maxiter)
+        T2i = p[0]
+        return T2i, fitting_function(t, p[0], p[1], p[2], p[3], p[4])
 # -------------------------------------------------------------
 # subclass of the integral model
 # to be used for dynamical homogeneous calculations
@@ -160,10 +167,10 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc(iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf[:,1,iT])
-        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_sec(iT, T2_inv)
         self.lw_obj.set_lw(iT, T2_inv)
-        return Ct, ft, C_it, f_it
+        return Ct, ft, acf_integ_oft, f_it
     # atom resolved version
     def atr_parameter_eval_driver(self, acf_obj, ia, iT):
         acf_oft = np.zeros(p.nt2)
@@ -230,10 +237,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc(ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf[:,1,iT])
-        T2_inv = self.evaluate_T2(acf_integ_oft)
+        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_sec(ic, iT, T2_inv)
         self.lw_obj.set_lw(ic, iT, T2_inv)
-        return Ct, ft
+        return Ct, ft, C_it, f_it
     # atom resolved version
     def atr_parameter_eval_driver(self, acf_obj, ia, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -246,10 +253,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_atr(ia, ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_atr[:,1,ia,iT])
-        T2_inv = self.evaluate_T2(acf_integ_oft)
+        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
-        return Ct, ft
+        return Ct, ft, C_it, f_it
     # ph. resolved version
     def phr_parameter_eval_driver(self, acf_obj, iph, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -267,8 +274,21 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
         return Ct, ft, C_it, f_it
     # wql resolved version
-    def wql_parameter_eval_driver(self, acf_obj, iwql, iT):
-        pass
+    def wql_parameter_eval_driver(self, acf_obj, iwql, ic, iT):
+        acf_oft = np.zeros(p.nt2)
+        acf_integ_oft = np.zeros(p.nt2)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_wql[:,0,iwql,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_wql(iwql, ic, iT, D2)
+        self.tauc_obj.set_tauc_wql(iwql, ic, iT, tauc_ps)
+        # compute T2_inv
+        acf_integ_oft[:] = np.real(acf_obj.acf_wql[:,1,iwql,iT])
+        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
+        self.T2_obj.set_T2_wql(iwql, ic, iT, T2_inv)
+        self.lw_obj.set_lw_wql(iwql, ic, iT, T2_inv)
+        return Ct, ft, C_it, f_it
 # -------------------------------------------------------------
 # subclass -> template for pure fitting calculation
 # this is also abstract -> real class we must specifiy
