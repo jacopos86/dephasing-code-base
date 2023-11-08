@@ -12,13 +12,13 @@ PROGRAM QE_pydeph
   USE io_files,                  ONLY : prefix, tmp_dir
   USE mp_global,                 ONLY : mp_startup
   USE mp_images,                 ONLY : intra_image_comm
-  USE io_global,                 ONLY : ionode, ionode_id
+  USE io_global,                 ONLY : ionode, ionode_id, stdout
   USE mp_pools,                  ONLY : npool
   USE mp,                        ONLY : mp_bcast
   USE environment,               ONLY : environment_start, environment_end
   USE input_parameters,          ONLY : ZFS, HFI, nconfig
   USE zfs_module,                ONLY : compute_ddig_space, compute_invfft_ddiG,     &
-       compute_Dab_ij, allocate_array_variables
+       allocate_array_variables, compute_zfs_tensor, set_spin_band_index_occ_levels
   USE noncollin_module,          ONLY : npol
   
   
@@ -78,9 +78,6 @@ PROGRAM QE_pydeph
   call mp_bcast (ZFS, ionode_id, intra_image_comm)
   call mp_bcast (HFI, ionode_id, intra_image_comm)
   call mp_bcast (nconfig, ionode_id, intra_image_comm)
-  
-  !
-  IF (npool > 1) call errore (code, 'pools not implemented', npool)
 
   !
   !  allocate space for pwscf variables
@@ -101,6 +98,13 @@ PROGRAM QE_pydeph
      !
      IF (npol > 1) call errore (code, 'non collinearity not implemented', npol)
      
+     !
+     !  set nmax and arrays
+     
+     call set_spin_band_index_occ_levels ( )
+     
+     !
+     
      call allocate_array_variables ( )
      
      !
@@ -116,11 +120,11 @@ PROGRAM QE_pydeph
      call compute_invfft_ddiG ( )
      
      !
-     !  compute rho_12(G,-G)
+     !  compute Dab
      !
-
-     call compute_Dab_ij ( 1 )
-     call stop_pp
+     
+     call compute_zfs_tensor ( )
+     
      !
   END IF
   !

@@ -70,8 +70,65 @@ MODULE zfs_module
       
       !
     END SUBROUTINE allocate_array_variables
-    
-    
+
+    ! ================================================================
+    SUBROUTINE set_spin_band_index_occ_levels ( )
+      ! ==============================================================
+
+      USE constants,           ONLY : eps4
+      USE lsda_mod,            ONLY : current_spin, lsda, isk
+      USE klist,               ONLY : nks, wk
+      USE io_global,           ONLY : stdout
+      USE wvfct,               ONLY : wg, nbnd
+      
+      
+      !    internal variables
+      
+      implicit none
+      
+      !
+      integer                       :: ik, ib
+      real(DP)                      :: occ (nks,nbnd)
+      
+      
+      !  compute occup.
+      
+      occ = 0._dp
+      nmax = 0
+      
+      do ik= 1, nks
+         !
+         do ib=1, nbnd
+            occ (ik,ib) = wg (ib,ik) / wk (ik)
+            IF (ABS (occ (ik,ib) - 1.0) < eps4 ) nmax = nmax + 1
+         end do
+         !
+      end do
+      WRITE (stdout,*) nmax
+      
+      !
+      !  run ik
+      !
+      
+      do ik= 1, nks
+         
+         IF (lsda) current_spin  = isk(ik)
+         WRITE (stdout,*) "ik= ", ik, current_spin
+         
+         
+      end do
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      !
+    END SUBROUTINE set_spin_band_index_occ_levels
+    !
     ! ================================================================
     SUBROUTINE compute_ddig_space ( )
       ! ==============================================================
@@ -373,7 +430,7 @@ MODULE zfs_module
          
          !
          f1_G (1:ngm) = f1_aux (dffts%nl (1:ngm))
-         WRITE(6,*) f1_G (1)
+         WRITE(6,*) f1_G (1), g (:,1), sum(evc (:,ib1) * conjg(evc(:,ib1)))
          call stop_pp
          
          !
@@ -491,9 +548,14 @@ MODULE zfs_module
       
       
       
+      !
       IF (npol > 1) call errore ('compute_zfs_tensor','calculation must be collinear', 1)
       
+      !
+      !  compute Dab(i,j)
+      !
       
+      call compute_Dab_ij ( 1 )
       
       
       
