@@ -21,9 +21,14 @@ MODULE zfs_module
   complex(DP), allocatable      :: Dab_ij (:,:,:)
   !
   !  Dab(i,j)
+  integer, allocatable          :: transitions_table (:,:)
+  !  transitions index
   integer                       :: nmax
   !  n. occupied states
   !  max iter. index in sum
+  integer                       :: niter
+  !  tot. number iterations
+  !  to execute
   
   
   CONTAINS
@@ -76,9 +81,8 @@ MODULE zfs_module
       ! ==============================================================
 
       USE constants,           ONLY : eps4
-      USE lsda_mod,            ONLY : current_spin, lsda, isk
+      USE lsda_mod,            ONLY : lsda, isk
       USE klist,               ONLY : nks, wk
-      USE io_global,           ONLY : stdout
       USE wvfct,               ONLY : wg, nbnd
       
       
@@ -87,7 +91,10 @@ MODULE zfs_module
       implicit none
       
       !
-      integer                       :: ik, ib
+      integer                       :: ik, ib, ij, i, ib_i, ib_j, ik_i, ik_j, isp_i, isp_j, j
+      INTEGER                       :: ierr
+      !
+      integer, allocatable          :: en_level_index (:,:)
       real(DP)                      :: occ (nks,nbnd)
       
       
@@ -106,12 +113,29 @@ MODULE zfs_module
       end do
       
       !
+      allocate (en_level_index (1:nmax,1:2), stat=ierr )
+      if (ierr/=0) call errore ('set_spin_band_index_occ_levels', 'allocating en_level_index', abs(ierr))
+      en_level_index = 0
+      i = 0
+      !
+      do ik= 1, nks
+         do ib= 1, nbnd
+            IF (ABS (occ (ik,ib) - 1.0) < eps4 ) THEN
+               i = i + 1
+               en_level_index (i,1) = ik
+               en_level_index (i,2) = ib
+            END IF
+         end do
+      end do
+      
+      !
       !  allocate transition table
       !
       
-      allocate ( transitions_table (1:nmax*(nmax+1)/2, 1:4), stat=ierr )
+      allocate ( transitions_table (1:nmax*(nmax+1)/2, 1:6), stat=ierr )
       if (ierr/=0) call errore ('set_spin_band_index_occ_levels', 'allocating transitions', abs(ierr))
       transitions_table = 0
+      niter = nmax*(nmax+1)/2
       
       !
       !  run ik
@@ -119,26 +143,27 @@ MODULE zfs_module
       
       ij = 0
       !
-      do ik1= 1, nks
+      do i= 1, nmax
          !
-         !IF (lsda) current_spin  = isk(ik)
-         !WRITE (stdout,*) "ik= ", ik, current_spin
-         do ib1= 1, nbnd
-            IF (ABS (occ (ik1,ib1) - 1.0) < eps4) THEN
-               do ik2= 1, nks
-                  do ib2= 1, nbnd
-                     IF (ABS (occ (ik2,ib2) - 1.0) < eps4) THEN
-                        ij = ij + 1
-                        transitions_table (ij,1) = ik1
-                        transitions_table (ij,2) = ib1
-                        transitions_table (ij,3) = ik2
-                        transitions_table (ij,4) = ib2
-                     END IF
-                  end do
-               end do
-            END IF
+         ik_i = en_level_index (i,1)
+         ib_i = en_level_index (i,2)
+         IF (lsda) isp_i = isk(ik_i)
+         !
+         do j= i, nmax
+            !
+            ik_j = en_level_index (j,1)
+            ib_j = en_level_index (j,2)
+            IF (lsda) isp_j = isk(ik_j)
+            !
+            ij = ij + 1
+            transitions_table (ij,1) = ik_i
+            transitions_table (ij,2) = ib_i
+            transitions_table (ij,3) = isp_i
+            transitions_table (ij,4) = ik_j
+            transitions_table (ij,5) = ib_j
+            transitions_table (ij,6) = isp_j
+            !WRITE(stdout,*) ij, transitions_table (ij,:)
          end do
-         !
       end do
       !
       

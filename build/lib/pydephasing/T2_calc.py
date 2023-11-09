@@ -183,10 +183,10 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_atr(ia, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_atr[:,1,ia,iT])
-        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_atr(ia, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, iT, T2_inv)
-        return Ct, ft, C_it, f_it
+        return Ct, ft, acf_integ_oft, f_it
     # ph. res. version
     def phr_parameter_eval_driver(self, acf_obj, iph, iT):
         acf_oft = np.zeros(p.nt2)
@@ -199,10 +199,10 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_phr(iph, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_phr[:,1,iph,iT])
-        T2_inv = self.evaluate_T2(acf_integ_oft)
+        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_phr(iph, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, iT, T2_inv)
-        return Ct, ft
+        return Ct, ft, acf_integ_oft, f_it
     # wql resolved
     def wql_parameter_eval_driver(self, acf_obj, iwql, iT):
         acf_oft = np.zeros(p.nt2)
@@ -215,10 +215,10 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_wql(iwql, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_wql[:,1,iwql,iT])
-        T2_inv = self.evaluate_T2(acf_integ_oft)
+        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_wql(iwql, iT, T2_inv)
         self.lw_obj.set_lw_wql(iwql, iT, T2_inv)
-        return Ct, ft
+        return Ct, ft, acf_integ_oft, f_it
 # -------------------------------------------------------------
 # subclass of the integral model
 # to be used for dynamical inhomogeneous calculations
@@ -237,10 +237,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc(ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf[:,1,iT])
-        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_sec(ic, iT, T2_inv)
         self.lw_obj.set_lw(ic, iT, T2_inv)
-        return Ct, ft, C_it, f_it
+        return Ct, ft, acf_integ_oft, f_it
     # atom resolved version
     def atr_parameter_eval_driver(self, acf_obj, ia, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -253,10 +253,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_atr(ia, ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_atr[:,1,ia,iT])
-        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
-        return Ct, ft, C_it, f_it
+        return Ct, ft, acf_integ_oft, f_it
     # ph. resolved version
     def phr_parameter_eval_driver(self, acf_obj, iph, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -269,10 +269,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_phr(iph, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_phr[:,1,iph,iT])
-        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
-        return Ct, ft, C_it, f_it
+        return Ct, ft, acf_integ_oft, f_it
     # wql resolved version
     def wql_parameter_eval_driver(self, acf_obj, iwql, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -285,10 +285,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_wql(iwql, ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_wql[:,1,iwql,iT])
-        T2_inv, C_it, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_wql(iwql, ic, iT, T2_inv)
         self.lw_obj.set_lw_wql(iwql, ic, iT, T2_inv)
-        return Ct, ft, C_it, f_it
+        return Ct, ft, acf_integ_oft, f_it
 # -------------------------------------------------------------
 # subclass -> template for pure fitting calculation
 # this is also abstract -> real class we must specifiy
