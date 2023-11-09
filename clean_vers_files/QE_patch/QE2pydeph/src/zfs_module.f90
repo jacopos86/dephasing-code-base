@@ -104,28 +104,45 @@ MODULE zfs_module
          end do
          !
       end do
-      WRITE (stdout,*) nmax
+      
+      !
+      !  allocate transition table
+      !
+      
+      allocate ( transitions_table (1:nmax*(nmax+1)/2, 1:4), stat=ierr )
+      if (ierr/=0) call errore ('set_spin_band_index_occ_levels', 'allocating transitions', abs(ierr))
+      transitions_table = 0
       
       !
       !  run ik
       !
       
-      do ik= 1, nks
-         
-         IF (lsda) current_spin  = isk(ik)
-         WRITE (stdout,*) "ik= ", ik, current_spin
-         
-         
+      ij = 0
+      !
+      do ik1= 1, nks
+         !
+         !IF (lsda) current_spin  = isk(ik)
+         !WRITE (stdout,*) "ik= ", ik, current_spin
+         do ib1= 1, nbnd
+            IF (ABS (occ (ik1,ib1) - 1.0) < eps4) THEN
+               do ik2= 1, nks
+                  do ib2= 1, nbnd
+                     IF (ABS (occ (ik2,ib2) - 1.0) < eps4) THEN
+                        ij = ij + 1
+                        transitions_table (ij,1) = ik1
+                        transitions_table (ij,2) = ib1
+                        transitions_table (ij,3) = ik2
+                        transitions_table (ij,4) = ib2
+                     END IF
+                  end do
+               end do
+            END IF
+         end do
+         !
       end do
+      !
       
-      
-      
-      
-      
-      
-      
-      
-      
+      RETURN
       !
     END SUBROUTINE set_spin_band_index_occ_levels
     !
