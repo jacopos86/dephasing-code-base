@@ -1,4 +1,4 @@
-QEpath = /home/jacopo/PROJECTS/q-e-qe-6.5
+QEpath = 
 
 build :
 	pip install -r requirements.txt

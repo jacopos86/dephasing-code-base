@@ -338,57 +338,54 @@ MODULE zfs_module
       
       USE fft_base,              ONLY : dffts
       USE gvect,                 ONLY : ngm, g
-      USE gvecw,                 ONLY : ecutwfc
-      USE wvfct,                 ONLY : npwx
-      USE io_files,              ONLY : iunwfc, nwordwfc
       USE io_global,             ONLY : stdout
+      USE fft_interfaces,        ONLY : fwfft
       USE wavefunctions,         ONLY : evc
-      USE cell_base,             ONLY : tpiba2
-      USE klist,                 ONLY : ngk, xk, igk_k
-      USE fft_interfaces,        ONLY : invfft, fwfft
       USE noncollin_module,      ONLY : npol
       USE cell_base,             ONLY : omega
+      USE klist,                 ONLY : nks
+      USE wvfct,                 ONLY : nbnd 
       
-      
+      USE cell_base,             ONLY : tpiba2
+  USE io_files,              ONLY : iunwfc, nwordwfc
+  USE wavefunctions,         ONLY : evc
+  USE klist,                 ONLY : nks, ngk, xk, igk_k
+  USE wvfct,                 ONLY : nbnd, npwx
+  USE gvect,                 ONLY : g, ngm
+  USE gvecw,                 ONLY : ecutwfc
       implicit none
       
-      !  input variables
-
-      integer, intent(in)             :: ik
-      ! k pt.
-      
       !  internal variables
-      real(DP), allocatable           :: gk (:)
-      ! |G+k|^2
-      complex(DP), allocatable        :: evc1_r (:,:)
-      ! real space wfc1
-      complex(DP), allocatable        :: evc2_r (:,:)
-      ! real space wfc2
       complex(DP), allocatable        :: f1_aux (:), f2_aux (:), f3_aux (:)
       ! aux. real space arrays
       complex(DP), allocatable        :: f1_G (:), f2_G (:), f3_G (:)
       ! aux. rec. space arrays
+      complex(DP), allocatable        :: evc_r (:,:,:)
+      ! real space wfc
       complex(DP), allocatable        :: rhog (:)
       ! rho_12(G,-G)
-      integer                         :: ir, ig
-      ! grid index
-      integer                         :: ipol
-      ! spin index
-      integer                         :: ib1, ib2, ij
+      integer                         :: ij, ib_i, ib_j, ig, ik, ik_i, ik_j, ir
+      integer                         :: isp_i, isp_j
       ! band index
-      integer                         :: npw
       integer                         :: ierr
       
+      integer                         :: npw
+  real(DP), allocatable           :: gk (:)
       
+      !
+      !  allocate real space wfc
       
+      allocate ( evc_r (1:dffts%nnr, 1:nks, 1:nbnd), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating evc_r', ABS(ierr))
+      evc_r = cmplx (0._dp, 0._dp)
       
       !
       !  produce real space wave functions
       !
       
-      do ik= 1, nks
+      do ik= 1, 1
          !
-         extract_real_space_wfc ( ik, evc_r )
+         call extract_real_space_wfc ( ik, evc_r )
          !
       end do
       
@@ -433,28 +430,22 @@ MODULE zfs_module
          ! -----------------------------------------
          
          !
-         !  real space wfc
-         !
-         
-         IF (ij==1 .or. ik_i .ne. transitions_table (ij-1,1)) call extract_real_space_wfc (ik_i)
-         
-         !
-         evci_r (:,:) = cmplx (0._dp, 0._dp, kind=dp)
-         do ig= 1, npw
-            evci_r (dffts%nl (igk_k(ig,ik_i)), 1) = evc (ig,ib_i)
-         end do
+         !evci_r (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+         !do ig= 1, npw
+         !   evci_r (dffts%nl (igk_k(ig,ik_i)), 1) = evc (ig,ib_i)
+         !end do
          
          !
-         call invfft ('Wave', evc1_r (:,1), dffts)
+         !call invfft ('Wave', evc1_r (:,1), dffts)
          
          !
          f1_G (:) = cmplx (0._dp, 0._dp, kind=dp)
-         
          !
          f1_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         
          !
          do ir= 1, dffts%nnr
-            f1_aux (ir) = evc1_r (ir,1) * conjg (evc1_r (ir,1))
+            f1_aux (ir) = evc_r (ir,ik_i,ib_i) * conjg (evc_r (ir,ik_i,ib_i))
          end do
          
          !
@@ -465,91 +456,82 @@ MODULE zfs_module
          
          !
          f1_G (1:ngm) = f1_aux (dffts%nl (1:ngm))
-         WRITE(6,*) f1_G (1), g (:,1), sum(evc (:,ib1) * conjg(evc(:,ib1)))
+         
+         WRITE(6,*) f1_G (1), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_i)))
          call stop_pp
          
+         ! ----------------------------------------
+         !   compute f2(r)
+         ! ----------------------------------------
+         
+         ik_j = transitions_table (ij,4)
+         ib_j = transitions_table (ij,5)
+         isp_j= transitions_table (ij,6)
+         
          !
-         !  run over ib2 : 1 -> ib1
+         !  real space evc2_r
          !
          
-         DO ib2= 1, ib1
-
-            ! ----------------------------------------
-            !   compute f2(r)
-            ! ----------------------------------------
-            
-            !
-            !  real space evc2_r
-            !
-            
-            evc2_r (:,:) = cmplx (0._dp, 0._dp) 
-            !
-            do ig= 1, npw
-               evc2_r (dffts%nl (igk_k(ig,ik)), 1) = evc (ig,ib2)
-            end do
-            
-            !
-            call invfft ('Wave', evc2_r (:,1), dffts)
-            !
-            
-            f2_G (:) = cmplx (0._dp, 0._dp, kind=dp)
-            
-            !
-            f2_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
-            !
-            do ir= 1, dffts%nnr
-               f2_aux (ir) = evc2_r (ir,1) * conjg (evc2_r (ir,1))
-            end do
-            
-            !
-            !  compute f2(G)
-            !
-            
-            call fwfft ('Rho', f2_aux, dffts)
-            
-            !
-            f2_G (1:ngm) = f2_aux (dffts%nl (1:ngm))
-            
-            WRITE(stdout,*) f2_G (1)
-            
-            !
-            !  compute -> f3(r) = psi1(r)* psi2(r)
-            !
-            
-            f3_G (:) = cmplx (0._dp, 0._dp, kind=dp)
-            
-            !
-            f3_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
-            !
-            do ir= 1, dffts%nnr
-               f3_aux (ir) = conjg (evc1_r (ir,1)) * evc2_r (ir,1)
-            end do
-            
-            !
-            !  compute f3 (G)
-            !
-            
-            call fwfft ('Rho', f3_aux, dffts)
-            
-            !
-            f3_G (1:ngm) = f3_aux (dffts%nl (1:ngm))
-            
-            !
-            rhog (:) = cmplx (0._dp, 0._dp, kind=dp)
-            rhog (:) = f1_G (:) * conjg (f2_G (:)) - f3_G (:) * conjg (f3_G (:))
-            
-            !
-            !   compute Dab_ij
-            !
-            
-            do ig= 1, ngm
-               Dab_ij (ij,:,:) = Dab_ij (ij,:,:) + rhog (ig) * ddi_G (ig,:,:)
-            end do
-            
-            !
-            ij = ij + 1
-            !
-         END DO
+         !evc2_r (:,:) = cmplx (0._dp, 0._dp) 
+         !
+         !do ig= 1, npw
+         !evc2_r (dffts%nl (igk_k(ig,ik)), 1) = evc (ig,ib2)
+         !end do
+         
+         !
+         !call invfft ('Wave', evc2_r (:,1), dffts)
+         !
+         
+         f2_G (:) = cmplx (0._dp, 0._dp, kind=dp)
+         !
+         f2_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         !
+         do ir= 1, dffts%nnr
+            f2_aux (ir) = evc_r (ir,ik_j,ib_j) * conjg (evc_r (ir,ik_j,ib_j))
+         end do
+         
+         !
+         !  compute f2(G)
+         !
+         
+         call fwfft ('Rho', f2_aux, dffts)
+         
+         !
+         f2_G (1:ngm) = f2_aux (dffts%nl (1:ngm))
+         
+         
+         ! =========================================================
+         !  compute -> f3(r) = psi1(r)* psi2(r)
+         ! =========================================================
+         
+         f3_G (:) = cmplx (0._dp, 0._dp, kind=dp)   
+         !
+         f3_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         !
+         do ir= 1, dffts%nnr
+            f3_aux (ir) = conjg (evc_r (ir,ik_i,ib_i)) * evc_r (ir,ik_j,ib_j)
+         end do
+         
+         !
+         !  compute f3 (G)
+         !
+         
+         call fwfft ('Rho', f3_aux, dffts)
+         
+         !
+         f3_G (1:ngm) = f3_aux (dffts%nl (1:ngm))
+         
+         !
+         rhog (:) = cmplx (0._dp, 0._dp, kind=dp)
+         rhog (:) = f1_G (:) * conjg (f2_G (:)) - f3_G (:) * conjg (f3_G (:))
+         
+         !
+         !   compute Dab_ij
+         !
+         
+         do ig= 1, ngm
+            Dab_ij (ij,:,:) = Dab_ij (ij,:,:) + rhog (ig) * ddi_G (ig,:,:)
+         end do
          
          !
       END DO
@@ -590,7 +572,7 @@ MODULE zfs_module
       !  compute Dab(i,j)
       !
       
-      call compute_Dab_ij ( 1 )
+      call compute_Dab_ij ( )
       
       
       

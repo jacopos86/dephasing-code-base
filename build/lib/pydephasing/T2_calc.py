@@ -369,6 +369,21 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
         # lw obj
         self.lw_obj.set_lw(iT, T2_inv)
         return Ct, ft
+    # atom resolved version
+    def atr_parameter_eval_driver(self, acf_obj, ia, iT):
+        acf_oft = np.zeros(p.nt2)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_atr[:,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_atr(ia, iT, D2)
+        self.tauc_obj.set_tauc_atr(ia, iT, tauc_ps)
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        self.T2_obj.set_T2_atr(ia, iT, T2_inv)
+        # lw obj.
+        self.lw_obj.set_lw_atr(ia, iT, T2_inv)
+        return Ct, ft
 # -------------------------------------------------------------
 # subclass of the fitting model
 # to be used for dynamical inhomo calculation -> different fitting
@@ -404,7 +419,7 @@ class T2_eval_fit_model_stat_class(T2_eval_fit_model_class):
         acf_oft = acf_obj.acf
         # parametrize acf_oft
         D2, tauc_mus, Ct, ft = self.parametrize_acf(p.time, acf_oft)
-        self.Delt_obj.set_Delt(ic, D2)
+        self.Delt_obj.set_Delt(ic, iT, D2)
         self.tauc_obj.set_tauc(ic, tauc_mus)
         # convert to psec
         tauc_ps = tauc_mus * 1.E+6
