@@ -1,0 +1,28 @@
+!
+!    SUBROUTINE to extract wave functions
+!
+SUBROUTINE extract_real_space_wfc (ik)
+  
+  !    internal variables
+  
+  implicit none
+  
+  
+  !
+  npw = ngk (ik)
+  gk (:) = 0._DP
+  
+  !
+  !  ecutwfc/tpiba2 = gcutw
+  !
+  
+  call gk_sort ( xk (1,ik), ngm, g, ecutwfc/tpiba2, npw, igk_k (1,ik), gk )
+  
+  !
+  !  read the wavefunction
+  !
+  
+  call davcio (evc, 2*nwordwfc, iunwfc, ik, -1)
+  
+  !
+END SUBROUTINE extract_real_space_wfc

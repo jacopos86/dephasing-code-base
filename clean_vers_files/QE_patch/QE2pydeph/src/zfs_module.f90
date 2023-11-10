@@ -322,7 +322,7 @@ MODULE zfs_module
 
     !
     ! ------------------------------------------------------------
-    SUBROUTINE compute_Dab_ij ( ik )
+    SUBROUTINE compute_Dab_ij ( )
       ! ----------------------------------------------------------
       !
       !   Compute rho(G, -G) for two electrons.
@@ -380,41 +380,27 @@ MODULE zfs_module
       integer                         :: ierr
       
       
+      
+      
       !
-      !  plane waves
-      !
-      WRITE (stdout,*) nmax
-      ALLOCATE ( gk (1:npwx) )
-      npw = ngk (ik)
-      gk (:) = 0._DP
-
-      !
-      !  ecutwfc/tpiba2 = gcutw
-      !
-
-      call gk_sort ( xk (1,ik), ngm, g, ecutwfc/tpiba2, npw, igk_k (1,ik), gk )
-
-      !
-      !  read the wavefunction
+      !  produce real space wave functions
       !
       
-      call davcio (evc, 2*nwordwfc, iunwfc, ik, -1)
-
+      do ik= 1, nks
+         !
+         extract_real_space_wfc ( ik, evc_r )
+         !
+      end do
+      
       !
       ! allocate arrays
       !
       
-      allocate ( evc1_r (1:dffts%nnr, 1:npol), stat=ierr )
-      if (ierr/=0) call errore ('compute_rho12_G','allocating evc1_r', ABS(ierr))
-      !
       allocate ( f1_aux (1:dffts%nnr), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f1_aux', ABS(ierr))
       !
       allocate ( f1_G (1:ngm), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f1_G', ABS(ierr))
-      !
-      allocate ( evc2_r (1:dffts%nnr, 1:npol), stat=ierr )
-      if (ierr/=0) call errore ('compute_rho12_G','allocating evc2_r', ABS(ierr))
       !
       allocate ( f2_aux (1:dffts%nnr), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f2_aux', ABS(ierr))
@@ -432,11 +418,15 @@ MODULE zfs_module
       if (ierr/=0) call errore ('compute_rho12_G','allocating rhog', ABS(ierr))
       
       !
-      !  iterate ib1 : 1 -> nmax
+      !  iterate ij : 1 -> niter
       !
       
-      ij = 1
-      DO ib1= 1, nmax
+      DO ij= 1, niter
+         !
+         
+         ik_i = transitions_table (ij,1)
+         ib_i = transitions_table (ij,2)
+         isp_i= transitions_table (ij,3)
          
          ! -----------------------------------------
          !     compute f1(r)
@@ -446,9 +436,12 @@ MODULE zfs_module
          !  real space wfc
          !
          
-         evc1_r (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+         IF (ij==1 .or. ik_i .ne. transitions_table (ij-1,1)) call extract_real_space_wfc (ik_i)
+         
+         !
+         evci_r (:,:) = cmplx (0._dp, 0._dp, kind=dp)
          do ig= 1, npw
-            evc1_r (dffts%nl (igk_k(ig,ik)), 1) = evc (ig,ib1)
+            evci_r (dffts%nl (igk_k(ig,ik_i)), 1) = evc (ig,ib_i)
          end do
          
          !
