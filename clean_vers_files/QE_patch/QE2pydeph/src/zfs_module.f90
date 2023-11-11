@@ -365,7 +365,6 @@ MODULE zfs_module
       complex(DP), allocatable        :: rhog (:)
       ! rho_12(G,-G)
       integer                         :: ij, ib_i, ib_j, ig, ik, ik_i, ik_j, ir
-      integer                         :: isp_i, isp_j
       ! band index
       integer                         :: ierr
       
@@ -423,7 +422,6 @@ MODULE zfs_module
          
          ik_i = transitions_table (ij,1)
          ib_i = transitions_table (ij,2)
-         isp_i= transitions_table (ij,3)
          
          ! -----------------------------------------
          !     compute f1(r)
@@ -466,7 +464,6 @@ MODULE zfs_module
          
          ik_j = transitions_table (ij,4)
          ib_j = transitions_table (ij,5)
-         isp_j= transitions_table (ij,6)
          
          !
          !  real space evc2_r
@@ -574,6 +571,27 @@ MODULE zfs_module
       
       call compute_Dab_ij ( )
       
+      !
+      !  compute Dab tensor  ->  Dab = \sum_{i<j} Dab(i,j) chi(i,j)
+      !
+      
+      do ij= 1, niter
+         
+         !
+         isp_i = transitions_table (ij,3)
+         isp_j = transitions_table (ij,6)
+         !
+         if (isp_i == isp_j) THEN
+            chi_ij = 1._dp
+         else
+            chi_ij = -1._dp
+         end if
+         
+         !
+         Dab (:,:) = Dab (:,:) + chi_ij * Dab_ij (ij,:,:)
+         !
+      end do
+      !
       
       
       
@@ -581,10 +599,8 @@ MODULE zfs_module
       
       
       
-
-      
-      
-      
+      RETURN
+      !
     END SUBROUTINE compute_zfs_tensor
     !
     
