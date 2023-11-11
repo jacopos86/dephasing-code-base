@@ -35,6 +35,7 @@ class acf_sp_ph(acf_ph):
     def allocate_acf_arrays(self, nat):
         if p.time_resolved:
             if p.ACF_FIT:
+                print("ACF_FIT")
                 self.acf_sp = np.zeros((p.nt, p.ntmp), dtype=np.complex128)
                 if p.ph_resolved:
                     if p.nphr > 0:
@@ -725,13 +726,15 @@ class GPU_acf_sp_ph(acf_sp_ph):
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')>
     def compute_acf_V1_oft(self, wq, wu, ql_list, A_lq, F_lq):
-        # initialize acf_sp -> 0 acf -> 1 integral
-        self.acf_sp = np.zeros((p.nt, 2, p.ntmp),dtype=np.complex128)
         '''
         read GPU code
         '''
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
+        if p.ACF_INTEG:
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1_integ_oft.cu').read_text()
+        elif p.ACF_FIT:
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1_fit_oft.cu').read_text()
         mod = SourceModule(gpu_src)
+        # set function
         compute_acf = mod.get_function("compute_acf_V1_oft")
         # split modes on grid
         QL_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(ql_list)))
@@ -787,11 +790,12 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                 self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, cuda.Out(ACF),
                                 block=gpu.block, grid=gpu.grid)
                     ACF = gpu.recover_data_from_grid(ACF)
+                    print(ACF.shape, self.acf_sp.shape)
                     for t in range(t0, min(t1,p.nt)):
                         self.acf_sp[t,iT] += ACF[t-t0]
                 t0 = t1
         #plt.plot(p.time, self.acf_sp[:,0,0])
-        plt.plot(p.time, self.acf_sp[:,1,0].real)
+        plt.plot(p.time, self.acf_sp[:,0].real)
         plt.show()
     #
     # compute <Delta V(1) \Delta V(1)>(w)

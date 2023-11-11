@@ -21,6 +21,8 @@ MODULE zfs_module
   complex(DP), allocatable      :: Dab_ij (:,:,:)
   !
   !  Dab(i,j)
+  real(DP)                      :: Dab (3,3)
+  !  D tensor
   integer, allocatable          :: transitions_table (:,:)
   !  transitions index
   integer                       :: nmax
@@ -455,8 +457,7 @@ MODULE zfs_module
          !
          f1_G (1:ngm) = f1_aux (dffts%nl (1:ngm))
          
-         WRITE(6,*) f1_G (1), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_i)))
-         call stop_pp
+         !WRITE(6,*) f1_G (1), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_i)))
          
          ! ----------------------------------------
          !   compute f2(r)
@@ -495,7 +496,6 @@ MODULE zfs_module
          
          !
          f2_G (1:ngm) = f2_aux (dffts%nl (1:ngm))
-         
          
          ! =========================================================
          !  compute -> f3(r) = psi1(r)* psi2(r)
@@ -560,7 +560,10 @@ MODULE zfs_module
       
       !  internal variables
       
-      
+      real(DP)                         :: chi_ij, s
+      !
+      integer                          :: ij, i
+      integer                          :: isp_i, isp_j
       
       !
       IF (npol > 1) call errore ('compute_zfs_tensor','calculation must be collinear', 1)
@@ -575,6 +578,8 @@ MODULE zfs_module
       !  compute Dab tensor  ->  Dab = \sum_{i<j} Dab(i,j) chi(i,j)
       !
       
+      Dab = 0._dp
+      !
       do ij= 1, niter
          
          !
@@ -584,7 +589,7 @@ MODULE zfs_module
          if (isp_i == isp_j) THEN
             chi_ij = 1._dp
          else
-            chi_ij = -1._dp
+            chi_ij =-1._dp
          end if
          
          !
@@ -592,8 +597,13 @@ MODULE zfs_module
          !
       end do
       !
-      
-      
+      WRITE(6,*) Dab
+      s= 0._dp
+      do i= 1, 3
+         WRITE(6,*) Dab (i,i)
+         s = s + Dab(i,i)
+      end do
+      WRITE(6,*) s
       
       
       

@@ -55,8 +55,10 @@ class acf_ph(object):
             F_lq[:] += Fjax_lq[jax,:]
         # compute <V(1)(t) V(1)(t')>
         if p.time_resolved:
+            print("baba")
             self.compute_acf_V1_oft(wq, wu, ql_list, A_lq, F_lq)
         if p.w_resolved:
+            print("bubu")
             self.compute_acf_V1_ofw(wq, wu, ql_list, A_lq, F_lq)
         # ph. / atom resolved
         if p.ph_resolved or p.at_resolved:
@@ -139,6 +141,7 @@ class acf_ph(object):
         Fjax_lq = transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list_1)
         # call acf_1 driver
         self.compute_acf_1_driver(nat, wq, wu, ql_list_1, A_lq, Fjax_lq)
+        sys.exit()
         # if 2nd order
         if p.order_2_correct:
             # set qlp list (only q, -q excluded)

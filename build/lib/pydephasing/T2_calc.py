@@ -373,7 +373,7 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
     def atr_parameter_eval_driver(self, acf_obj, ia, iT):
         acf_oft = np.zeros(p.nt2)
         # store acf_oft
-        acf_oft[:] = np.real(acf_obj.acf_atr[:,iT])
+        acf_oft[:] = np.real(acf_obj.acf_atr[:,ia,iT])
         # parametrize acf_oft
         D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
         self.Delt_obj.set_Delt_atr(ia, iT, D2)
@@ -383,6 +383,21 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
         self.T2_obj.set_T2_atr(ia, iT, T2_inv)
         # lw obj.
         self.lw_obj.set_lw_atr(ia, iT, T2_inv)
+        return Ct, ft
+    # ph. resolved version
+    def phr_parameter_eval_driver(self, acf_obj, iph, iT):
+        acf_oft = np.zeros(p.nt2)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_phr[:,iph,iT])
+        # parametrize acf
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_phr(iph, iT, D2)
+        self.tauc_obj.set_tauc_phr(iph, iT, tauc_ps)
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        self.T2_obj.set_T2_phr(iph, iT, T2_inv)
+        # lw obj.
+        self.lw_obj.set_lw_phr(iph, iT, T2_inv)
         return Ct, ft
 # -------------------------------------------------------------
 # subclass of the fitting model
@@ -406,6 +421,21 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.T2_obj.set_T2_sec(ic, iT, T2_inv)
         # lw object
         self.lw_obj.set_lw(ic, iT, T2_inv)
+        return Ct, ft
+    # atom resolved version
+    def atr_parameter_eval_driver(self, acf_obj, ia, ic, iT):
+        acf_oft = np.zeros(p.nt2)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_atr[:,ia,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_atr(ia, ic, iT, D2)
+        self.tauc_obj.set_tauc_atr(ia, ic, iT, tauc_ps)
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
+        # lw obj.
+        self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
         return Ct, ft
 # -------------------------------------------------------------
 # subclass of the fitting model
