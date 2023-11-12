@@ -122,13 +122,13 @@ def compute_homo_dephas():
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)
     #
-    print('OK1')
     T2_calc_handler = set_T2_calc_handler()
     #
     # compute acf over local (q,l) list
     acf = acf_ph().generate_instance()
     acf.allocate_acf_arrays(nat)
     acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, Hsp)
+    print("JABBA")
     #
     # collect data from processes
     acf.collect_acf_from_processes(nat)

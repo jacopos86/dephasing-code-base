@@ -55,10 +55,8 @@ class acf_ph(object):
             F_lq[:] += Fjax_lq[jax,:]
         # compute <V(1)(t) V(1)(t')>
         if p.time_resolved:
-            print("baba")
             self.compute_acf_V1_oft(wq, wu, ql_list, A_lq, F_lq)
         if p.w_resolved:
-            print("bubu")
             self.compute_acf_V1_ofw(wq, wu, ql_list, A_lq, F_lq)
         # ph. / atom resolved
         if p.ph_resolved or p.at_resolved:
@@ -92,11 +90,11 @@ class acf_ph(object):
             # set the list of (iqp,ilp)
             qlp_list = set_iqlp_list(il, iq, qlp_list_full, wu, H)
             print(len(qlp_list), len(qlp_list_full))
-            sys.exit()
             # update A_lqp with only needed amplitudes
             A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
             # compute eff. force
             Fjax_lqlqp = eff_force_obj.transf_2nd_order_force_phr(il, iq, wu, u, nat, qlp_list)
+            sys.exit()
             nlqp = len(qlp_list)
             F_lqlqp = np.zeros((4,nlqp), dtype=np.complex128)
             for jax in range(3*nat):
@@ -141,7 +139,6 @@ class acf_ph(object):
         Fjax_lq = transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list_1)
         # call acf_1 driver
         self.compute_acf_1_driver(nat, wq, wu, ql_list_1, A_lq, Fjax_lq)
-        sys.exit()
         # if 2nd order
         if p.order_2_correct:
             # set qlp list (only q, -q excluded)

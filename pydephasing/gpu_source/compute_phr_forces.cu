@@ -17,8 +17,10 @@ cmplx *F_lqlqp, cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
     const int iqlx= threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     const int jx  = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     int jby, ib;
-    double re, im;
-    double qpR;
+    int ms, i0m, i1m;
+    double re, im, qpR;
+    double Ma, Mb;
+    cmplx F;
     /* local (q',l') pair */
     const int iqp = qp_lst[iqlx];
     const int ilp = ilp_lst[iqlx];
@@ -73,21 +75,24 @@ cmplx *F_lqlqp, cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
             }
             F_lqlqp[idx] += F * eiqpR * euqlp[3*nat*iqlx+jby] / sqrt (Mb);
             F_lqlmqp[idx]+= F * eiqpR * euqlp[3*nat*iqlx+jby] / sqrt (Mb);
-            F_lmqlqp[idx]+= F * cuConjf(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / sqrt (Mb);
+            F_lmqlqp[idx]+= F * conj(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / sqrt (Mb);
             F_lmqlmqp[idx]+= F * conj(eiqpR) * conj(euqlp[3*nat*iqlx+jby]) / sqrt (Mb);
         }
         /* multiply with l.h.s*/
         F_lqlqp[idx] = eiqR[jax] * euq[jax] / sqrt (Ma) * F_lqlqp[idx];
-        F_lmqlqp[idx]= conj(eiqR[jax]) * conj(euq[jax]) / SQRT (Ma) * F_lmqlqp[idx];
-        F_lqlmqp[idx] = eiqR[jax] * euq[jax] / SQRT (Ma) * F_lqlmqp[idx];
-        F_lmqlmqp[idx]= conj(eiqR[jax]) * conj(euq[jax]) / SQRT (Ma) * F_lmqlmqp[idx];
+        F_lmqlqp[idx]= conj(eiqR[jax]) * conj(euq[jax]) / sqrt (Ma) * F_lmqlqp[idx];
+        F_lqlmqp[idx] = eiqR[jax] * euq[jax] / sqrt (Ma) * F_lqlmqp[idx];
+        F_lmqlmqp[idx]= conj(eiqR[jax]) * conj(euq[jax]) / sqrt (Ma) * F_lmqlmqp[idx];
     }
 }
 
 /* Raman function calculation */
 __device__ cmplx compute_raman_force(int qs0, int qs1, int nqs, cmplx *Fjax, cmplx *Fjby,
 double *eig, double wql, double wqlp, int calc_typ) {
+    /* internal variables */
+    int ms;
     cmplx Fr(0.,0.);
+    /* if deph/rel */
     if (calc_typ == 0) {
         /* deph calculation*/
         for (ms=0; ms<nqs; ms++) {

@@ -1,7 +1,7 @@
 from pydephasing.input_parameters import p
 from pydephasing.log import log
 from pydephasing.input_parser import parser
-from pydephasing.T2_calc import (T2_eval_from_integ_class, 
+from pydephasing.T2_calc import (T2_eval_class_freq_res,
                 T2_eval_fit_model_dyn_inhom_class, 
                 T2_eval_fit_model_dyn_homo_class,
                 T2_eval_from_integ_homo_class,
@@ -32,4 +32,4 @@ def set_T2_calc_handler():
                 log.error("T2_extract_method : fit / integ")
     # w resolved
     elif p.w_resolved:
-        pass
+        return T2_eval_class_freq_res()

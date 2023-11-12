@@ -35,7 +35,6 @@ class acf_sp_ph(acf_ph):
     def allocate_acf_arrays(self, nat):
         if p.time_resolved:
             if p.ACF_FIT:
-                print("ACF_FIT")
                 self.acf_sp = np.zeros((p.nt, p.ntmp), dtype=np.complex128)
                 if p.ph_resolved:
                     if p.nphr > 0:
@@ -790,7 +789,6 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                 self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, cuda.Out(ACF),
                                 block=gpu.block, grid=gpu.grid)
                     ACF = gpu.recover_data_from_grid(ACF)
-                    print(ACF.shape, self.acf_sp.shape)
                     for t in range(t0, min(t1,p.nt)):
                         self.acf_sp[t,iT] += ACF[t-t0]
                 t0 = t1
@@ -800,12 +798,10 @@ class GPU_acf_sp_ph(acf_sp_ph):
     #
     # compute <Delta V(1) \Delta V(1)>(w)
     def compute_acf_V1_ofw(self, wq, wu, ql_list, A_lq, F_lq):
-        # initialize acf_sp -> 0 acf -> 1 integral
-        self.acf_sp = np.zeros((p.nwg, p.ntmp),dtype=np.complex128)
         '''
         read GPU code
         '''
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1_ofw.cu').read_text()
         mod = SourceModule(gpu_src)
         compute_acf = mod.get_function("compute_acf_V1_ofw")
         # split modes on grid
@@ -857,8 +853,14 @@ class GPU_acf_sp_ph(acf_sp_ph):
     #
     # compute <Delta V^(1)(t) Delta V^(1)(t')> -> ph / at resolved
     def compute_acf_V1_atphr_oft(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
-        # load files
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
+        '''
+        read GPU code
+        '''
+        if p.ACF_INTEG:
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1_integ_oft.cu').read_text()
+        elif p.ACF_FIT:
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1_fit_oft.cu').read_text()
+        # extract file
         mod = SourceModule(gpu_src)
         # CHECK ph/at res.
         if p.ph_resolved:
@@ -1014,7 +1016,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
     # compute <Delta V^(1) Delta V^(1)>(w) -> ph / at resolved
     def compute_acf_V1_atphr_ofw(self, nat, wq, wu, ql_list, A_lq, Fjax_lq):
         # load files
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1.cu').read_text()
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V1_ofw.cu').read_text()
         mod = SourceModule(gpu_src)
         # CHECK at/ph resolved
         if p.ph_resolved:
@@ -1131,7 +1133,11 @@ class GPU_acf_sp_ph(acf_sp_ph):
         '''
         compute ACF partial sum
         '''
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+        if p.ACF_INTEG:
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2_integ_oft.cu').read_text()
+        elif p.ACF_FIT:
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2_fit_oft.cu').read_text()
+        # load file
         mod = SourceModule(gpu_src)
         compute_acf = mod.get_function("compute_acf_V2_oft")
         # split modes on grid
@@ -1205,8 +1211,9 @@ class GPU_acf_sp_ph(acf_sp_ph):
         '''
         compute ACF partial sum
         '''
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2_ofw.cu').read_text()
         mod = SourceModule(gpu_src)
+        # extract function
         compute_acf = mod.get_function("compute_acf_V2_ofw")
         # split modes on grid
         QLP_LIST, INIT, LGTH = gpu.split_data_on_grid(range(len(qlp_list)))
@@ -1260,7 +1267,11 @@ class GPU_acf_sp_ph(acf_sp_ph):
     # compute <Delta V^(2)(t) Delta V^(2)(t')> -> ph / at resolved
     def compute_acf_V2_atphr_oft(self, nat, wq, wu, iq, il, qlp_list, A_lq, A_lqp, Fjax_lqlqp):
         # load files
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+        if p.ACF_FIT:
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2_fit_oft.cu').read_text()
+        elif p.ACF_INTEG:
+            gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2_integ_oft.cu').read_text()
+        # load file
         mod = SourceModule(gpu_src)
         # CALC. type
         if p.ph_resolved:
@@ -1398,8 +1409,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
                             compute_acf_phr(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), cuda.In(TIME),
                                         SIZE, DE, NU, WQ, WUQ, ALQ, cuda.In(WQP), cuda.In(WUQP), 
                                         cuda.In(ALQP), cuda.In(F_LQLQP), T, self.MINFREQ, self.THZTOEV, 
-                                        self.KB, self.TOLER, cuda.Out(ACF), 
-                                        block=gpu.block, grid=gpu.grid)
+                                        self.KB, self.TOLER, cuda.Out(ACF), block=gpu.block, grid=gpu.grid)
                             ACF = gpu.recover_data_from_grid(ACF)
                             for t in range(t0, min(t1,p.nt2)):
                                 # wql grid
@@ -1412,7 +1422,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
     # compute <Delta V^(2) Delta V^(2)>(w) -> ph / at resolved
     def compute_acf_V2_atphr_ofw(self, nat, wq, wu, iq, il, qlp_list, A_lq, A_lqp, Fjax_lqlqp):
         # load files
-        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2.cu').read_text()
+        gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2_ofw.cu').read_text()
         mod = SourceModule(gpu_src)
         # CALC. type
         if p.ph_resolved:
