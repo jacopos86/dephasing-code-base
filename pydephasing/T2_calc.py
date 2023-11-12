@@ -26,7 +26,21 @@ def fitting_function(x, offset, a, b, c, d):
     y = offset + a * np.cos(x) / (b + c * np.exp(d * x))
     return y
 #
-#   abstract T2_eval_class
+#   class T2_eval_class -> freq. resolved
+class T2_eval_class_freq_res:
+    def __init__(self):
+        self.T2_obj = None
+        self.lw_obj = None
+    def set_up_param_objects(self):
+        self.T2_obj = T2i_class().generate_instance()
+        self.lw_obj = lw_class().generate_instance()
+    def get_T2_data(self):
+        decoher_dict = {'T2' : None, 'lw' : None}
+        decoher_dict['T2'] = self.T2_obj
+        decoher_dict['lw'] = self.lw_obj
+        return decoher_dict
+#
+#   abstract T2_eval_class -> time resolved
 class T2_eval_class_time_res(ABC):
     def __init__(self):
         self.T2_obj = None
@@ -65,6 +79,7 @@ class T2_eval_class_time_res(ABC):
         decoher_dict['Delt'] = self.Delt_obj
         decoher_dict['tau_c']= self.tauc_obj
         decoher_dict['lw']   = self.lw_obj
+        return decoher_dict
 '''
 # --------------------------------------------------------------
 #  time resolved calculation -> concrete class implementation
@@ -266,7 +281,7 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         # parametrize acf_oft
         D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
         self.Delt_obj.set_Delt_phr(iph, ic, iT, D2)
-        self.tauc_obj.set_tauc_phr(iph, iT, tauc_ps)
+        self.tauc_obj.set_tauc_phr(iph, ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_phr[:,1,iph,iT])
         T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
@@ -399,6 +414,20 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
         # lw obj.
         self.lw_obj.set_lw_phr(iph, iT, T2_inv)
         return Ct, ft
+    # wql resolved version
+    def wql_parameter_eval_driver(self, acf_obj, iwql, iT):
+        acf_oft = np.zeros(p.nt2)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_wql[:,iwql,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_wql(iwql, iT, D2)
+        self.tauc_obj.set_tauc_wql(iwql, iT, tauc_ps)
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        self.T2_obj.set_T2_wql(iwql, iT, T2_inv)
+        self.lw_obj.set_lw_wql(iwql, iT, T2_inv)
+        return Ct, ft
 # -------------------------------------------------------------
 # subclass of the fitting model
 # to be used for dynamical inhomo calculation -> different fitting
@@ -436,6 +465,20 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
         # lw obj.
         self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
+        return Ct, ft
+    # ph. resolved version
+    def phr_parameter_eval_driver(self, acf_obj, iph, ic, iT):
+        acf_oft = np.zeros(p.nt2)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_phr[:,iph,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_phr(iph, ic, iT, D2)
+        self.tauc_obj.set_tauc_phr(iph, ic, iT, tauc_ps)
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
+        self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
         return Ct, ft
 # -------------------------------------------------------------
 # subclass of the fitting model

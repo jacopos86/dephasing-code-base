@@ -534,7 +534,7 @@ MODULE zfs_module
       END DO
       
       !   ADJUST UNITS
-      Dab_ij (:,:,:) = Dab_ij (:,:,:) * omega
+      Dab_ij (:,:,:) = Dab_ij (:,:,:) * D0
       ! bohr ^ -3
       
       !
@@ -597,26 +597,55 @@ MODULE zfs_module
          !
       end do
       !
-      WRITE(6,*) Dab
+
+      !  SYMMETRIZE D matrix
+      !
+      
       s= 0._dp
+      A = 0._dp
       do i= 1, 3
-         WRITE(6,*) Dab (i,i)
-         s = s + Dab(i,i)
+         do j= i, 3
+            A (i,j) = Dab (i,j)
+            A (j,i) = Dab (i,j)
+         end do
       end do
-      WRITE(6,*) s
+      !
       
+      !
+      !  compute eigenvectors/eigenvalues
       
+      W = 0._dp
+      LDA = max (1, N)
+      LWORK = max (1, 3*N-1)
+      allocate ( WORK (1:max (1, LWORK)) )
+      WORK = 0._dp
       
-      
+      !
+      call DSYEV ('V', 'U', N, A, LDA, W, WORK, LWORK, INFO )
+
+      !
+      IF (INFO == 0) THEN
+         EIG (:) = ABS (W (:))
+         call hpsort_eps (N, EIG, INDX, eps4)
+
+         !
+         Dz = W (INDX (N))
+         D  = 1.5 * Dz
+         !
+         Dy = W (INDX(1))
+         Dx = W (INDX(2))
+         E  = 0.5 * (Dx - Dy)
+         !
+      ELSE
+         !
+         call errore ('error in compute_zfs_tensor : DSYEV', INFO)
+      END IF
+      !
       
       RETURN
       !
     END SUBROUTINE compute_zfs_tensor
     !
     
-    
-    
-    
-    !
 END MODULE zfs_module
   
