@@ -23,6 +23,8 @@ MODULE zfs_module
   !  Dab(i,j)
   real(DP)                      :: Dab (3,3)
   !  D tensor
+  real(DP)                      :: D, E
+  !  D coefficients
   integer, allocatable          :: transitions_table (:,:)
   !  transitions index
   integer                       :: nmax
@@ -134,7 +136,7 @@ MODULE zfs_module
       !  allocate transition table
       !
       
-      allocate ( transitions_table (1:nmax*(nmax+1)/2, 1:6), stat=ierr )
+      allocate ( transitions_table (1:nmax*(nmax-1)/2, 1:6), stat=ierr )
       if (ierr/=0) call errore ('set_spin_band_index_occ_levels', 'allocating transitions', abs(ierr))
       transitions_table = 0
       niter = nmax*(nmax+1)/2
@@ -151,7 +153,7 @@ MODULE zfs_module
          ib_i = en_level_index (i,2)
          IF (lsda) isp_i = isk(ik_i)
          !
-         do j= i, nmax
+         do j= i+1, nmax
             !
             ik_j = en_level_index (j,1)
             ib_j = en_level_index (j,2)
@@ -346,7 +348,8 @@ MODULE zfs_module
       USE noncollin_module,      ONLY : npol
       USE cell_base,             ONLY : omega
       USE klist,                 ONLY : nks
-      USE wvfct,                 ONLY : nbnd 
+      USE wvfct,                 ONLY : nbnd
+      USE physical_constants,    ONLY : D0
       
       USE cell_base,             ONLY : tpiba2
   USE io_files,              ONLY : iunwfc, nwordwfc
@@ -552,21 +555,33 @@ MODULE zfs_module
       !   -> correction
       !
       !
-      
+
+      USE constants,               ONLY : eps4
       USE noncollin_module,        ONLY : npol
+      USE io_global,               ONLY : stdout
+      USE physical_constants,      ONLY : compute_prefactor
       
       
       implicit none
       
       !  internal variables
       
-      real(DP)                         :: chi_ij, s
+      real(DP)                         :: chi_ij
+      real(DP)                         :: A (3,3)
+      real(DP)                         :: EIG (3), W (3)
+      real(DP)                         :: Dx, Dy, Dz
+      real(DP), allocatable            :: WORK (:)
       !
-      integer                          :: ij, i
+      integer                          :: ij, i, j
       integer                          :: isp_i, isp_j
+      integer                          :: INFO, LDA, LWORK
+      integer                          :: INDX (3)
+      integer                          :: N = 3
       
       !
       IF (npol > 1) call errore ('compute_zfs_tensor','calculation must be collinear', 1)
+      
+      call compute_prefactor ( )
       
       !
       !  compute Dab(i,j)
@@ -597,11 +612,10 @@ MODULE zfs_module
          !
       end do
       !
-
+      WRITE(stdout,*) Dab
       !  SYMMETRIZE D matrix
       !
       
-      s= 0._dp
       A = 0._dp
       do i= 1, 3
          do j= i, 3
@@ -610,6 +624,8 @@ MODULE zfs_module
          end do
       end do
       !
+      
+      WRITE(stdout,*) "Tr {Dab} = ", Dab(1,1)+Dab(2,2)+Dab(3,3)
       
       !
       !  compute eigenvectors/eigenvalues
@@ -622,12 +638,13 @@ MODULE zfs_module
       
       !
       call DSYEV ('V', 'U', N, A, LDA, W, WORK, LWORK, INFO )
-
+      
       !
       IF (INFO == 0) THEN
          EIG (:) = ABS (W (:))
+         INDX = 0
          call hpsort_eps (N, EIG, INDX, eps4)
-
+         
          !
          Dz = W (INDX (N))
          D  = 1.5 * Dz
@@ -641,6 +658,7 @@ MODULE zfs_module
          call errore ('error in compute_zfs_tensor : DSYEV', INFO)
       END IF
       !
+      WRITE(stdout,*) D, E
       
       RETURN
       !
