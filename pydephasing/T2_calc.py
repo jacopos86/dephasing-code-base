@@ -480,6 +480,20 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
         return Ct, ft
+    # wql resolved version
+    def wql_parameter_eval_driver(self, acf_obj, iwql, ic, iT):
+        acf_oft = np.zeros(p.nt2)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_wql[:,iwql,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_wql(iwql, ic, iT, D2)
+        self.tauc_obj.set_tauc_wql(iwql, ic, iT, tauc_ps)
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        self.T2_obj.set_T2_wql(iwql, ic, iT, T2_inv)
+        self.lw_obj.set_lw_wql(iwql, ic, iT, T2_inv)
+        return Ct, ft
 # -------------------------------------------------------------
 # subclass of the fitting model
 # to be used for static calculation -> different fitting
