@@ -136,7 +136,7 @@ MODULE zfs_module
       !  allocate transition table
       !
       
-      allocate ( transitions_table (1:nmax*(nmax-1)/2, 1:6), stat=ierr )
+      allocate ( transitions_table (1:nmax*(nmax+1)/2, 1:6), stat=ierr )
       if (ierr/=0) call errore ('set_spin_band_index_occ_levels', 'allocating transitions', abs(ierr))
       transitions_table = 0
       niter = nmax*(nmax+1)/2
@@ -153,7 +153,7 @@ MODULE zfs_module
          ib_i = en_level_index (i,2)
          IF (lsda) isp_i = isk(ik_i)
          !
-         do j= i+1, nmax
+         do j= i, nmax
             !
             ik_j = en_level_index (j,1)
             ib_j = en_level_index (j,2)
@@ -187,6 +187,7 @@ MODULE zfs_module
       USE constants,    ONLY : eps8, fpi
       USE cell_base,    ONLY : omega
       USE gvect,        ONLY : ngm, g
+      USE io_global,    ONLY : stdout
       
       
       !
@@ -207,6 +208,7 @@ MODULE zfs_module
       
       
       !    iterate over G vectors
+      WRITE (stdout,*) shape (g)
       
       do ng= 1, ngm
          gsq = SUM ( g (:,ng) ** 2 )
@@ -224,7 +226,7 @@ MODULE zfs_module
             end do
          ENDIF
       end do
-      
+      !WRITE(6,*) ddi_G (:,1,2)
       !
       ddi_G (:,:,:) = ddi_G (:,:,:) * fpi / omega
       !  bohr^-3
@@ -532,6 +534,7 @@ MODULE zfs_module
          do ig= 1, ngm
             Dab_ij (ij,:,:) = Dab_ij (ij,:,:) + rhog (ig) * ddi_G (ig,:,:)
          end do
+         WRITE(stdout,*) ik_i, ib_i, ik_j, ib_j, Dab_ij (ij,1,2)
          
          !
       END DO

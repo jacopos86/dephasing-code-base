@@ -17,7 +17,7 @@ cmplx *F_lqlqp, cmplx *F_lmqlqp, cmplx *F_lqlmqp, cmplx *F_lmqlmqp) {
     const int iqlx= threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     const int jx  = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     int jby, ib;
-    int ms, i0m, i1m;
+    int ms, i0m, i1m, im0, im1;
     double re, im, qpR;
     double Ma, Mb;
     cmplx F;

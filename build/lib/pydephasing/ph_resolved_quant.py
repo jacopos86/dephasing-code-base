@@ -172,7 +172,9 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         wql = wu[iq][il] * THz_to_ev
         WQL = np.double(wql)
         # q vector
-        qv = self.QV[iq]
+        qv = np.zeros(3)
+        for ix in range(3):
+            qv[ix] = self.QV[3*iq+ix]
         # eq
         euq = u[iq]
         EUQ = np.zeros(3*nat, dtype=np.complex128)
@@ -184,6 +186,7 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
             ia = atoms.index_to_ia_map[jax] - 1
             # atomic coordinates
             Ra = atoms.atoms_dict[ia]['coordinates']
+            print(qv, Ra)
             EIQR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
         # (q',l') list
         QP_LST = np.zeros(len(qlp_list), dtype=np.int32)

@@ -172,7 +172,9 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         wql = wu[iq][il] * THz_to_ev
         WQL = np.double(wql)
         # q vector
-        qv = self.QV[iq]
+        qv = np.zeros(3)
+        for ix in range(3):
+            qv[ix] = self.QV[3*iq+ix]
         # eq
         euq = u[iq]
         EUQ = np.zeros(3*nat, dtype=np.complex128)
