@@ -194,7 +194,7 @@ class data_input():
                 self.min_freq = data['min_freq']
             self.min_freq = max(1./self.T, self.min_freq)
             if mpi.rank == mpi.root:
-                log.info("min. freq. (THz): " + str(self.min_freq))
+                log.info("\t min. freq. (THz): " + str(self.min_freq))
         if 'dt' in data:
             # ps
             self.dt = float(data['dt'])
@@ -444,3 +444,4 @@ class data_input():
             self.w_grid[iw] = iw * dw
 # input parameters object
 p = data_input()
+p.sep = "*"*94

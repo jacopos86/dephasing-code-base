@@ -14,11 +14,11 @@ from pydephasing.input_parser import parser
 # set up parallelization
 #
 if mpi.rank == mpi.root:
-    log.info("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    log.info("++++++                                                                                  ++++++")
-    log.info("++++++                           PYDEPHASING   CODE                                     ++++++")
-    log.info("++++++                                                                                  ++++++")
-    log.info("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    log.info("\t ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    log.info("\t ++++++                                                                                  ++++++")
+    log.info("\t ++++++                           PYDEPHASING   CODE                                     ++++++")
+    log.info("\t ++++++                                                                                  ++++++")
+    log.info("\t ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 #
 yml_file = parser.parse_args().yml_inp[0]
 if yml_file is None:
@@ -33,14 +33,19 @@ if nargs < 4:
         pass
     else:
         if mpi.rank == mpi.root:
-            log.warning("->           code usage: \n")
-            log.warning("->           python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
-        log.error("-----          wrong execution parameters: pydephasing stops                -------")
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.warning("\t CODE USAGE: \n")
+            log.warning("\t -> python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
+        log.error("\t WRONG EXECUTION PARAMETERS: PYDEPHASING STOPS")
 timer.start_execution()
 calc_type1 = parser.parse_args().ct1[0]
 if calc_type1 == "energy":
     if mpi.rank == mpi.root:
-        log.info("-----------                   energy level dephasing calculation         ---------------")
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t ENERGY LEVELS T2 CALCULATION")
+        log.info("\n")
     # prepare energy dephasing calculation
     calc_type2 = parser.parse_args().ct2
     deph_type  = parser.parse_args().typ
@@ -49,31 +54,46 @@ if calc_type1 == "energy":
             p.deph = True
             p.relax= False
             if mpi.rank == mpi.root:
-                log.info("-----------                   homogeneous - dephasing calculation         ---------------")
+                log.info("\t T2 CALCULATION -> STARTING")
+                log.info("\t HOMOGENEOUS - DEPHASING")
+                log.info("\n")
+                log.info("\t " + p.sep)
         elif deph_type == "relax":
             p.relax = True
             p.deph  = False
             if mpi.rank == mpi.root:
-                log.info("-----------                   homogeneous - relaxation calculation         --------------")
+                log.info("\t T1 CALCULATION -> STARTING")
+                log.info("\t HOMOGENEOUS - RELAXATION")
+                log.info("\n")
+                log.info("\t " + p.sep)
         else:
             if mpi.rank == mpi.root:
-                log.warning("->           code usage: \n")
-                log.warning("->           python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
-            log.error("-----          deph or --relax notspecified                                  -------")
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.warning("\t CODE USAGE: \n")
+                log.warning("\t -> python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
+                log.info("\t " + p.sep)
+            log.error("\t deph_type : (1) deph or (2) relax")
         # read input file
         p.read_yml_data(yml_file)
         # compute auto correl. function first
         data = compute_homo_exc_dephas()
         # finalize calculation
         if mpi.rank == mpi.root:
-            log.info("-----------                   PRINT DATA ON FILES         --------------")
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t PRINT DATA ON FILES")
             # write T2 yaml files
             print_decoher_data(data)
+            log.info("\t " + p.sep)
         mpi.comm.Barrier()
         # energy branch -> END
 elif calc_type1 == "spin":
     if mpi.rank == mpi.root:
-        log.info("------------------                   SPIN - PHONON CALCULATION        --------------------")
+        log.info("\t " + p.sep)
+        log.info("\n")
+        log.info("\t SPIN - PHONON CALCULATION")
+        log.info("\n")
     # prepare spin dephasing calculation
     calc_type2 = parser.parse_args().ct2
     deph_type = parser.parse_args().typ
@@ -87,15 +107,26 @@ elif calc_type1 == "spin":
             p.deph = True
             p.relax= False
             if mpi.rank == mpi.root:
-                log.info("----------------                  T2 CALCULATION -> STARTING        --------------")
-                log.info("------------                  HOMOGENEOUS SPIN - DEPHASING           -------------")
-                log.info("----------------------------------------------------------------------------------")
+                log.info("\t T2 CALCULATION -> STARTING")
+                log.info("\t HOMOGENEOUS SPIN - DEPHASING")
+                log.info("\n")
+                log.info("\t " + p.sep)
         elif deph_type == "relax":
             p.deph = False
             p.relax= True
             if mpi.rank == mpi.root:
-                log.info("-----------                  T1 CALCULATION -> STARTING        -------------")
-                log.info("--------                  HOMOGENEOUS SPIN - RELAXATION           ----------")
+                log.info("\t T1 CALCULATION -> STARTING")
+                log.info("\t HOMOGENEOUS SPIN - RELAXATION")
+                log.info("\n")
+                log.info("\t " + p.sep)
+        else:
+            if mpi.rank == mpi.root:
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.warning("\t CODE USAGE: \n")
+                log.warning("\t -> python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
+                log.info("\t " + p.sep)
+            log.error("\t deph_type : (1) deph or (2) relax")
         # read input file
         p.read_yml_data(yml_file)
         # compute auto correl. function first
@@ -117,23 +148,39 @@ elif calc_type1 == "spin":
             p.deph = True
             p.relax= False
             if mpi.rank == mpi.root:
-                log.info("-----------                  T2 CALCULATION -> STARTING        -------------")
-                log.info("-------                  FULL HOMOGENEOUS SPIN - DEPHASING           -------") 
+                log.info("\t T2 CALCULATION -> STARTING")
+                log.info("\t FULL HOMOGENEOUS SPIN - DEPHASING")
+                log.info("\n")
+                log.info("\t " + p.sep)
         elif deph_type == "relax":
             p.deph = False
             p.relax= True
             if mpi.rank == mpi.root:
-                log.info("--------                 FULL T1 CALCULATION -> STARTING        ------------")
-                log.info("--------                  HOMOGENEOUS SPIN - RELAXATION           ----------")
+                log.info("\t T2 CALCULATION -> STARTING")
+                log.info("\t FULL HOMOGENEOUS SPIN - RELAXATION")
+                log.info("\n")
+                log.info("\t " + p.sep)
+        else:
+            if mpi.rank == mpi.root:
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.warning("\t CODE USAGE: \n")
+                log.warning("\t -> python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
+                log.info("\t " + p.sep)
+            log.error("\t deph_type : (1) deph or (2) relax")
         # read input file
         p.read_yml_data(yml_file)
         # compute auto correl. function first
         data = compute_full_dephas()
         # finalize calculation
         if mpi.rank == mpi.root:
-            log.info("-----------                   PRINT DATA ON FILES         --------------")
+            log.info("\n")
+            log.info("\t" + p.sep)
+            log.info("\t PRINT DATA ON FILES")
             # write T2 yaml files
             print_decoher_data(data)
+            log.info("\t" + p.sep)
+            log.info("\n")
         mpi.comm.Barrier()
         # full spin branch -> END
     # --------------------------------------------------------------
@@ -196,7 +243,9 @@ elif calc_type1 == "init":
     # read data
     p.read_yml_data_pre(yml_file)
     if mpi.rank == mpi.root:
-        log.info("-------           BUILD DISPLACED STRUCTS.           ---------")
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t BUILD DISPLACED STRUCTS.")
     if int(order) == 1:
         if mpi.rank == mpi.root:
             gen_poscars(p.max_dist_defect, p.defect_index)
@@ -205,17 +254,25 @@ elif calc_type1 == "init":
             gen_2ndorder_poscar(p.max_dist_defect, p.defect_index, p.max_dab)
     else:
         if mpi.rank == mpi.root:
-            log.warning("-------           Wrong order flag            ---------")
-            log.warning("-------           order=1 or 2                ---------")
-        log.error("--------       Wrong displacement order flag    ---------")
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.warning("\t WRONG ORDER FLAG")
+            log.warning("\t ORDER = 1 or 2")
+        log.error("\t WRONG DISPLACEMENT ORDER FLAG")
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info("\n")
 elif calc_type1 == "--post":
     # post process output data from VASP
     pass
 else:
     if mpi.rank == mpi.root:
-        log.warning("-------           CALC. TYPE NOT RECOGNIZED       ---------")
-        log.warning("-------           QUIT PROGRAM                    ---------")
-    log.error("-------            WRONG CALC. FLAG                 ---------")
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.warning("\t CALC. TYPE NOT RECOGNIZED")
+        log.warning("\t QUIT PROGRAM")
+        log.info("\t " + p.sep)
+    log.error("\t WRONG CALC. FLAG")
 # end execution
 timer.end_execution()
 if mpi.rank == mpi.root:
