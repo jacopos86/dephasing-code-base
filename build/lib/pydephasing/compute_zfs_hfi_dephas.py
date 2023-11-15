@@ -96,9 +96,23 @@ def compute_full_dephas():
     u, wu, nq, qpts, wq, mesh = extract_ph_data()
     #
     if mpi.rank == 0:
-        log.info("nq: " + str(nq))
-        log.info("mesh: " + str(mesh))
-        log.info("wq: " + str(wq))
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t Q MESH INFORMATION")
+        log.info("\n")
+        log.info("\n")
+        log.info("\t nq: " + str(nq))
+        log.info("\t mesh: " + str(mesh))
+        if nq > 10:
+            for iq in range(10):
+                log.info("\t wq[" + str(iq+1) + "]: " + str(wq[iq]))
+            log.info("\t ...")
+        else:
+            for iq in range(nq):
+                log.info("\t wq[" + str(iq+1) + "]: " + str(wq[iq]))
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\n")
     assert len(qpts) == nq
     assert len(u) == nq
     mpi.comm.Barrier()

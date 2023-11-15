@@ -16,10 +16,11 @@ PROGRAM QE_pydeph
   USE mp_pools,                  ONLY : npool
   USE mp,                        ONLY : mp_bcast
   USE environment,               ONLY : environment_start, environment_end
-  USE input_parameters,          ONLY : ZFS, HFI, nconfig
+  USE input_parameters,          ONLY : ZFS, HFI, nconfig, SOC_CORR
   USE zfs_module,                ONLY : compute_ddig_space, compute_invfft_ddiG,     &
        allocate_array_variables, compute_zfs_tensor, set_spin_band_index_occ_levels
   USE noncollin_module,          ONLY : npol
+  USE spin_orbit_operator,       ONLY : set_spin_orbit_operator
   
   
   IMPLICIT NONE
@@ -40,7 +41,7 @@ PROGRAM QE_pydeph
   !
   !   NAMELIST zfs_hfi module
   
-  NAMELIST / inputQE_pydeph / outdir, prefix, ZFS, HFI, nconfig
+  NAMELIST / inputQE_pydeph / outdir, prefix, ZFS, HFI, nconfig, SOC_CORR
   
 #ifdef __MPI
   call mp_startup ()
@@ -78,6 +79,7 @@ PROGRAM QE_pydeph
   call mp_bcast (ZFS, ionode_id, intra_image_comm)
   call mp_bcast (HFI, ionode_id, intra_image_comm)
   call mp_bcast (nconfig, ionode_id, intra_image_comm)
+  call mp_bcast (SOC_CORR, ionode_id, intra_image_comm)
 
   !
   !  allocate space for pwscf variables
@@ -124,6 +126,18 @@ PROGRAM QE_pydeph
      !
      
      call compute_zfs_tensor ( )
+
+     !
+     !  spin orbit section
+     !
+     WRITE(stdout,*) SOC_CORR
+     IF (SOC_CORR) THEN
+        !
+
+        call set_spin_orbit_operator ()
+
+        !
+     END IF
      
      !
   END IF

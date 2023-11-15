@@ -18,6 +18,11 @@ MODULE input_parameters
   INTEGER                :: nconfig
   !
   !  n. config.
+
+  LOGICAL                :: SOC_CORR
+  !
+  !  SOC correction
+  !  to ZFS
   
   
   

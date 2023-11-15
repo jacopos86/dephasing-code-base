@@ -49,9 +49,6 @@ MODULE zfs_module
       !
       integer             :: ierr
       
-      
-      
-      
       !
       !    allocate ddi_G
       !
@@ -74,9 +71,6 @@ MODULE zfs_module
       if (ierr/=0) call errore ('compute_rho12_G','allocating Dab_ij', ABS(ierr))
       Dab_ij = cmplx (0._dp, 0._dp)
       
-      
-      
-      
       !
     END SUBROUTINE allocate_array_variables
 
@@ -88,6 +82,7 @@ MODULE zfs_module
       USE lsda_mod,            ONLY : lsda, isk
       USE klist,               ONLY : nks, wk
       USE wvfct,               ONLY : wg, nbnd
+      USE io_global,           ONLY : stdout
       
       
       !    internal variables
@@ -208,7 +203,6 @@ MODULE zfs_module
       
       
       !    iterate over G vectors
-      WRITE (stdout,*) shape (g)
       
       do ng= 1, ngm
          gsq = SUM ( g (:,ng) ** 2 )
@@ -352,6 +346,7 @@ MODULE zfs_module
       USE klist,                 ONLY : nks
       USE wvfct,                 ONLY : nbnd
       USE physical_constants,    ONLY : D0
+      USE control_flags,         ONLY : gamma_only
       
       USE cell_base,             ONLY : tpiba2
   USE io_files,              ONLY : iunwfc, nwordwfc
@@ -374,6 +369,8 @@ MODULE zfs_module
       integer                         :: ij, ib_i, ib_j, ig, ik, ik_i, ik_j, ir
       ! band index
       integer                         :: ierr
+      !
+      logical                         :: use_tg
       
       integer                         :: npw
   real(DP), allocatable           :: gk (:)
@@ -384,7 +381,11 @@ MODULE zfs_module
       allocate ( evc_r (1:dffts%nnr, 1:nks, 1:nbnd), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating evc_r', ABS(ierr))
       evc_r = cmplx (0._dp, 0._dp)
-      
+
+      !
+      use_tg = dffts%has_task_groups
+      WRITE(stdout,*) gamma_only
+      call stop_pp
       !
       !  produce real space wave functions
       !

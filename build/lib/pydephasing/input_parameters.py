@@ -108,13 +108,13 @@ class data_input():
         try:
             f = open(input_file)
         except:
-            msg = "could not find: " + input_file
+            msg = "\t COULD NOT FIND : " + input_file
             log.error(msg)
         data = yaml.load(f, Loader=yaml.Loader)
         f.close()
         # only T or nwg in data -> either time or freq. resolved
         if 'T' in data and 'nwg' in data:
-            log.error("only T or nwg in data -> either time or freq. resolved")
+            log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
         # extract directories
         # path always with respect to working directory
         if 'working_dir' in data:
@@ -152,11 +152,19 @@ class data_input():
             if self.dyndec:
                 self.at_resolved = False
             if self.at_resolved and mpi.rank == mpi.root:
-                log.info("atom resolved calculation")
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.info("\t ATOM RESOLVED CALCULATION")
+                log.info("\t " + p.sep)
+                log.info("\n")
         if 'phonon_res' in data:
             self.ph_resolved = data['phonon_res']
             if self.ph_resolved and mpi.rank == mpi.root:
-                log.info("phonon resolved calculation")
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.info("\t PHONON RESOLVED CALCULATION")
+                log.info("\t " + p.sep)
+                log.info("\n")
             if 'ph_list' in data:
                 stph = data['ph_list'][0]
                 self.nphr = data['ph_list'][1]
@@ -176,7 +184,7 @@ class data_input():
                 self.T = float(data['T'][0])
                 self.T2= float(data['T'][1])
             else:
-                log.error("only two T values 1) normal calc. 2) ph/at resolved")
+                log.error("\t ONLY TWO T VALUES : 1) NORMAL CALC. 2) PH/AT RESOLVED")
             # T2 extraction method
             if 'T2_extract_method' in data:
                 if data['T2_extract_method'] == "fit":
@@ -186,9 +194,9 @@ class data_input():
                     self.ACF_FIT = False
                     self.ACF_INTEG = True
                 else:
-                    log.error("T2_extract_method : fit / integ")
+                    log.error("\t T2 EXTRACTION METHOD ONLY : [ fit / integ ]")
             else:
-                log.error("T2_extract_method : fit / integ must be given in input")
+                log.error("\t T2 EXTRACTION METHOD : [ fit / integ ] MUST BE GIVEN IN INPUT")
             # min. frequency
             if 'min_freq' in data:
                 self.min_freq = data['min_freq']
@@ -258,7 +266,7 @@ class data_input():
             try:
                 f = open(file_name)
             except:
-                msg = "could not find: " + file_name
+                msg = "\t COULD NOT FIND : " + file_name
                 log.error(msg)
             data = yaml.load(f, Loader=yaml.Loader)
             self.atoms_displ.append(np.array(data['displ_ang']))
@@ -269,14 +277,18 @@ class data_input():
                 try:
                     f = open(file_name)
                 except:
-                    msg = "could not find: " + file_name
+                    msg = "\t COULD NOT FIND : " + file_name
                     log.error(msg)
                 data = yaml.load(f, Loader=yaml.Loader)
                 self.atoms_2nd_displ.append(np.array(data['displ_ang']))
                 f.close()
         if mpi.rank == mpi.root:
             if np.abs(self.min_freq) < 1.E-7:
-                log.warning("check -> min_freq= " + str(self.min_freq) + " THz")
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
+                log.info("\t " + p.sep)
+                log.info("\n")
     #
     # read inhomo stat. calculation
     #
@@ -284,7 +296,7 @@ class data_input():
         try:
             f = open(input_file)
         except:
-            msg = "could not find: " + input_file
+            msg = "\t COULD NOT FIND : " + input_file
             log.error(msg)
         data = yaml.load(f, Loader=yaml.Loader)
         f.close()
@@ -362,7 +374,7 @@ class data_input():
         try:
             f = open(input_file)
         except:
-            msg = "could not find: " + input_file
+            msg = "\t COULD NOT FIND : " + input_file
             log.error(msg)
         data = yaml.load(f, Loader=yaml.Loader)
         f.close()
@@ -373,7 +385,7 @@ class data_input():
             if len(data['unpert_dir']) == 1:
                 self.unpert_dir = self.work_dir + '/' + data['unpert_dir'][0]
             else:
-                log.error("only one unperturbed data every time")
+                log.error("\t ONLY ONE UNPERTURBED DIRECTORY")
         if 'displ_poscar_dir' in data:
             for d in data['displ_poscar_dir']:
                 self.displ_poscar_dir.append(self.work_dir + '/' + d)
