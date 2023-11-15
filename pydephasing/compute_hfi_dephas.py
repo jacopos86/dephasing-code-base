@@ -42,7 +42,9 @@ def compute_hfi_dephas():
             struct_list_2nd.append(displ_struct)
     # set HFI gradient
     if mpi.rank == mpi.root:
-        log.info("HF fc core: " + str(p.fc_core))
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t HF fc core: " + str(p.fc_core))
     gradHFI = gradient_HFI(p.work_dir, p.grad_info, p.fc_core)
     # set hyperfine interaction
     gradHFI.set_gs_hfi_tensor()
@@ -69,8 +71,10 @@ def compute_hfi_dephas():
     # configurations
     #
     if mpi.rank == mpi.root:
-        log.info("n. config: " + str(p.nconf))
-        log.info("n. spins: " + str(p.nsp))
+        log.info("\t n. config: " + str(p.nconf))
+        log.info("\t n. spins: " + str(p.nsp))
+        log.info("\t " + p.sep)
+        log.info("\n")
     #
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
@@ -84,9 +88,23 @@ def compute_hfi_dephas():
     #
     u, wu, nq, qpts, wq, mesh = extract_ph_data()
     if mpi.rank == 0:
-        log.info("nq: " + str(nq))
-        log.info("mesh: " + str(mesh))
-        log.info("wq: " + str(wq))
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t Q MESH INFORMATION")
+        log.info("\n")
+        log.info("\n")
+        log.info("\t nq: " + str(nq))
+        log.info("\t mesh: " + str(mesh))
+        if nq > 10:
+            for iq in range(10):
+                log.info("\t wq[" + str(iq+1) + "]: " + str(wq[iq]))
+            log.info("\t ...")
+        else:
+            for iq in range(nq):
+                log.info("\t wq[" + str(iq+1) + "]: " + str(wq[iq]))
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\n")
     assert len(qpts) == nq
     assert len(u) == nq
     mpi.comm.Barrier()
@@ -250,7 +268,11 @@ def compute_hfi_dephas():
         Delt_list.append(Delt_obj)
         tauc_list.append(tauc_obj)
         if mpi.rank == mpi.root:
-            log.warning("ic: " + str(ic+1) + " -> completed")
+            log.info("\n\n")
+            log.info("\t " + p.sep)
+            log.warning("\t ic: " + str(ic+1) + " -> COMPLETED")
+            log.info("\t " + p.sep)
+            log.info("\n\n")
         # save temp. data
         if mpi.rank == mpi.root:
             acf_data = [acf_aver]

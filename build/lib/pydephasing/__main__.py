@@ -197,21 +197,37 @@ elif calc_type1 == "spin":
                 p.deph = True
                 p.relax= False
                 if mpi.rank == 0:
-                    log.info("-----------                T2* CALCULATION -> STARTING        -------------")
-                    log.info("---------                  INHOMOGENEOUS SPIN - DEPHASING        ----------")
+                    log.info("\t T2* CALCULATION -> STARTING")
+                    log.info("\t INHOMOGENEOUS SPIN - DEPHASING")
+                    log.info("\n")
+                    log.info("\t " + p.sep)
             elif deph_type == "relax":
                 p.deph = False
                 p.relax= True
                 if mpi.rank == 0:
-                    log.info("-----------                T1* CALCULATION -> STARTING        -------------")
-                    log.info("---------                  INHOMOGENEOUS SPIN - RELAXATION       ----------")
+                    log.info("\t T1* CALCULATION -> STARTING")
+                    log.info("\t INHOMOGENEOUS SPIN - RELAXATION")
+                    log.info("\n")
+                    log.info("\t " + p.sep)
+            else:
+                if mpi.rank == mpi.root:
+                    log.info("\n")
+                    log.info("\t " + p.sep)
+                    log.warning("\t CODE USAGE: \n")
+                    log.warning("\t -> python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
+                    log.info("\t " + p.sep)
+                log.error("\t deph_type : (1) deph or (2) relax")
             # compute the dephas. time
             data = compute_hfi_dephas()
             # finalize calculation
             if mpi.rank == mpi.root:
-                log.info("-----------                   PRINT DATA ON FILES         --------------")
+                log.info("\n")
+                log.info("\t" + p.sep)
+                log.info("\t PRINT DATA ON FILES")
                 # write T2 yaml files
                 print_decoher_data(data)
+                log.info("\t" + p.sep)
+                log.info("\n")
             mpi.comm.Barrier()
             # inhomo spin branch -> END
         elif deph_type == "stat" or deph_type == "statdd":
@@ -221,22 +237,31 @@ elif calc_type1 == "spin":
             p.read_inhomo_stat(yml_file)
             # static HFI calculation
             if mpi.rank == 0:
-                log.info("-----------                T2* CALCULATION -> STARTING        ------------------")
-                log.info("-----------              INHOMOGENEOUS STATIC SPIN - DEPHASING        ----------")
+                log.info("\t T2* CALCULATION -> STARTING")
+                log.info("\t INHOMOGENEOUS STATIC SPIN - DEPHASING")
+                log.info("\n")
+                log.info("\t " + p.sep)
             # compute dephasing time
             data = compute_hfi_stat_dephas()
             # finalize calculation
             if mpi.rank == mpi.root:
-                log.info("-----------                   PRINT DATA ON FILES         --------------")
+                log.info("\n")
+                log.info("\t" + p.sep)
+                log.info("\t PRINT DATA ON FILES")
                 # write T2 yaml files
                 print_decoher_data(data)
+                log.info("\t" + p.sep)
+                log.info("\n")
             mpi.comm.Barrier()
             # inhomo static branch -> END
         else:
             if mpi.rank == 0:
-                log.warning("->           code usage: \n")
-                log.warning("->           python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
-            log.error("-----          Wrong action type flag: pydephasing stops                -------")
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.warning("\t CODE USAGE: \n")
+                log.warning("\t -> python pydephasing [energy/spin] [homo/inhomo] [deph/relax/stat/statdd] input.yml")
+                log.info("\t " + p.sep)
+            log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
 elif calc_type1 == "init":
     # read data file
     order = parser.parse_args().o
@@ -276,5 +301,9 @@ else:
 # end execution
 timer.end_execution()
 if mpi.rank == mpi.root:
-    log.info("-------           PROCEDURE SUCCESSFULLY COMPLETED       ---------")
+    log.info("\t ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    log.info("\t ++++++                                                                                  ++++++")
+    log.info("\t ++++++                    CALCULATION SUCCESSFULLY COMPLETED                            ++++++")
+    log.info("\t ++++++                                                                                  ++++++")
+    log.info("\t ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 mpi.finalize_procedure()

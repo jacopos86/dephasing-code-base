@@ -30,7 +30,7 @@ class perturbation_ZFS(ABC):
 		try:
 			f = open(atoms_info)
 		except:
-			msg = "could not find: " + atoms_info
+			msg = "\t COULD NOT FIND: " + atoms_info
 			log.error(msg)
 		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
 		f.close()
@@ -59,7 +59,7 @@ class perturbation_ZFS(ABC):
 				D = np.array([Dxx, Dyy, Dzz])
 		f.close()
 		if D is None:
-			log.error(outcar + " ZFS: not found")
+			log.error("\t " + outcar + " -> ZFS: NOT FOUND")
 		return D
 	# read full tensor from outcar
 	def read_outcar_full(self, outcar):
@@ -91,7 +91,7 @@ class perturbation_ZFS(ABC):
 				D[2,1] = Dyz
 		f.close()
 		if D is None:
-			log.error(outcar + " ZFS: not found")
+			log.error("\t " + outcar + " ZFS -> NOT FOUND")
 		return D
 	# eliminate noise
 	def compute_noise(self, displ_structs):
@@ -283,7 +283,7 @@ class gradient_ZFS(perturbation_ZFS):
 				outcar = "{}".format(out_dir_full + file_name)
 				Dc2 = self.read_outcar_full(outcar)
 				#
-				log.info(str(ia+1)+'-'+str(idx+1)+'-> gradD plotted')
+				log.info('\t ' + str(ia+1)+'-'+str(idx+1)+' -> GRAD_D PLOTTED')
 				Dxy = [Dc2[0,1], Dc0[0,1], Dc1[0,1]]
 				Dxz = [Dc2[0,2], Dc0[0,2], Dc1[0,2]]
 				Dyz = [Dc2[1,2], Dc0[1,2], Dc1[1,2]]
@@ -449,12 +449,12 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 				if poscar in poscar_files:
 					poscar_files.remove(poscar)
 				else:
-					log.warning(poscar + "not found in" + self.default_poscar_dir)
+					log.warning("\t " + poscar + " FILE NOT FOUND IN " + self.default_poscar_dir)
 				poscar = "POSCAR-" + str(ia+1) + '-' + str(idx+1) + "-2"
 				if poscar in poscar_files:
 					poscar_files.remove(poscar)
 				else:
-					log.warning(poscar + "not found in" + self.default_poscar_dir)
+					log.warning("\t " + poscar + " FILE NOT FOUND IN " + self.default_poscar_dir)
 		# eliminate poscars located on different processor
 		tmp_list = []
 		for poscar in poscar_files:
@@ -495,28 +495,28 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 					outcar = "{}".format(out_dir_full + file_name)
 					isExist = os.path.exists(outcar)
 					if not isExist:
-						log.error(outcar + " not found")
+						log.error("\t " + outcar + " FILE NOT FOUND")
 					Dax1 = self.read_outcar_full(outcar)
 					# first order outcars
 					file_name = str(ia+1) + '-' + str(idx+1) + '-2/OUTCAR'
 					outcar = "{}".format(out_dir_full + file_name)
 					isExist = os.path.exists(outcar)
 					if not isExist:
-						log.error(outcar + " not found")
+						log.error("\t " + outcar + " FILE NOT FOUND")
 					Dax2 = self.read_outcar_full(outcar)
 					# jby first order
 					file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
 					outcar = "{}".format(out_dir_full + file_name)
 					isExist = os.path.exists(outcar)
 					if not isExist:
-						log.error(outcar + " not found")
+						log.error("\t " + outcar + " FILE NOT FOUND")
 					Dby1 = self.read_outcar_full(outcar)
 					# jby first order
 					file_name = str(ib+1) + '-' + str(idy+1) + '-2/OUTCAR'
 					outcar = "{}".format(out_dir_full + file_name)
 					isExist = os.path.exists(outcar)
 					if not isExist:
-						log.error(outcar + " not found")
+						log.error("\t " + outcar + " FILE NOT FOUND")
 					Dby2 = self.read_outcar_full(outcar)
 					# remove file from list
 					poscar = "POSCAR-" + str(ia+1) + '-' + str(idx+1) + '-' + str(ib+1) + '-' + str(idy+1)
@@ -531,7 +531,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 						poscar = "{}".format(self.default_poscar_dir + '/' + poscar)
 						posExist = os.path.exists(poscar)
 						if not outExist and posExist:
-							log.error(outcar + "not found in" + out_dir_full)
+							log.error("\t " + outcar + " FILE NOT FOUND IN : " + out_dir_full)
 						elif outExist and posExist:
 							# 2nd order D
 							Daxby = self.read_outcar_full(outcar)
@@ -554,7 +554,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 							pass
 		#
 		if len(poscar_files) != 0:
-			log.warning("poscar list not empty: " + str(len(poscar_files)))
+			log.warning("\t POSCAR LIST NOT EMPTY: " + str(len(poscar_files)))
 		mpi.comm.Barrier()
 		input_data = [input_00, input_01, input_02, input_11, input_12, input_22]
 		output_data = [output_00, output_01, output_02, output_11, output_12, output_22]
@@ -590,14 +590,18 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		self.regr_22 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
 		#
 		if mpi.rank == mpi.root:
-			log.info("regr. network score (00 component): " + str(self.regr_00.score(X_test_00, y_test_00)))
-			log.info("regr. network score (01 component): " + str(self.regr_01.score(X_test_01, y_test_01)))
-			log.info("regr. network score (02 component): " + str(self.regr_02.score(X_test_02, y_test_02)))
-			log.info("regr. network score (11 component): " + str(self.regr_11.score(X_test_11, y_test_11)))
-			log.info("regr. network score (12 component): " + str(self.regr_12.score(X_test_12, y_test_12)))
-			log.info("regr. network score (22 component): " + str(self.regr_22.score(X_test_22, y_test_22)))
-			log.info("n. layers multi layer perceptron network component: " + str(self.regr_00.n_layers_))
-			log.info("model shape: " + str(len(self.regr_00.coefs_)))
+			log.info("\n")
+			log.info("\t " + p.sep)
+			log.info("\t REGR. NETWORK SCORE (00 COMPONENT): " + str(self.regr_00.score(X_test_00, y_test_00)))
+			log.info("\t REGR. NETWORK SCORE (01 COMPONENT): " + str(self.regr_01.score(X_test_01, y_test_01)))
+			log.info("\t REGR. NETWORK SCORE (02 COMPONENT): " + str(self.regr_02.score(X_test_02, y_test_02)))
+			log.info("\t REGR. NETWORK SCORE (11 COMPONENT): " + str(self.regr_11.score(X_test_11, y_test_11)))
+			log.info("\t REGR. NETWORK SCORE (12 COMPONENT): " + str(self.regr_12.score(X_test_12, y_test_12)))
+			log.info("\t REGR. NETWORK SCORE (22 COMPONENT): " + str(self.regr_22.score(X_test_22, y_test_22)))
+			log.info("\t N. LAYERS MULTILAYER PERCEPTRON MODEL: " + str(self.regr_00.n_layers_))
+			log.info("\t MODEL SHAPE: " + str(len(self.regr_00.coefs_)))
+			log.info("\t " + p.sep)
+			log.info("\n")
 			if log.level <= logging.INFO:
 				file_name = "grad2D_mlp_test.yml"
 				file_name = "{}".format(write_dir + '/' + file_name)
@@ -638,7 +642,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			else:
 				pass
 		if dr0 is None:
-			log.error("default atomic displacement not found")
+			log.error("\t DEFAULT ATOM DISPLACEMENT NOT FOUND")
 		# run over jax list
 		for jax in tqdm(jax_list):
 			ia = atoms.index_to_ia_map[jax]-1
@@ -674,28 +678,28 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 						outcar = "{}".format(out_dir_full + file_name)
 						isExist = os.path.exists(outcar)
 						if not isExist:
-							log.error(outcar + " not found")
+							log.error("\t " + outcar + " FILE NOT FOUND")
 						Dax1 = self.read_outcar_full(outcar)
 						# first order outcars
 						file_name = str(ia+1) + '-' + str(idx+1) + '-2/OUTCAR'
 						outcar = "{}".format(out_dir_full + file_name)
 						isExist = os.path.exists(outcar)
 						if not isExist:
-							log.error(outcar + " not found")
+							log.error("\t " + outcar + " FILE NOT FOUND")
 						Dax2 = self.read_outcar_full(outcar)
 						# first order jby
 						file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
 						outcar = "{}".format(out_dir_full + file_name)
 						isExist = os.path.exists(outcar)
 						if not isExist:
-							log.error(outcar + " not found")
+							log.error("\t " + outcar + " FILE NOT FOUND")
 						Dby1 = self.read_outcar_full(outcar)
 						# read outcar
 						file_name = str(ib+1) + '-' + str(idy+1) + '-2/OUTCAR'
 						outcar = "{}".format(out_dir_full + file_name)
 						isExist = os.path.exists(outcar)
 						if not isExist:
-							log.error(outcar + " not found")
+							log.error("\t " + outcar + " FILE NOT FOUND")
 						Dby2 = self.read_outcar_full(outcar)
 						# distances
 						x1 = 1. - dab/L
@@ -763,7 +767,10 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		#
 		if mpi.rank == mpi.root:
 			log.info("\n")
-			log.info("grad_axby calculation completed")
+			log.info("\t " + p.sep)
+			log.info("\t GRAD_ax;by CALCULATION COMPLETED")
+			log.info("\t " + p.sep)
+			log.info("\n")
 	#
 	# set grad_a grad_b D tensor -> quantization coordinate system
 	#
@@ -832,17 +839,17 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 					for idy in range(3):
 						jby = ib*3+idy
 						if np.abs(self.grad2Dtensor[jax,jby,0,0]-g2D00) > 1.E6:
-							log.warning('00 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 00 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,0,1]-g2D01) > 1.E6:
-							log.warning('01 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 01 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,0,2]-g2D02) > 1.E6:
-							log.warning('02 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 02 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,1,1]-g2D11) > 1.E6:
-							log.warning('11 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 11 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,1,2]-g2D12) > 1.E6:
-							log.warning('12 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 12 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,2,2]-g2D22) > 1.E6:
-							log.warning('22 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 22 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 #
 #   class :
 #   gradient hyperfine interaction
@@ -855,7 +862,7 @@ class perturbation_HFI(ABC):
 		try:
 			f = open(atoms_info)
 		except:
-			msg = "could not find: " + atoms_info
+			msg = "\t " + atoms_info + " FILE NOT FOUND"
 			log.error(msg)
 		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
 		f.close()
@@ -1136,7 +1143,9 @@ class gradient_2nd_HFI(perturbation_HFI):
 		self.ahf_inp_list = []
 		self.ahf_inp_list = mpi.collect_list(inp_list)
 		if mpi.rank == mpi.root:
-			log.info("data acquisition completed ........")
+			log.info("\t 2ND ORDER GRADIENT ACQUISITION COMPLETED")
+			log.info("\t " + p.sep)
+			log.info("\n")
 		mpi.comm.Barrier()
 	#
 	# set gradients
@@ -1158,12 +1167,12 @@ class gradient_2nd_HFI(perturbation_HFI):
 				if poscar in poscar_files:
 					poscar_files.remove(poscar)
 				else:
-					log.warning(poscar + "not found in" + self.default_poscar_dir)
+					log.warning("\t " + poscar + " FILE NOT FOUND IN " + self.default_poscar_dir)
 				poscar = "POSCAR-" + str(ia+1) + '-' + str(idx+1) + "-2"
 				if poscar in poscar_files:
 					poscar_files.remove(poscar)
 				else:
-					log.warning(poscar + "not found in" + self.default_poscar_dir)
+					log.warning("\t " + poscar + " FILE NOT FOUND IN " + self.default_poscar_dir)
 		# eliminate poscar accessed on different procs
 		tmp_list = []
 		for poscar in poscar_files:
@@ -1206,14 +1215,14 @@ class gradient_2nd_HFI(perturbation_HFI):
 						outcar = "{}".format(out_dir_full + file_name)
 						isExist = os.path.exists(outcar)
 						if not isExist:
-							log.error(outcar + " not found")
+							log.error("\t " + outcar + " FILE NOT FOUND")
 						A_ax1 = self.read_full_hfi(outcar, nat)
 						# jby first order outcar
 						file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
 						outcar = "{}".format(out_dir_full + file_name)
 						isExist = os.path.exists(outcar)
 						if not isExist:
-							log.error(outcar + " not found")
+							log.error("\t " + outcar + " FILE NOT FOUND")
 						A_by1 = self.read_full_hfi(outcar, nat)
 						# remove from list
 						poscar = "POSCAR-" + str(ia+1) + '-' + str(idx+1) + '-' + str(ib+1) + '-' + str(idy+1)
@@ -1226,7 +1235,7 @@ class gradient_2nd_HFI(perturbation_HFI):
 						poscar = "{}".format(self.default_poscar_dir + '/' + poscar)
 						posExist = os.path.exists(poscar)
 						if not outExist and posExist:
-							log.error(outcar + "not found in" + out_dir_full)
+							log.error("\t " + outcar + " FILE NOT FOUND IN " + out_dir_full)
 						elif outExist and posExist:
 							# 2nd order A
 							A_axby = self.read_full_hfi(outcar, nat)
@@ -1254,7 +1263,7 @@ class gradient_2nd_HFI(perturbation_HFI):
 							pass
 		#
 		if len(poscar_files) != 0:
-			log.warning("poscar list not empty: " + str(len(poscar_files)))
+			log.warning("\t POSCAR LIST NOT EMPTY : " + str(len(poscar_files)))
 		mpi.comm.Barrier()
 		#
 		return inp_list, input_data, output_data
@@ -1399,7 +1408,7 @@ class gradient_Eg:
 		try:
 			f = open(atoms_info)
 		except:
-			msg = "could not find: " + atoms_info
+			msg = "\t COULD NOT FIND: " + atoms_info
 			log.error(msg)
 		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
 		f.close()
