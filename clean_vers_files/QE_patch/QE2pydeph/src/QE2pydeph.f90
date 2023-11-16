@@ -20,7 +20,7 @@ PROGRAM QE_pydeph
   USE zfs_module,                ONLY : compute_ddig_space, compute_invfft_ddiG,     &
        allocate_array_variables, compute_zfs_tensor, set_spin_band_index_occ_levels
   USE noncollin_module,          ONLY : npol
-  USE spin_orbit_operator,       ONLY : set_spin_orbit_operator
+  USE spin_orbit_operator,       ONLY : read_FR_pseudo
   
   
   IMPLICIT NONE
@@ -130,11 +130,11 @@ PROGRAM QE_pydeph
      !
      !  spin orbit section
      !
-     WRITE(stdout,*) SOC_CORR
+     WRITE(stdout,*) "SOC_CORR: ", SOC_CORR
      IF (SOC_CORR) THEN
         !
-
-        call set_spin_orbit_operator ()
+        WRITE(stdout,*) 'CULO'
+        call read_FR_pseudo ()
 
         !
      END IF

@@ -13,7 +13,9 @@ ZFSOBJS = \
 input_parameters.o \
 zfs_module.o \
 constants_module.o \
-pwscf_perturb_calc.o
+pwscf_perturb_calc.o \
+extract_wfc.o \
+spin_orbit_operator.o
 
 PWOBJS = ../../PW/src/libpw.a
 PPOBJS = ../../PP/src/libpp.a

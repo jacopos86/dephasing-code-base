@@ -384,8 +384,7 @@ MODULE zfs_module
 
       !
       use_tg = dffts%has_task_groups
-      WRITE(stdout,*) gamma_only
-      call stop_pp
+      
       !
       !  produce real space wave functions
       !

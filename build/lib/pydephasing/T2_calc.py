@@ -359,7 +359,9 @@ class T2_eval_fit_model_dyn_class(T2_eval_fit_model_class):
             T2_inv = D2 / hbar ** 2 * tauc_ps
             # ps^-1
         else:
-            log.warning("dynamica calc: r >~ 1 : " + str(r))
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.warning("\t dynamical calc: r >~ 1 : " + str(r))
             T2_inv = None
         return T2_inv
 # -------------------------------------------------------------
@@ -656,7 +658,7 @@ class T2_eval:
                     # ps^-1 units
             except RuntimeError:
                 # set T2_inv to None
-                log.warning("T2_inv is None")
+                log.warning("\t T2_inv is None")
                 T2_inv = None
         #
         return tau_c, T2_inv, ExpSin(t, p[0], p[1], p[2])

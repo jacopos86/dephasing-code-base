@@ -1,4 +1,6 @@
 zfs_module.o : constants_module.o
+zfs_module.o : extract_wfc.o
 pwscf_perturb_calc.o : zfs_module.o
 QE2pydeph.o : input_parameters.o
+QE2pydeph.o : spin_orbit_operator.o
 QE2pydeph.o : pwscf_perturb_calc.o

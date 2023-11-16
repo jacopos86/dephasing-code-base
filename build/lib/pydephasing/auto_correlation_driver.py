@@ -504,17 +504,25 @@ class acf_ph(object):
     def auto_correl_test(self):
         if p.time_resolved:
             if mpi.rank == mpi.root:
-                log.info("Delta^2 TEST")
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.info("\t Delta^2 : TEST -> START")
             self.Delta_2 = mpi.collect_array(self.Delta_2)
             for iT in range(p.ntmp):
                 assert np.fabs(self.Delta_2[iT]/self.acf[0,0,iT].real - 1.0) < eps
             if mpi.rank == mpi.root:
-                log.info("Delta^2 TEST PASSED")
+                log.info("\t Delta^2 : TEST PASSED")
+                log.info("\t " + p.sep)
+                log.info("\n")
         if p.w_resolved:
             if mpi.rank == mpi.root:
-                log.info("Delta(w=0) TEST")
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.info("\t Delta(w=0) TEST -> START")
             self.Delta_w0 = mpi.collect_array(self.Delta_w0)
             for iT in range(p.ntmp):
                 assert np.fabs(self.Delta_w0[iT]/self.acf[0,iT].real - 1.0) < eps
             if mpi.rank == mpi.root:
-                log.info("Delta(w=0) TEST PASSED")
+                log.info("\t Delta(w=0) : TEST PASSED")
+                log.info("\t " + p.sep)
+                log.info("\n")
