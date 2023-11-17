@@ -63,9 +63,230 @@ CONTAINS
        WRITE( stdout,"(//,3X,'Atomic FR Pseudopotentials Parameters',/, &
             &    3X,'----------------------------------' )" )
     END IF
-    WRITE(stdout,*) 'all set'
-    
-    
+    !
+    DO nt= 1, ntyp
+       !
+       !   variables not necessary for USPP, but necessary for PAW
+       !
+       rgrid(nt)%xmin = 0.d0
+       rgrid(nt)%dx = 0.d0
+       !
+       try first pseudo_dir_cur if set: in case of restart from file,
+       ! this is where PP files should be located
+       !
+       ios = 1
+       IF ( pseudo_dir_cur /= ' ' ) THEN
+          file_pseudo  = TRIM (pseudo_dir_cur) // TRIM (frpsfile(nt))
+          INQUIRE(file = file_pseudo, EXIST = exst) 
+          IF (exst) ios = 0
+          CALL mp_sum (ios,intra_image_comm)
+          IF ( ios /= 0 ) CALL infomsg &
+               ('readpp', 'file '//TRIM(file_pseudo)//' not found')
+          !
+          ! file not found? no panic (yet): if the restart file is not visible
+          ! to all processors, this may happen. Try the original location
+       END IF
+       !
+       ! try the original location pseudo_dir, as set in input
+       ! (it should already contain a slash at the end)
+       !
+       IF ( ios /= 0 ) THEN
+          file_pseudo = TRIM (pseudo_dir) // TRIM (frpsfile(nt))
+          INQUIRE ( file = file_pseudo, EXIST = exst) 
+          IF (exst) ios = 0
+          CALL mp_sum (ios,intra_image_comm)
+          CALL errore('readpp', 'file '//TRIM(file_pseudo)//' not found',ABS(ios))
+       END IF
+       !
+       frpp(nt)%grid => rgrid(nt)
+       !
+       IF (printout_) THEN
+          WRITE( stdout, "(/,3X,'Reading pseudopotential for specie # ',I2, &
+               & ' from file :',/,3X,A)") nt, TRIM(file_pseudo)
+       END IF
+       !
+       isupf = 0
+       CALL read_upf(frpp(nt), rgrid(nt), isupf, filename = file_pseudo )
+       !!
+       !! start reading - check  first if files are readable as xml files,
+       !! then as UPF v.2, then as UPF v.1
+       !
+       IF (isupf ==-81 ) THEN
+          !! error -81 may mean that file contains offending characters
+          !! fix and write file to tmp_dir (done by a single processor)
+          file_fixed = TRIM(tmp_dir)//TRIM(psfile(nt))//'_'
+          !! the underscore is added to distinguish this "fixed" file 
+          !! from the original one, in case the latter is in tmp_dir
+          !
+          IF ( ionode ) is_xml = make_emended_upf_copy( file_pseudo, file_fixed ) 
+          CALL mp_bcast (is_xml,ionode_id,intra_image_comm)
+          !
+          IF (is_xml) THEN
+             !
+             CALL  read_upf(frpp(nt), rgrid(nt), isupf, filename = TRIM(file_fixed) )
+             !! try again to read from the corrected file 
+             WRITE ( msg, '(A)') 'Pseudo file '// trim(psfile(nt)) // ' has been fixed on the fly.' &
+                  // new_line('a') // 'To avoid this message in the future, permanently fix ' &
+                  // new_line('a') // ' your pseudo files following these instructions: ' &
+                  // new_line('a') // 'https://gitlab.com/QEF/q-e/blob/master/upftools/how_to_fix_upf.md'
+             CALL infomsg('read_upf:', trim(msg) )    
+          ELSE
+             !
+             OPEN ( UNIT = iunps, FILE = file_pseudo, STATUS = 'old', FORM = 'formatted' ) 
+             CALL  read_upf(frpp(nt), rgrid(nt), isupf, UNIT = iunps )
+             !! try to read UPF v.1 file
+             CLOSE (iunps)
+             !
+          END IF
+          !
+          IF (ionode) ios = f_remove( file_fixed )
+          !
+       END IF
+       !
+       IF (isupf == -2 .OR. isupf == -1 .OR. isupf == 0) THEN
+          !
+          IF( printout_) THEN
+             IF ( isupf == 0 ) THEN
+                WRITE( stdout, "(3X,'file type is xml')") 
+             ELSE
+                WRITE( stdout, "(3X,'file type is UPF v.',I1)") ABS(isupf) 
+             END IF
+          END IF
+          !
+          !  reconstruct Q(r) if required
+          !
+          call set_upf_q (frpp (nt))
+          !
+       ELSE
+          !
+          OPEN (UNIT=iunps, FILE=TRIM(file_pseudo), STATUS='old', FORM='formatted')
+          !
+          !     The type of the pseudopotential is determined by the file name:
+          !    *.xml or *.XML  UPF format with schema              pp_format=0
+          !    *.upf or *.UPF  UPF format                          pp_format=1
+          !    *.vdb or *.van  Vanderbilt US pseudopotential code  pp_format=2
+          !    *.gth           Goedecker-Teter-Hutter NC pseudo    pp_format=3
+          !    *.RRKJ3         Andrea's   US new code              pp_format=4
+          !    none of the above: PWSCF norm-conserving format     pp_format=5
+          !
+          IF ( pp_format (psfile (nt) ) == 2  ) THEN
+             !
+             IF( printout_ ) &
+                  WRITE( stdout, "(3X,'file type is Vanderbilt US PP')")
+             CALL readvan (iunps, nt, upf(nt))
+             !
+          ELSE IF ( pp_format (psfile (nt) ) == 3 ) THEN
+             !
+             IF( printout_ ) &
+                  WRITE( stdout, "(3X,'file type is GTH (analytical)')")
+             CALL readgth (iunps, nt, upf(nt))
+             !
+          ELSE IF ( pp_format (psfile (nt) ) == 4 ) THEN
+             !
+             IF( printout_ ) &
+                  WRITE( stdout, "(3X,'file type is RRKJ3')")
+             CALL readrrkj (iunps, nt, upf(nt))
+             !
+          ELSE IF ( pp_format (psfile (nt) ) == 5 ) THEN
+             !
+             IF( printout_ ) &
+                  WRITE( stdout, "(3X,'file type is old PWscf NC format')")
+             CALL read_ncpp (iunps, nt, upf(nt))
+             !
+          ELSE
+             !
+             CALL errore('readpp', 'file '//TRIM(file_pseudo)//' not readable',1)
+             !
+          ENDIF
+          !
+          ! add grid information, reconstruct Q(r) if needed
+          !
+          CALL add_upf_grid (frpp(nt), rgrid(nt))
+          !
+          ! end of reading
+          !
+          CLOSE (iunps)
+          !
+       END IF
+       !
+       ! calculate MD5 checksum for this pseudopotential
+       !
+       call md5_from_file(file_pseudo, frpp(nt)%md5_cksum)
+       !
+    END DO
+    !
+    !  end PP reading -> set some variables
+    !
+    IF (input_dft /= 'none') call enforce_input_dft (input_dft)
+    !
+    nvb = 0
+    DO nt= 1, ntyp
+       !
+       ! ... Zv = valence charge of the (pseudo-)atom, read from PP files,
+       ! ... is set equal to Zp = pseudo-charge of the pseudopotential
+       !
+       zv (nt) = frpp (nt)%zp
+       ! count US species
+       IF ( frpp(nt)%tvanp ) nvb = nvb + 1
+       !
+       ! ... set DFT value
+       !
+       call set_dft_from_name ( frpp(nt)%dft )
+       !
+       ! ... Check for DFT consistency - ignored if dft enforced from input
+       !
+       IF (nt == 1) THEN
+          iexch_ = get_iexch()
+          icorr_ = get_icorr()
+          igcx_  = get_igcx()
+          igcc_  = get_igcc()
+          inlc_  = get_inlc()
+       ELSE
+          IF ( iexch_ /= get_iexch() .OR. icorr_ /= get_icorr() .OR. &
+               igcx_  /= get_igcx()  .OR. igcc_  /= get_igcc()  .OR.  &
+               inlc_  /= get_inlc() ) THEN
+             CALL errore( 'readpp','inconsistent DFT read from PP files', nt)
+          END IF
+       END IF
+       !
+       ! the radial grid is defined up to r(mesh) but we introduce 
+       ! an auxiliary variable msh to limit the grid up to rcut=10 a.u. 
+       ! This is used to cut off the numerical noise arising from the
+       ! large-r tail in cases like the integration of V_loc-Z/r
+       !
+       DO ir = 1, rgrid(nt)%mesh
+          IF (rgrid(nt)%r(ir) > rcut) THEN
+             msh (nt) = ir
+             GOTO 5
+          END IF
+       END DO
+       msh (nt) = rgrid(nt)%mesh 
+5      msh (nt) = 2 * ( (msh (nt) + 1) / 2) - 1
+       !
+       ! msh is forced to be odd for simpson integration (maybe obsolete?)
+       !
+       ! check for zero atomic wfc, 
+       ! check that (occupied) atomic wfc are properly normalized
+       !
+       CALL check_atwfc_norm(nt)
+       !
+    END DO
+    !
+    ! more initializations
+    !
+    okvan = ( nvb > 0 )
+    nlcc_any = ANY ( frpp(1:ntyp)%nlcc )
+    !
+    ! return cutoff read from PP file, if required
+    !
+    IF ( PRESENT(ecutwfc_pp) ) THEN
+       ecutwfc_pp = MAXVAL ( frpp(1:ntyp)%ecutwfc )
+    END IF
+    IF ( PRESENT(ecutrho_pp) ) THEN
+       ecutrho_pp = MAXVAL ( frpp(1:ntyp)%ecutrho )
+    END IF
+    !
+    WRITE(stdout,*) 'ALL SET'
     !
   END SUBROUTINE read_FR_pseudo
   !
