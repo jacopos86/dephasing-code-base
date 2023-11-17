@@ -34,7 +34,7 @@ class T2i_ofT(T2i_class):
             return T2i_inhom_ofT ()
         else:
             if mpi.rank == mpi.root:
-                log.error("ct2 parameter not recognized...")
+                log.error("\t ct2 PARAMETER NOT RECOGNIZED ...")
     def get_T2_sec(self):
         return self.T2_sec
     def get_T2_atr_sec(self):
@@ -192,7 +192,7 @@ class Delta_ofT(Delta_class):
             return Delta_inhom_ofT()
         else:
             if mpi.rank == mpi.root:
-                log.error("wrong calc_type2 value")
+                log.error("\t WRONG calc_type2 VALUE")
     def get_Delt_atr(self):
         return self.Delt_atr
     def get_Delt_phr(self):
@@ -326,7 +326,7 @@ class tauc_ofT(tauc_class):
             return tauc_inhom_ofT()
         else:
             if mpi.rank == mpi.root:
-                log.error("wrong calc_type2 value")
+                log.error("\t WRONG calc_type2 VALUE")
     def get_tauc_atr(self):
         return self.tauc_atr
     def get_tauc_phr(self):
@@ -463,8 +463,7 @@ class lw_ofT(lw_class):
         elif calc_type2 == "inhomo" or calc_type2 == "full":
             return lw_inhom_ofT()
         else:
-            if mpi.rank == mpi.root:
-                log.error("wrong calc_type2 value")
+            log.error("\t WRONG calc_type2 VALUE")
     def get_lw_atr(self):
         return self.lw_atr
     def get_lw_phr(self):
