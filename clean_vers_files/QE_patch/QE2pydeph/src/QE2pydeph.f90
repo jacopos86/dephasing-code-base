@@ -134,7 +134,9 @@ PROGRAM QE_pydeph
      IF (SOC_CORR) THEN
         !
         WRITE(stdout,*) 'CULO'
-        call read_FR_pseudo ()
+        !CALL readpp ( input_dft, .FALSE., ecutwfc_pp, ecutrho_pp )
+        
+        call read_FR_pseudo ( input_dft, .FALSE. )
 
         !
      END IF

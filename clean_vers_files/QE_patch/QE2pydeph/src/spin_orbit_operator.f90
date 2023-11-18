@@ -14,10 +14,10 @@ MODULE spin_orbit_operator
   !
 CONTAINS
   !
-  ! =======================================================
-  SUBROUTINE read_FR_pseudo (printout)
-    ! -----------------------------------------------------
-    
+  ! ====================================================================================
+  SUBROUTINE read_FR_pseudo (input_dft, printout, ecutwfc_pp, ecutrho_pp)
+    ! ----------------------------------------------------------------------------------
+    !
     USE radial_grids,                        ONLY : radial_grid_type, nullify_radial_grid
     USE pseudo_types,                        ONLY : nullify_pseudo_upf
     USE ions_base,                           ONLY : ntyp => nsp
@@ -312,7 +312,140 @@ CONTAINS
     integer                    :: l, m
     integer                    :: n, n1
     
+    call start_clock ('set_spin_orbit_operator')
+    !
+    !    variables initialization
+    !
+    ndm = MAXVAL ( frpp(:)%kkbeta )
+    allocate ( aux (ndm) )
+    allocate ( aux1(ndm) )
+    allocate ( ylmk0(lmaxq*lmaxq) )
+    allocate ( qtot(ndm, nbetam*(nbetam+1)/2) )
+    ap (:,:,:) = 0.d0
+    if (lmaxq > 0) qrad (:,:,:,:) = 0.d0
+    !
+    ! the following prevents an out-of-bound error: frpp(nt)%nqlc=2*lmax+1
+    ! but in some versions of the PP files lmax is not set to the maximum
+    ! l of the beta functions but includes the l of the local potential
+    !
+    do nt= 1, ntyp
+       frpp(nt)%nqlc = MIN ( frpp(nt)%nqlc, lmaxq )
+       IF ( frpp(nt)%nqlc < 0 ) frpp(nt)%nqlc = 0
+    end do
+    !
+    prefr = fpi / omega
     
+    !
+    !  In the spin orbit case we need the unitary matrix u which rotates the
+    !  real spherical harmonics and yields the complex ones
+    !
+    rot_ylm = (0.d0, 0.d0)
+    l = lmaxx
+    rot_ylm(l+1,1) = (1.d0,0.d0)
+    do n1=2,2*l+1,2
+       m=n1/2
+       n=l+1-m
+       rot_ylm(n,n1) = cmplx ((-1.d0)**m/sqrt2,0.d0,kind=dp)
+       rot_ylm(n,n1+1) = cmplx (0.d0,-(-1.d0)**m/sqrt2,kind=dp)
+       n=l+1+m
+       rot_ylm(n,n1) = cmplx (1.d0/sqrt2,0.d0,kind=dp)
+       rot_ylm(n,n1+1) = cmplx (0.d0,1.d0/sqrt2,kind=dp)
+    end do
+    fcoef = (0.d0,0.d0)
+    dvan_so = (0.d0,0.d0)
+    qq_so = (0.d0,0.d0)
+    qq_at = 0.d0
+    qq_nt = 0.d0
+    !
+    !   For each pseudopotential we initialize the indices nhtol, nhtolm,
+    !   nhtoj, indv, and if the pseudopotential is of KB type we initialize the
+    !   atomic D terms
+    !
+    ijkb0 = 0
+    do nt= 1, ntyp
+       ih = 1
+       do nb= 1, frpp(nt)%nbeta
+          l = frpp(nt)%lll (nb)
+          do m= 1, 2*l+1
+             nhtol (ih,nt) = l
+             nhtolm(ih,nt) = l*l+m
+             indv (ih,nt)  = nb
+             ih = ih+1
+          end do
+       end do
+       if ( frpp(nt)%has_so ) then
+          ih = 1
+          do nb= 1, frpp(nt)%nbeta
+             l = frpp(nt)%lll (nb)
+             j = frpp(nt)%jjj (nb)
+             do m= 1, 2*l+1
+                nhtoj (ih,nt) = j
+                ih = ih+1
+             end do
+          end do
+       end if
+       !
+       ! ijtoh map augmentation channel indexes ih and jh to composite
+       ! "triangular" index ijh
+       ijtoh (:,:,nt) = -1
+       ijv = 0
+       do ih= 1, nh(nt)
+          do jh= ih, nh(nt)
+             ijv = ijv + 1
+             ijtoh (ih,jh,nt) = ijv
+             ijtoh (jh,ih,nt) = ijv
+          end do
+       end do
+       !
+       ! ijkb0 is just before the first beta "in the solid" for atom ia
+       ! i.e. ijkb0+1,.. ijkb0+nh(ityp(ia)) are the nh beta functions of
+       !      atom ia in the global list of beta functions
+       do ia= 1, nat
+          IF ( ityp(ia) == nt ) THEN
+             indv_ijkb0 (ia) = ijkb0
+             ijkb0 = ijkb0 + nh (nt)
+          END IF
+       end do
+       !
+       !    From now on the only difference between KB and US pseudopotentials
+       !    is in the presence of the q and Q functions.
+       !
+       !    Here we initialize the D of the solid
+       !
+       IF ( frpp(nt)%has_so ) THEN
+          !
+          !  compute fcoef
+          !
+          do ih= 1, nh(nt)
+             li = nhtol (ih,nt)
+             ji = nhtoj (ih,nt)
+             mi = nhtolm (ih,nt) - li*li
+             vi = indv (ih,nt)
+             do kh= 1, nh(nt)
+                lk = nhtol (kh,nt)
+                jk = nhtoj (kh,nt)
+                mk = nhtolm(kh,nt) - lk*lk
+                vk = indv (kh,nt)
+                if (li == lk .and. abs(ji-jk) < 1.d-7) then
+                   do is1= 1, 2
+                      do is2= 1, 2
+                         coeff = (0.d0,0.d0)
+                         do m=-li-1, li
+                            m0 = sph_ind(li,ji,m,is1) + lmaxx + 1
+                            m1 = sph_ind(lk,jk,m,is2) + lmaxx + 1
+                            coeff = coeff + rot_ylm(m0,mi) * spinor(li,ji,m,is1) *   &
+                                 CONJG(rot_ylm(m1,mk)) * spinor(lk,jk,m,is2)
+                         end do
+                         fcoef (ih,kh,is1,is2,nt) = coeff
+                      end do
+                   end do
+                end if
+             end do
+          end do
+          !
+          !   compute the bare coefficients
+          !
+       
     !
     !    compute D_so matrix operator
     !
@@ -326,27 +459,7 @@ CONTAINS
        IF (upf(nt)%has_so) THEN
           !
           WRITE (stdout,*) nt, " has SOC"
-          !
-          !  In the spin orbit case we need the unitary matrix u which rotates the
-          !  real spherical harmonics and yields the complex ones
-          !
-          rot_ylm = (0.d0, 0.d0)
-          l = lmaxx
-          rot_ylm(l+1,1) = (1.d0,0.d0)
-          do n1=2,2*l+1,2
-             m=n1/2
-             n=l+1-m
-             rot_ylm(n,n1) = cmplx ((-1.d0)**m/sqrt2,0.d0,kind=dp)
-             rot_ylm(n,n1+1) = cmplx (0.d0,-(-1.d0)**m/sqrt2,kind=dp)
-             n=l+1+m
-             rot_ylm(n,n1) = cmplx (1.d0/sqrt2,0.d0,kind=dp)
-             rot_ylm(n,n1+1) = cmplx (0.d0,1.d0/sqrt2,kind=dp)
-          end do
-          fcoef = (0.d0,0.d0)
-          !D_so = (0.d0,0.d0)
-          qq_so = (0.d0,0.d0)
-          qq_at = 0.d0
-          qq_nt = 0.d0
+          
           !
           !   compute bare coeffs
           do ih= 1, nh (nt)
