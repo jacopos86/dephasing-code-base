@@ -445,7 +445,109 @@ CONTAINS
           !
           !   compute the bare coefficients
           !
-       
+          do ih= 1, nh(nt)
+             vi = indv (ih,nt)
+             do jh= 1, nh(nt)
+                vj = indv (jh,nt)
+                ijs = 0
+                do is1=1, 2
+                   do is2=1, 2
+                      ijs = ijs + 1
+                      dvan_so (ih,jh,ijs,nt) = frpp(nt)%dion(vi,vj) *      &
+                           fcoef (ih,jh,is1,is2,nt)
+                      if (vi .ne. vj) fcoef(ih,jh,is1,is2,nt) = (0.d0,0.d0)
+                   end do
+                end do
+             end do
+          end do
+       ELSE
+          do ih= 1, nh(nt)
+             do jh= 1, nh(nt)
+                if (nhtol (ih,nt) == nhtol (jh,nt) .and.     &
+                     nhtolm(ih,nt) == nhtolm(jh,nt) ) then
+                   ir = indv (ih,nt)
+                   is = indv (jh,nt)
+                   dvan_so (ih,jh,1,nt) = frpp(nt)%dion (ir,is)
+                   dvan_so (ih,jh,4,nt) = frpp(nt)%dion (ir,is)
+                end if
+             end do
+          end do
+       END IF
+    end do
+    !
+    !    compute Clebsch-Gordan coefficients
+    !
+    if (okvan .or. okpaw) call aainit (lmaxkb+1)
+    !
+    !   here for the US types we compute the Fourier transform of the
+    !   Q functions.
+    !
+    call divide (intra_bgrp_comm, nqxq, startq, lastq)
+    !
+    do nt= 1, ntyp
+       if ( frpp(nt)%tvanp ) then
+          do l= 0, frpp(nt)%nqlc - 1
+             !
+             !     first we build for each nb,mb,l the total Q(|r|) function
+             !     note that l is the true (combined) angular momentum
+             !     and that the arrays have dimensions 0..l (no more 1..l+1)
+             !
+             do nb= 1, frpp(nt)%nbeta
+                do mb= nb, frpp(nt)%nbeta
+                   respect_sum_rule :   &
+                   if ( ( l >= abs(frpp(nt)%lll(nb) - frpp(nt)%lll(mb)) ) .and.  &
+                      ( l <= frpp(nt)%lll(nb) + frpp(nt)%lll(mb) ) .and. &
+                      (mod (l+frpp(nt)%lll(nb)+frpp(nt)%lll(mb), 2) == 0) ) then
+                      ijv = mb * (mb-1) / 2 + nb
+                      ! in PAW and now in US as well q(r) is stored in an l-dependent array
+                      qtot(1:frpp(nt)%kkbeta,ijv) = frpp(nt)%qfuncl(1:frpp(nt)%kkbeta,ijv,l)
+                   endif
+                end do
+             end do
+             !
+             !     here we compute the spherical bessel function for each |g|
+             !
+             do iq= startq, lastq
+                q = (iq-1) * dq * tpiba
+                call sph_bes ( frpp(nt)%kkbeta, rgrid(nt)%r, q, l, aux)
+                !
+                !   and then we integrate with all the Q functions
+                !
+                do nb= 1, frpp(nt)%nbeta
+                   !
+                   !    the Q are symmetric with respect to indices
+                   !
+                   do mb = nb, frpp(nt)%nbeta
+                      ijv = mb * (mb - 1) / 2 + nb
+                      if ( ( l >= abs(frpp(nt)%lll(nb) - frpp(nt)%lll(mb)) ) .and. &
+                           ( l <=     frpp(nt)%lll(nb) + frpp(nt)%lll(mb)  ) .and. &
+                           (mod(l+frpp(nt)%lll(nb)+frpp(nt)%lll(mb),2)==0) ) then
+                         do ir = 1, frpp(nt)%kkbeta
+                            aux1 (ir) = aux (ir) * qtot (ir, ijv)
+                         enddo
+                         call simpson ( frpp(nt)%kkbeta, aux1, rgrid(nt)%rab, &
+                              qrad(iq,ijv,l + 1, nt) )
+                      endif
+                   enddo
+                end do
+                ! igl
+             end do
+             ! l
+          end do
+          qrad (:,:,:,nt) = qrad (:,:,:,nt) * prefr
+          call mp_sum ( qrad (:,:,:,nt), intra_bgrp_comm )
+       end if
+       ! ntyp
+    end do
+    deallocate (aux1)
+    deallocate (qtot)
+    !
+    !   and finally we compute the qq coefficients by integrating the Q.
+    !   q are the g=0 components of Q.
+    !
+    
+    
+    
     !
     !    compute D_so matrix operator
     !
