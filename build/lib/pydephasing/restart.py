@@ -9,7 +9,7 @@ def restart_calculation(restart_file):
     try:
         f = open(restart_file)
     except:
-        msg = "could not find: " + restart_file
+        msg = "\t could not find: " + restart_file
         log.error(msg)
     data = yaml.load(f, Loader=yaml.Loader)
     f.close()

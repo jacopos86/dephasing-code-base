@@ -20,9 +20,15 @@ PROGRAM QE_pydeph
   USE zfs_module,                ONLY : compute_ddig_space, compute_invfft_ddiG,     &
        allocate_array_variables, compute_zfs_tensor, set_spin_band_index_occ_levels
   USE noncollin_module,          ONLY : npol
-  USE spin_orbit_operator,       ONLY : read_FR_pseudo
+  USE spin_orbit_operator,       ONLY : read_FR_pseudo, frpsfile, read_FR_pseudo_from_file,  &
+       set_spin_orbit_operator, init_run_frpp
+  USE funct,                     ONLY : get_dft_name
+  USE spin_orb,                  ONLY : lspinorb
+  USE klist,                     ONLY : nks
+  USE bec_module,                ONLY : allocate_bec_arrays
+  USE wvfct,                     ONLY : nbnd
   
-  
+  !
   IMPLICIT NONE
   
   !
@@ -32,6 +38,7 @@ PROGRAM QE_pydeph
   CHARACTER (LEN=256)              :: outdir
   CHARACTER (LEN=8)                :: code = 'QE_PYDEPH'
   CHARACTER (LEN=256)              :: trimcheck
+  CHARACTER (LEN=20)               :: dft_name
   !
   INTEGER                          :: ios
   
@@ -68,29 +75,47 @@ PROGRAM QE_pydeph
      !
      tmp_dir = trimcheck (outdir)
      !
+     
+     !
   END IF
   
   !
   !  ... bcast
   !
-
+  
   call mp_bcast (tmp_dir, ionode_id, intra_image_comm)
   call mp_bcast (prefix, ionode_id, intra_image_comm)
   call mp_bcast (ZFS, ionode_id, intra_image_comm)
   call mp_bcast (HFI, ionode_id, intra_image_comm)
   call mp_bcast (nconfig, ionode_id, intra_image_comm)
   call mp_bcast (SOC_CORR, ionode_id, intra_image_comm)
-
+  
   !
   !  allocate space for pwscf variables
   !
-
+  
   call read_file
   call openfil_pp
-
+  
   call weights ( )
   !
-  call init_us_1
+  IF (.not. SOC_CORR) call init_us_1
+  
+  IF (lspinorb) call errore (code, 'lspinorb must be .false.', 1)
+  
+  WRITE(stdout,*) "    nks= ", nks, nbnd
+  
+  !
+  IF (ionode) THEN
+     !
+     !  ... READ frpp IF NEEDED
+     !
+     
+     IF (SOC_CORR) call read_FR_pseudo_from_file ()
+     !
+  END IF
+  
+  IF (SOC_CORR) call mp_bcast (frpsfile, ionode_id, intra_image_comm)
   
   !
   !  prepare ZFS calculation : if required
@@ -126,21 +151,31 @@ PROGRAM QE_pydeph
      !
      
      call compute_zfs_tensor ( )
-
+     
      !
      !  spin orbit section
      !
      WRITE(stdout,*) "SOC_CORR: ", SOC_CORR
+     
+     !
      IF (SOC_CORR) THEN
         !
-        WRITE(stdout,*) 'CULO'
-        !CALL readpp ( input_dft, .FALSE., ecutwfc_pp, ecutrho_pp )
         
-        call read_FR_pseudo ( input_dft, .FALSE. )
-
+        dft_name = get_dft_name ()
+        call read_FR_pseudo ( dft_name, .TRUE. )
+        !
+        !  set SOC operator
+        call init_run_frpp ()
+        !
+        call set_spin_orbit_operator ()
+        
+        !
+        !  compute <beta|psi>
+        !
+        call allocate_bec_arrays ()
+        WRITE(6,*) nbnd
         !
      END IF
-     
      !
   END IF
   !
@@ -158,9 +193,6 @@ PROGRAM QE_pydeph
   !
   call environment_end (code)
   !
-  
-  call stop_pp
-  STOP
   
   !
 END PROGRAM QE_pydeph

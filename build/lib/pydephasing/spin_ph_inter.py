@@ -30,7 +30,8 @@ class SpinPhononClass:
         elif p.relax:
             return SpinPhononRelaxClass()
         else:
-            log.error("either relax or deph -> True")
+            log.info("\n")
+            log.error("\t either relax or deph calculation")
     def set_quantum_states(self, Hsp):
         expv = np.zeros(3)
         for j in range(3):

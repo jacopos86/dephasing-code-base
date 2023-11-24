@@ -15,6 +15,7 @@ zfs_module.o \
 constants_module.o \
 pwscf_perturb_calc.o \
 extract_wfc.o \
+bec_setup.o \
 spin_orbit_operator.o
 
 PWOBJS = ../../PW/src/libpw.a

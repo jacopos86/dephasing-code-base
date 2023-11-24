@@ -1,5 +1,4 @@
 import time
-from pydephasing.log import log
 from pydephasing.mpi import mpi
 # set timer module
 class timer_class:

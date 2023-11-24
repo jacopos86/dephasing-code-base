@@ -86,12 +86,18 @@ class acf_ph(object):
         iql = 0
         # run over external (q,l) pair list -> distributed over different
         # processors
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t PROGRESS (q,l) ITERATION ...")
         for iq, il in tqdm(ql_list):
             # set the list of (iqp,ilp)
             qlp_list = set_iqlp_list(il, iq, qlp_list_full, wu, H)
             print(len(qlp_list), len(qlp_list_full))
             # update A_lqp with only needed amplitudes
             A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
+            # compute Raman force
+            #Fr = eff_force_obj.compute_raman_force_phr(il, iq, wu, nat, qlp_list)
             # compute eff. force
             Fjax_lqlqp = eff_force_obj.transf_2nd_order_force_phr(il, iq, wu, u, nat, qlp_list)
             sys.exit()
