@@ -22,12 +22,10 @@ CONTAINS
   subroutine allocate_bec_arrays ()
     ! ---------------------------------------------------------
     
-    USE mp_bands,              ONLY : intra_bgrp_comm
     USE wvfct,                 ONLY : nbnd
     USE uspp,                  ONLY : nkb
     USE becmod,                ONLY : allocate_bec_type
     USE klist,                 ONLY : nks
-    USE uspp,                  ONLY : dvan_so
     
     !
     implicit none
@@ -42,16 +40,16 @@ CONTAINS
     !     allocate bec_sp
     
     ALLOCATE ( bec_sp (1:nks) )
-    WRITE(6,*) shape (bec_sp), nkb, shape(dvan_so)
-    call stop_pp
+    
     !
-    WRITE(6,*) "nkb= ", nkb, nks
+    WRITE(6,*) "nkb= ", nkb
+    WRITE(6,*) "nks= ", nks
+    
+    !
     do ik= 1, nks
        !
-       WRITE(6,*) ik, nkb, nbnd
        call allocate_bec_type (nkb, nbnd, bec_sp (ik))
-       !
-       
+       !   
     end do
     !
     
@@ -59,6 +57,43 @@ CONTAINS
     RETURN
     !
   end subroutine allocate_bec_arrays
+
+  !
+  ! ==============================================
+  SUBROUTINE compute_bec_array ( )
+    ! --------------------------------------------
+    
+    USE lsda_mod,          ONLY : current_spin, lsda, isk
+    USE klist,             ONLY : nks
+    
+    !
+    IMPLICIT NONE
+    
+    !   internal variables
+    
+    INTEGER                    :: ik
+    
+    
+    
+    !
+    k_loop: DO ik= 1, nks
+       !
+       IF (lsda) current_spin = isk(ik)
+       
+       !
+       !  compute bec_sp (ik)
+       !
+       
+    END DO k_loop
+    
+    
+    
+    
+    
+    
+    
+    
+  END SUBROUTINE compute_bec_array
   
   !
 END MODULE bec_module

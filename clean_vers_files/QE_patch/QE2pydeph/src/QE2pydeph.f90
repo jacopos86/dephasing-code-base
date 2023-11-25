@@ -25,7 +25,7 @@ PROGRAM QE_pydeph
   USE funct,                     ONLY : get_dft_name
   USE spin_orb,                  ONLY : lspinorb
   USE klist,                     ONLY : nks
-  USE bec_module,                ONLY : allocate_bec_arrays
+  USE bec_module,                ONLY : allocate_bec_arrays, compute_bec_array
   USE wvfct,                     ONLY : nbnd
   
   !
@@ -173,7 +173,8 @@ PROGRAM QE_pydeph
         !  compute <beta|psi>
         !
         call allocate_bec_arrays ()
-        WRITE(6,*) nbnd
+        !
+        call compute_bec_array ()
         !
      END IF
      !
@@ -193,6 +194,7 @@ PROGRAM QE_pydeph
   !
   call environment_end (code)
   !
-  
+  call stop_pp
+  STOP
   !
 END PROGRAM QE_pydeph

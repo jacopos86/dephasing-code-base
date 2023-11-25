@@ -86,7 +86,7 @@ CONTAINS
     !
     nhm = MAXVAL ( nh (1:nsp) )
     nbetam = MAXVAL (frpp(:)%nbeta)
-    WRITE(stdout,*) nhm, nbetam
+    
     !
     ! calculate the number of beta functions of the solid
     !
@@ -130,7 +130,6 @@ CONTAINS
     USE ions_base,             ONLY : nsp, nat
     USE spin_orb,              ONLY : fcoef
     USE uspp,                  ONLY : dvan_so, qq_so, qq_at, qq_nt, nhtol, nhtolm, indv, nhtoj, ijtoh, indv_ijkb0
-    USE lsda_mod,              ONLY : nspin
     
     !
     implicit none
@@ -143,7 +142,7 @@ CONTAINS
     ALLOCATE ( fcoef (nhm,nhm,2,2,nsp) )
     !
     IF ( ALLOCATED (dvan_so) ) DEALLOCATE (dvan_so)
-    ALLOCATE ( dvan_so (nhm,nhm,nspin,nsp) )
+    ALLOCATE ( dvan_so (nhm,nhm,4,nsp) )
     !
     IF ( ALLOCATED (qq_so) ) DEALLOCATE (qq_so)
     ALLOCATE ( qq_so (nhm,nhm,4,nsp) )
@@ -704,7 +703,7 @@ CONTAINS
   ! =======================================================
   SUBROUTINE set_spin_orbit_operator ()
     ! -----------------------------------------------------
-
+    
     USE constants,        ONLY : sqrt2, fpi
     USE uspp_param,       ONLY : nh, lmaxkb, lmaxq, nbetam, nhm
     USE parameters,       ONLY : lmaxx

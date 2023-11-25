@@ -5,6 +5,7 @@ from pydephasing.atomic_list_struct import atoms
 from pydephasing.input_parameters import p
 from pydephasing.global_params import GPU_ACTIVE
 from pydephasing.log import log
+from pydephasing.mpi import mpi
 #
 def compute_ph_amplitude_q(wu, nat, ql_list):
     # A_lq = [hbar/(2*N*w_lq)]^1/2
@@ -76,6 +77,8 @@ if GPU_ACTIVE:
 class phr_force_2nd_order(object):
     def __init__(self, raman=True):
         self.calc_raman = raman
+        # tolerance
+        self.toler = 1.E-7
     #
     #  instance CPU / GPU
     #
@@ -110,31 +113,39 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         # prepare force arrays
         nqs = H.eig.shape[0]
         n = int(Faxby.shape[0])
+        F0 = np.abs(np.max(Fax))
         self.JAX_LST = []
         for jax in range(n):
             for msr in range(nqs):
                 for msc in range(nqs):
-                    if np.abs(Fax[msr,msc,jax]) > 1.e-7:
+                    if np.abs(Fax[msr,msc,jax])/F0 > self.toler:
                         self.JAX_LST.append(jax)
         self.JAX_LST = list(set(self.JAX_LST))
         # define FAX matrix
         nax = len(self.JAX_LST)
         self.FAX = np.zeros(nqs*nqs*nax, dtype=np.complex128)
         self.IFAX_LST = np.zeros(nax, dtype=np.int32)
-        for iax in range(nax):
-            jax = self.JAX_LST[iax]
-            ii = nqs*nqs*iax
-            self.IFAX_LST[iax] = ii
+        for jjax in range(nax):
+            jax = self.JAX_LST[jjax]
+            iax = nqs*nqs*jjax
+            self.IFAX_LST[jjax] = iax
             for msr in range(nqs):
                 for msc in range(nqs):
-                    self.FAX[ii+msr*nqs+msc] = Fax[msr,msc,jax]
-        # 
-        self.FAXBY = np.zeros(n*n, dtype=np.complex128)
-        ijax = 0
+                    self.FAX[iax+msr*nqs+msc] = Fax[msr,msc,jax]
+        #
+        # define Faxby
+        F0 = np.abs(np.max(Faxby))
+        self.jaxby_lst = []
         for jax in range(n):
             for jby in range(n):
-                self.FAXBY[ijax] = Faxby[jax,jby]
-                ijax += 1
+                if np.abs(Faxby[jax,jby])/F0 > self.toler:
+                    self.jaxby_lst.append((jax,jby))
+        # define local Faxby
+        naxby = len(self.jaxby_lst)
+        self.Faxby = np.zeros(naxby, dtype=type(Faxby[0,0]))
+        for jaxby in range(naxby):
+            jax, jby = self.jaxby_lst[jaxby]
+            self.Faxby[jaxby] = Faxby[jax,jby]
         # Q vectors list
         nq = len(qpts)
         self.NQ = np.int32(nq)
@@ -222,20 +233,20 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         # if needed
         if self.calc_raman:
             # LEN IFAX_LST
-            ndof = len(self.IFAX_LST)
+            naxr = len(self.IFAX_LST)
             # Raman force array
-            Fr = np.zeros((ndof,ndof,nqlp), dtype=np.complex128)
-            for iia in range(ndof):
-                IFAX = np.int32(self.IFAX_LST[iia])
+            Fr = np.zeros((naxr,naxr,nqlp), dtype=np.complex128)
+            for jjax in range(naxr):
+                IAX = np.int32(self.IFAX_LST[jjax])
                 # first set GRID calculations
-                ijb0 = 0
-                while ijb0 < ndof:
-                    ijb1 = ijb0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
-                    nn = min(ijb1,ndof) - ijb0
-                    NDOF2 = np.int32(nn)
+                jjby0 = 0
+                while jjby0 < naxr:
+                    jjby1 = jjby0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
+                    nby = min(jjby1,naxr) - jjby0
+                    NBY = np.int32(nby)
                     # build local IFBY_LST
-                    IFBY_LST = np.zeros(nn, dtype=np.int32)
-                    IFBY_LST[:] = self.IFAX_LST[ijb0:ijb1]
+                    IFBY_LST = np.zeros(nby, dtype=np.int32)
+                    IFBY_LST[:] = self.IFAX_LST[jjby0:min(jjby1,naxr)]
                     # run over (qp,lp)
                     iqlp0 = 0
                     while (iqlp0 < nqlp):
@@ -248,15 +259,14 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                             QLP_LST[iqlp-iqlp0] = iqlp
                         # Raman force
                         F_RAMAN = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        compute_F_raman(self.IQS0, self.IQS1, self.NQS, IFAX, cuda.In(IFBY_LST), NDOF2, cuda.In(QLP_LST), WQL, 
+                        compute_F_raman(self.IQS0, self.IQS1, self.NQS, IAX, cuda.In(IFBY_LST), NBY, cuda.In(QLP_LST), WQL, 
                             cuda.In(WQLP), SIZE, cuda.In(self.FAX), cuda.In(self.EIG), self.CALCTYP, cuda.Out(F_RAMAN), 
                             block=gpu.block, grid=gpu.grid)
-                        # collect Raman force
-                        Fr[iia,ijb0:ijb1,iqlp0:iqlp1] += gpu.recover_raman_force_from_grid(F_RAMAN, nn, size)
+                        Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
                         # new iqlp0
                         iqlp0 = iqlp1
-                    ijb0 = ijb1
-                print(np.max(Fr[iia,:,:]))
+                    jjby0 = jjby1
+                print(np.max(F_RAMAN))
         import sys
         sys.exit()
         iqlp0 = 0
@@ -313,9 +323,25 @@ class CPU_phr_force_2nd_order(phr_force_2nd_order):
     #
     # prepare order 2 phr force calculation
     def set_up_2nd_order_force_phr(self, qpts, Fax, Faxby, H):
-        # prepare force arrays
         #
-        self.Fax = Fax
+        # prepare force arrays
+        nqs = H.eig.shape[0]
+        n = int(Faxby.shape[0])
+        self.jax_lst = []
+        for jax in range(n):
+            for msr in range(nqs):
+                for msc in range(nqs):
+                    if np.abs(Fax[msr,msc,jax]) > 1.e-7:
+                        self.jax_lst.append(jax)
+        self.jax_lst = list(set(self.jax_lst))
+        # define FAX matrix
+        nax = len(self.jax_lst)
+        self.Fax = np.zeros((nqs,nqs,nax), dtype=np.complex128)
+        for iax in range(nax):
+            jax = self.jax_lst[iax]
+            self.Fax[:,:,iax] = Fax[:,:,jax]
+        # 
+        # prepare 2nd force arrays
         self.Faxby = Faxby
         # Q vectors list
         self.nq = len(qpts)
@@ -348,6 +374,12 @@ class CPU_phr_force_2nd_order(phr_force_2nd_order):
             Rb = atoms.atoms_dict[ib]['coordinates']
             m_ib = atoms.atoms_dict[ib]['mass']
             m_ib = m_ib * mp
+            # compute Raman force
+            naxr = len(self.jax_lst)
+            if self.calc_raman and jby in self.jax_lst:
+                Fr = self.compute_raman(jby, wql, qlp_list, wu)
+            else:
+                Fr = np.zeros((naxr, len(qlp_list)), dtype=np.complex128)
             # compute ph. resolved force
             iqlp = 0
             for iqp, ilp in qlp_list:
@@ -356,15 +388,13 @@ class CPU_phr_force_2nd_order(phr_force_2nd_order):
                 eiqpR = cmath.exp(1j*2.*np.pi*np.dot(qp, Rb))
                 # euqp
                 euqp = u[iqp]
-                # wqlp (eV)
-                wqlp = wu[iqp][ilp] * THz_to_ev
                 # compute Raman contribution to eff_Faxby
                 # eff. force : F(R) + F(2)
                 eff_Faxby = np.zeros(3*nat, dtype=np.complex128)
                 eff_Faxby[:] += self.Faxby[:,jby]
-                # compute raman in spin deph obj
-                if self.calc_raman:
-                    eff_Faxby[:] += self.compute_raman(nat, jby, wql, wqlp)
+                for jjax in range(naxr):
+                    jax = self.jax_lst[jjax]
+                    eff_Faxby[jax] += Fr[jjax,iqlp]
                 # update F_ql,qlp
                 F_lq_lqp[:2,:,iqlp] += eff_Faxby[:] * eiqpR * euqp[jby,ilp] / np.sqrt(m_ib)
                 F_lq_lqp[2:,:,iqlp] += eff_Faxby[:] * np.conj(eiqpR) * np.conj(euqp[jby,ilp]) / np.sqrt(m_ib)
@@ -388,24 +418,34 @@ class CPU_phr_force_2nd_order(phr_force_2nd_order):
     # force matrix elements
     # -> p.deph  -> <0|gX|ms><ms|gX'|0>-<1|gX|ms><ms|gX'|1>
     # -> p.relax -> <1|gX|ms><ms|gX'|0>
-    def compute_raman(self, nat, jby, wql, wqlp):
+    def compute_raman(self, jby, wql, qlp_list, wu):
         iqs0 = p.index_qs0
         iqs1 = p.index_qs1
         nqs = self.nqs
+        naxr = len(self.jax_lst)
         # Raman F_axby vector
-        Faxby_raman = np.zeros(3*nat, dtype=np.complex128)
+        Faxby_raman = np.zeros((naxr, len(qlp_list)), dtype=np.complex128)
+        jjby = self.jax_lst.index(jby)
         # eV / ang^2 units
-        # dephasing -> raman term
-        if p.deph:
-            for ms in range(nqs):
-                Faxby_raman[:] += self.Fax[iqs0,ms,:] * self.Fax[ms,iqs0,jby] / (self.eig[iqs0]-self.eig[ms]+wql)
-                Faxby_raman[:] -= self.Fax[iqs1,ms,:] * self.Fax[ms,iqs1,jby] / (self.eig[iqs1]-self.eig[ms]+wql)
-                Faxby_raman[:] += self.Fax[iqs0,ms,:] * self.Fax[ms,iqs0,jby] / (self.eig[iqs0]-self.eig[ms]-wqlp)
-                Faxby_raman[:] -= self.Fax[iqs1,ms,:] * self.Fax[ms,iqs1,jby] / (self.eig[iqs1]-self.eig[ms]-wqlp)
-        elif p.relax:
-            for ms in range(nqs):
-                Faxby_raman[:] += self.Fax[iqs0,ms,:] * self.Fax[ms,iqs1,jby] / (self.eig[iqs1]-self.eig[ms]+wqlp)
-                Faxby_raman[:] += self.Fax[iqs0,ms,:] * self.Fax[ms,iqs1,jby] / (self.eig[iqs1]-self.eig[ms]-wql)
-        else:
-            log.error("--- relax or deph calculation only ---")
+        iqlp = 0
+        for iqp, ilp in qlp_list:
+            # wqlp (eV)
+            wqlp = wu[iqp][ilp] * THz_to_ev
+            # dephasing -> raman term
+            if p.deph:
+                for ms in range(nqs):
+                    Faxby_raman[:,iqlp] += self.Fax[iqs0,ms,:] * self.Fax[ms,iqs0,jjby] / (self.eig[iqs0]-self.eig[ms]+wql)
+                    Faxby_raman[:,iqlp] -= self.Fax[iqs1,ms,:] * self.Fax[ms,iqs1,jjby] / (self.eig[iqs1]-self.eig[ms]+wql)
+                    Faxby_raman[:,iqlp] += self.Fax[iqs0,ms,:] * self.Fax[ms,iqs0,jjby] / (self.eig[iqs0]-self.eig[ms]-wqlp)
+                    Faxby_raman[:,iqlp] -= self.Fax[iqs1,ms,:] * self.Fax[ms,iqs1,jjby] / (self.eig[iqs1]-self.eig[ms]-wqlp)
+            elif p.relax:
+                for ms in range(nqs):
+                    Faxby_raman[:,iqlp] += self.Fax[iqs0,ms,:] * self.Fax[ms,iqs1,jjby] / (self.eig[iqs1]-self.eig[ms]+wqlp)
+                    Faxby_raman[:,iqlp] += self.Fax[iqs0,ms,:] * self.Fax[ms,iqs1,jjby] / (self.eig[iqs1]-self.eig[ms]-wql)
+            else:
+                if mpi.rank == mpi.root:
+                    log.info("\n")
+                    log.info("\t " + p.sep)
+                log.error("\t relax or deph calculation only")
+            iqlp += 1
         return Faxby_raman

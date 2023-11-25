@@ -75,9 +75,10 @@ if GPU_ACTIVE:
 #
 # --------------------------------------------------------
 class phr_force_2nd_order(object):
-    def __init__(self, toler, raman=True):
+    def __init__(self, raman=True):
         self.calc_raman = raman
-        self.toler = toler
+        # tolerance
+        self.toler = 1.E-7
     #
     #  instance CPU / GPU
     #
@@ -112,11 +113,12 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         # prepare force arrays
         nqs = H.eig.shape[0]
         n = int(Faxby.shape[0])
+        F0 = np.abs(np.max(Fax))
         self.JAX_LST = []
         for jax in range(n):
             for msr in range(nqs):
                 for msc in range(nqs):
-                    if np.abs(Fax[msr,msc,jax]) > self.toler:
+                    if np.abs(Fax[msr,msc,jax])/F0 > self.toler:
                         self.JAX_LST.append(jax)
         self.JAX_LST = list(set(self.JAX_LST))
         # define FAX matrix
@@ -132,10 +134,11 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                     self.FAX[iax+msr*nqs+msc] = Fax[msr,msc,jax]
         #
         # define Faxby
+        F0 = np.abs(np.max(Faxby))
         self.jaxby_lst = []
         for jax in range(n):
             for jby in range(n):
-                if np.abs(Faxby[jax,jby]) > self.toler:
+                if np.abs(Faxby[jax,jby])/F0 > self.toler:
                     self.jaxby_lst.append((jax,jby))
         # define local Faxby
         naxby = len(self.jaxby_lst)
@@ -259,10 +262,11 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                         compute_F_raman(self.IQS0, self.IQS1, self.NQS, IAX, cuda.In(IFBY_LST), NBY, cuda.In(QLP_LST), WQL, 
                             cuda.In(WQLP), SIZE, cuda.In(self.FAX), cuda.In(self.EIG), self.CALCTYP, cuda.Out(F_RAMAN), 
                             block=gpu.block, grid=gpu.grid)
-                        #Fr[iia,ijb0:ijb1,iqlp0:iqlp1] += gpu.recover_raman_force_from_grid(F_RAMAN, nn, size)
+                        Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
                         # new iqlp0
                         iqlp0 = iqlp1
                     jjby0 = jjby1
+                print(np.max(F_RAMAN))
         import sys
         sys.exit()
         iqlp0 = 0
