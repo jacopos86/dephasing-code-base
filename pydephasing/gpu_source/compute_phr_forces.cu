@@ -115,8 +115,12 @@ cmplx *F_lqlqp) {
  //   return Fr;
 //}
 
-/* Raman function calculation */
-__global__ void compute_raman_force(int qs0, int qs1, int nqs, int iFax, int *iFby_lst, int ndof, int *qlp_lst,
+/*
+
+Raman function calculation 
+
+*/
+__global__ void compute_raman_force(int qs0, int qs1, int nqs, int iax, int *iFby_lst, int nby, int *qlp_lst,
 double wql, double *wqlp, int size, cmplx *Fjax, double *eig, int calc_typ, cmplx *Fr) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -124,27 +128,27 @@ double wql, double *wqlp, int size, cmplx *Fjax, double *eig, int calc_typ, cmpl
     const int k = threadIdx.z + blockDim.z * blockIdx.z;
     const int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
     const int iqlx= threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
-    const int jx  = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
+    const int jjby= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     // local variables
     int ms;
-    int iFby = iFby_lst[jx];
+    int iby = iFby_lst[jjby];
     /* iqlx < size and jx < ndof */
-    if (iqlx < size && jx < ndof) {
+    if (iqlx < size && jjby < nby) {
         /* if deph/rel */
         if (calc_typ == 0) {
             /* deph. calculation*/
             for (ms=0; ms<nqs; ms++) {
-                Fr[idx] += Fjax[iFax*nqs*nqs+qs0*nqs+ms] * Fjax[iFby*nqs*nqs+ms*nqs+qs0] / (eig[qs0] - eig[ms] + wql);
-                Fr[idx] -= Fjax[iFax*nqs*nqs+qs1*nqs+ms] * Fjax[iFby*nqs*nqs+ms*nqs+qs1] / (eig[qs1] - eig[ms] + wql);
-                Fr[idx] += Fjax[iFax*nqs*nqs+qs0*nqs+ms] * Fjax[iFby*nqs*nqs+ms*nqs+qs0] / (eig[qs0] - eig[ms] - wqlp[iqlx]);
-                Fr[idx] -= Fjax[iFax*nqs*nqs+qs1*nqs+ms] * Fjax[iFby*nqs*nqs+ms*nqs+qs1] / (eig[qs1] - eig[ms] - wqlp[iqlx]);
+                Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs0] / (eig[qs0] - eig[ms] + wql);
+                Fr[idx] -= Fjax[iax+qs1*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] + wql);
+                Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs0] / (eig[qs0] - eig[ms] - wqlp[iqlx]);
+                Fr[idx] -= Fjax[iax+qs1*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] - wqlp[iqlx]);
             }
         }
         else {
             /* relax calculation */
             for (ms=0; ms<nqs; ms++) {
-                Fr[idx] += Fjax[iFax*nqs*nqs+qs0*nqs+ms] * Fjax[iFby*nqs*nqs+ms*nqs+qs1] / (eig[qs1] - eig[ms] + wqlp[iqlx]);
-                Fr[idx] += Fjax[iFax*nqs*nqs+qs0*nqs+ms] * Fjax[iFby*nqs*nqs+ms*nqs+qs1] / (eig[qs1] - eig[ms] - wql);
+                Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] + wqlp[iqlx]);
+                Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] - wql);
             }
         }
     }
