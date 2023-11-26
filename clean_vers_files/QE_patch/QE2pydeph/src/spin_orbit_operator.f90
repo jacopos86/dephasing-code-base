@@ -1077,5 +1077,77 @@ CONTAINS
     !
   END SUBROUTINE set_spin_orbit_operator
   !
+  ! =======================================================================
+  SUBROUTINE dvan_so_pauli_basis ()
+    ! ---------------------------------------------------------------------
+    !      transform dvan_so from |up,dw> basis to
+    !      basis of pauli matrices
+    !
+    
+    
+    
+    
+    IMPLICIT NONE
+    
+    !  internal variables
+    
+    
+    
+    
+    
+    !
+    !  allocate Dso
+    
+    IF (.not. ALLOCATED (Dso) ) THEN
+       ALLOCATE ( Dso (nhm,nhm,3,nsp), stat=ierr )
+       if (ierr/=0) call errore ('dvan_so_pauli_basis', 'allocating Dso', abs (ierr))
+    END IF
+    !
+    Dso = cmplx (0._dp, 0._dp)
+    
+    !
+    !  iterate over atom species
+    !
+    
+    do nt= 1, nsp
+       !
+       IF (frpp(nt)%has_so) THEN
+          !
+          !   compute the bare coefficients
+          !
+          do ih= 1, nh(nt)
+             vi = indv (ih,nt)
+             do jh= 1, nh(nt)
+                vj = indv (jh,nt)
+                !
+                do is1= 1, 2
+                   do is2= 1, 2
+                      if (vi .ne. vj) fcoef(ih,jh,is1,is2,nt) = (0.d0,0.d0)
+                   end do
+                end do
+                !  sigma_z  -> index 3
+                !
+                Dso (ih,jh,3,nt) = frpp(nt)%dion(vi,vj) *      &
+                     (fcoef (ih,jh,1,1,nt) - fcoef (ih,jh,2,2,nt))
+                !  sigma_x  -> index 1
+                !
+                Dso (ih,jh,1,nt) = frpp(nt)%dion(vi,vj) *      &
+                     (fcoef (ih,jh,1,2,nt) + fcoef (ih,jh,2,1,nt))
+                !  sigma_y  -> index 2
+                !
+                Dso (ih,jh,2,nt) = frpp(nt)%dion(vi,vj) *      &
+                     cmplx (0._dp, -1._dp) * (fcoef (ih,jh,1,2,nt) - fcoef (ih,jh,2,1,nt))
+                !
+             end do
+          end do
+          !
+       END IF
+       !
+    end do
+    
+    RETURN
+    !
+  END SUBROUTINE DVAN_SO_PAULI_BASIS
   
+  !
 END MODULE spin_orbit_operator

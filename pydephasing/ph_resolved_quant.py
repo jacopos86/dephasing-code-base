@@ -135,17 +135,32 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         #
         # define Faxby
         F0 = np.abs(np.max(Faxby))
-        self.jaxby_lst = []
+        jaxby_lst = []
         for jax in range(n):
             for jby in range(n):
                 if np.abs(Faxby[jax,jby])/F0 > self.toler:
-                    self.jaxby_lst.append((jax,jby))
+                    jaxby_lst.append((jax,jby))
         # define local Faxby
         naxby = len(self.jaxby_lst)
-        self.Faxby = np.zeros(naxby, dtype=type(Faxby[0,0]))
+        self.FAXBY = collections.defaultdict(list)
+        self.JAXBY_LST = collections.defaultdict(list)
         for jaxby in range(naxby):
             jax, jby = self.jaxby_lst[jaxby]
-            self.Faxby[jaxby] = Faxby[jax,jby]
+            self.FAXBY[jax].append(Faxby[jax,jby])
+            self.JAXBY_LST[jax].append(jby)
+        # set GPU input arrays
+        self.RAMAN_IND = collections.defaultdict(list)
+        self.FAXBY_IND = collections.defaultdict(list)
+        for jax in range(3*nat):
+            if jax in self.JAX_LST and jax not in self.JAXBY_LST.dict_keys():
+                self.RAMAN_IND[jax] = self.JAX_LST
+                self.FAXBY_IND[jax] = -np.ones(len(self.JAX_LST), dtype=np.int32)
+            elif jax not in self.JAX_LST and jax in self.JAXBY_LST.dict_keys():
+                self.FULL_JAXBY_LST[jax] = np.array(self.JAXBY_LST[jax], dtype=np.int32)
+            elif jax in self.JAX_LST and jax in self.JAXBY_LST:
+                pass
+        for jax in self.FAXBY.keys():
+            self.FAXBY[jax] = np.array(self.FAXBY[jax], dtype=np.double)
         # Q vectors list
         nq = len(qpts)
         self.NQ = np.int32(nq)
