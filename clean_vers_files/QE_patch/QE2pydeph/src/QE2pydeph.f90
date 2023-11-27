@@ -21,7 +21,7 @@ PROGRAM QE_pydeph
        allocate_array_variables, compute_zfs_tensor, set_spin_band_index_occ_levels
   USE noncollin_module,          ONLY : npol
   USE spin_orbit_operator,       ONLY : read_FR_pseudo, frpsfile, read_FR_pseudo_from_file,  &
-       set_spin_orbit_operator, init_run_frpp
+       set_spin_orbit_operator, init_run_frpp, dvan_so_pauli_basis
   USE funct,                     ONLY : get_dft_name
   USE spin_orb,                  ONLY : lspinorb
   USE klist,                     ONLY : nks
@@ -103,6 +103,9 @@ PROGRAM QE_pydeph
   
   IF (lspinorb) call errore (code, 'lspinorb must be .false.', 1)
   
+  !
+  IF (npol > 1) call errore (code, 'non collinearity not implemented', npol)
+  
   WRITE(stdout,*) "    nks= ", nks, nbnd
   
   !
@@ -122,8 +125,6 @@ PROGRAM QE_pydeph
   !
   
   IF (ZFS) THEN
-     !
-     IF (npol > 1) call errore (code, 'non collinearity not implemented', npol)
      
      !
      !  set nmax and arrays
@@ -168,6 +169,8 @@ PROGRAM QE_pydeph
         call init_run_frpp ()
         !
         call set_spin_orbit_operator ()
+        !
+        call dvan_so_pauli_basis ()
         
         !
         !  compute <beta|psi>

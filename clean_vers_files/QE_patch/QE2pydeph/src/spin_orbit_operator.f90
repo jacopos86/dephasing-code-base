@@ -21,6 +21,9 @@ MODULE spin_orbit_operator
   CHARACTER(len=80)                               :: frpsfile(ntypx) = 'YY'
   !
   !  full relativistic PP files list
+  complex(DP), allocatable                        :: Dso (:,:,:,:)
+  !
+  !  SOC operator
   
   !
 CONTAINS
@@ -1084,15 +1087,20 @@ CONTAINS
     !      basis of pauli matrices
     !
     
+    USE spin_orb,            ONLY : fcoef
+    USE uspp_param,          ONLY : nh, nhm
+    USE uspp,                ONLY : indv
+    USE ions_base,           ONLY : nsp
     
-    
-    
+    !
     IMPLICIT NONE
     
     !  internal variables
     
-    
-    
+    integer                      :: ih, jh, vi, vj
+    integer                      :: nt
+    integer                      :: is1, is2
+    INTEGER                      :: ierr
     
     
     !
@@ -1147,7 +1155,7 @@ CONTAINS
     
     RETURN
     !
-  END SUBROUTINE DVAN_SO_PAULI_BASIS
+  END SUBROUTINE dvan_so_pauli_basis
   
   !
 END MODULE spin_orbit_operator
