@@ -667,6 +667,41 @@ MODULE zfs_module
       !
     END SUBROUTINE compute_zfs_tensor
     !
-    
+
+    ! ==============================================================
+    SUBROUTINE compute_soc_zfs_tensor ()
+      ! ------------------------------------------------------------
+      
+      
+      
+      IMPLICIT NONE
+      
+      !     internal variables
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+
+      
+      
+      
+      
+      
+      
+      
+      
+    END SUBROUTINE compute_soc_zfs_tensor
+    !
 END MODULE zfs_module
   

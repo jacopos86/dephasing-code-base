@@ -29,6 +29,35 @@ MODULE spin_orbit_operator
 CONTAINS
   !
   ! ====================================================================================
+  subroutine set_spin_operators ()
+    ! ----------------------------------------------------------------------------------
+    
+    
+    
+    IMPLICIT NONE
+    
+    !    internal variables
+    
+    
+    
+    !
+    !    sigma operators
+    
+    sigma_x (1,2) = cmplx (1._dp,0._dp)
+    sigma_x (2,1) = cmplx (1._dp,0._dp)
+    
+    !
+    sigma_y (1,2) = cmplx (0._dp, -1._dp)
+    sigma_y (2,1) = cmplx (0._dp,  1._dp)
+    
+    !
+    sigma_z (1,1) = cmplx (1._dp, 0._dp)
+    sigma_z (2,2) = cmplx (-1._dp, 0._dp)
+    
+    !
+  end subroutine set_spin_operators
+  !
+  ! ====================================================================================
   subroutine init_run_frpp ( )
     ! ==================================================================================
     
@@ -1156,6 +1185,89 @@ CONTAINS
     RETURN
     !
   END SUBROUTINE dvan_so_pauli_basis
+
+  !
+  ! =============================================================================================
+  SUBROUTINE compute_soc_matrix_elements ( transitions_list, ntr )
+    ! -------------------------------------------------------------------------------------------
+    !
+    !    this subroutine computes the SOC matrix
+    !    elements to be used into the ZFS
+    !    calculation
+    !
+    !    < Psi_o^s | H_SO^a | Psi_n^s' > =
+    !             \sum_uv < Psi_o | beta_u > [chi(s) sigma_a chi(s')] <beta_v|Psi_n> Dso_a(u,v)
+    !
+    
+    
+    
+    IMPLICIT NONE
+    
+    !    internal variables
+    
+    
+    
+    !
+    !    allocate H_SO^a_on
+    
+    allocate ( HSO_a (ntr, 3), stat=ierr )
+    if (ierr/=0) call errore ('compute_soc_matrix_elements', 'allocating HSO_a', abs (ierr))
+    HSO_a = (0.d0, 0.d0)
+    
+    !
+    !    iterate over transitions
+    !
+    
+    do itr= 1, ntr
+       !
+       oi = transitions_list (itr, 1)
+       si = transitions_list (itr, 2)
+       ki = transitions_list (itr, 3) 
+       ni = transitions_list (itr, 4)
+       spi= transitions_list (itr, 5)
+       kpi= transitions_list (itr, 6) 
+       
+       !
+       !  S matrix elements
+
+       s_xyz = (0.d0,0.d0)
+       s_xyz (1) = sigma_x (si,spi)
+       s_xyz (2) = sigma_y (si,spi)
+       s_xyz (3) = sigma_z (si,spi)
+       
+       !
+       !  iterate over a index
+       do a= 1, 3
+          !
+          !  iterate atom species
+          ijkb0 = 0
+          do nt= 1, ntyp
+             do na= 1, nat
+                IF ( ityp (na) .eq. nt ) THEN
+                   !
+                   do ih= 1, nh(nt)
+                      ikb = ijkb0 + ih
+                      do jh= 1, nh(nt)
+                         jkb = ijkb0 + jh
+                         !
+                         HSO_a (itr,a) = HSO_a (itr,a) +     &
+                              conjg (bec_sp (ki)%r (ikb,oi)) * s_xyz (a) * Dso (ih,jh,a,nt) * bec_sp (kpi)%r (jkb,ni)
+                         !
+                      end do
+                   end do
+                   ijkb0 = ijkb0 + nh (nt)
+                   !
+                END IF
+             end do
+          end do
+       end do
+       !
+    end do
+    
+    !
+    RETURN
+    !
+  END SUBROUTINE compute_soc_matrix_elements
   
   !
 END MODULE spin_orbit_operator
