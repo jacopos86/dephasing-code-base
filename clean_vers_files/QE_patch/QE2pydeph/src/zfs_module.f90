@@ -171,6 +171,114 @@ MODULE zfs_module
     END SUBROUTINE set_spin_band_index_occ_levels
     !
     ! ================================================================
+    SUBROUTINE set_SOC_transitions_list ( transitions_list, ntr )
+      ! ==============================================================
+      
+      USE constants,           ONLY : eps4
+      USE lsda_mod,            ONLY : lsda, isk
+      USE klist,               ONLY : nks, wk
+      USE wvfct,               ONLY : wg, nbnd
+      USE io_global,           ONLY : stdout
+      
+      
+      !    internal variables
+      
+      implicit none
+      
+      !
+      integer                       :: ik, ib
+      INTEGER                       :: ierr
+      !
+      real(DP)                      :: occ (nks,nbnd)
+      
+      
+      !  compute occup.
+      
+      occ = 0._dp
+      nocc = 0
+      nunocc = 0
+      
+      do ik= 1, nks
+         !
+         do ib=1, nbnd
+            occ (ik,ib) = wg (ib,ik) / wk (ik)
+            IF (ABS (occ (ik,ib) - 1.0) < eps4 ) THEN
+               nocc = nocc + 1
+            ELSE
+               nunocc = nunocc + 1
+            END IF
+         end do
+         !
+      end do
+
+      ! number of transitions
+
+      ntr = nocc * nunocc
+      io = 0
+      ni = 0
+      allocate ( occ_states (nocc,2), unocc_states (nunocc,2) )
+      occ_states = 0
+      unocc_states = 0
+      
+      !
+      do ik= 1, nks
+         !
+         do ib= 1, nbnd
+            IF (ABS (occ (ik,ib) - 1.0) < eps4 ) THEN
+               io = io + 1
+               occ_states (io,1) = ik
+               occ_states (io,2) = ib
+            ELSE
+               ni = ni + 1
+               unocc_states (ni,1) = ik
+               unocc_states (ni,2) = ib
+            END IF
+         end do
+         !
+      end do
+      
+      !
+      !  allocate transition table
+      !
+      
+      allocate ( transitions_list (1:ntr, 1:6), stat=ierr )
+      if (ierr/=0) call errore ('set_spin_band_index_occ_levels', 'allocating transitions_list', abs(ierr))
+      transitions_list = 0
+      
+      !
+      !  run ik
+      !
+      
+      itr = 0
+      !
+      do io= 1, nocc
+         !
+         ik_i = occ_states (io,1)
+         ib_i = occ_states (io,2)
+         IF (lsda) isp_i = isk(ik_i)
+         !
+         do ni= i, nunocc
+            !
+            ik_j = unocc_states (ni,1)
+            ib_j = unocc_states (ni,2)
+            IF (lsda) isp_j = isk(ik_j)
+            !
+            itr = itr + 1
+            transitions_list (itr,1) = ik_i
+            transitions_list (itr,2) = ib_i
+            transitions_list (itr,3) = isp_i
+            transitions_list (itr,4) = ik_j
+            transitions_list (itr,5) = ib_j
+            transitions_list (itr,6) = isp_j
+         end do
+      end do
+      !
+      
+      RETURN
+      !
+    END SUBROUTINE set_SOC_transitions_list
+    !
+    ! ================================================================
     SUBROUTINE compute_ddig_space ( )
       ! ==============================================================
       !
@@ -668,10 +776,12 @@ MODULE zfs_module
     END SUBROUTINE compute_zfs_tensor
     !
 
-    ! ==============================================================
-    SUBROUTINE compute_soc_zfs_tensor ()
-      ! ------------------------------------------------------------
-      
+    ! ==========================================================================
+    SUBROUTINE compute_soc_zfs_tensor ( transitions_list, ntr )
+      ! ------------------------------------------------------------------------
+      !
+      !      ESO_ab = \sum_o,s,s' \sum_n^unocc Re{ <Psi_o^s|HSO^a|Psi_n^s'>
+      !                  <Psi_n^s'|HSO^b|Psi_o^s> / (e_o(s) - e_n(s'))
       
       
       IMPLICIT NONE
@@ -680,27 +790,33 @@ MODULE zfs_module
       
       
       
+      !
+      !     iterate over transitions
+      !
       
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
+      do itr= 1, ntr
+         !
+         oi = transitions_list (itr, 1)
+         si = transitions_list (itr, 2)
+         ki = transitions_list (itr, 3) 
+         ni = transitions_list (itr, 4)
+         spi= transitions_list (itr, 5)
+         kpi= transitions_list (itr, 6)
 
+         !
+         do a= 1, 3
+            do b= 1, 3
+               DSO_ab (a,b) = DSO_ab (a,b) +        &
+                    real (HSO_a (itr,a) * conjg (HSO_a (itr,b))) / (et (oi,ki) - et (ni,kpi))
+            end do
+         end do
+
+         !
+      end do
       
-      
-      
-      
-      
-      
-      
-      
+      !
+      RETURN
+      !
     END SUBROUTINE compute_soc_zfs_tensor
     !
 END MODULE zfs_module
