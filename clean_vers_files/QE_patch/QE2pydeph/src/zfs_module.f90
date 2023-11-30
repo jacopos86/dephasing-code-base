@@ -23,6 +23,8 @@ MODULE zfs_module
   !  Dab(i,j)
   real(DP)                      :: Dab (3,3)
   !  D tensor
+  real(DP)                      :: Dso_ab (3,3)
+  !  SOC D tensor
   real(DP)                      :: D, E
   !  D coefficients
   integer, allocatable          :: transitions_table (:,:)
@@ -174,22 +176,25 @@ MODULE zfs_module
     SUBROUTINE set_SOC_transitions_list ( transitions_list, ntr )
       ! ==============================================================
       
-      USE constants,           ONLY : eps4
-      USE lsda_mod,            ONLY : lsda, isk
-      USE klist,               ONLY : nks, wk
-      USE wvfct,               ONLY : wg, nbnd
-      USE io_global,           ONLY : stdout
-      
-      
-      !    internal variables
+      USE constants,                  ONLY : eps4
+      USE lsda_mod,                   ONLY : lsda, isk
+      USE klist,                      ONLY : nks, wk
+      USE wvfct,                      ONLY : wg, nbnd
+      USE io_global,                  ONLY : stdout
       
       implicit none
+
+      integer, intent(out), allocatable   :: transitions_list (:,:)
+      integer, intent(out)                :: ntr
       
+      !    internal variables
       !
-      integer                       :: ik, ib
-      INTEGER                       :: ierr
+      integer                             :: ik, ik_i, ik_j, ib, ib_i, ib_j, isp_i, isp_j, io, ni, itr
+      integer                             :: nocc, nunocc
+      integer, allocatable                :: occ_states (:,:), unocc_states (:,:)
+      INTEGER                             :: ierr
       !
-      real(DP)                      :: occ (nks,nbnd)
+      real(DP)                            :: occ (nks,nbnd)
       
       
       !  compute occup.
@@ -257,7 +262,7 @@ MODULE zfs_module
          ib_i = occ_states (io,2)
          IF (lsda) isp_i = isk(ik_i)
          !
-         do ni= i, nunocc
+         do ni= 1, nunocc
             !
             ik_j = unocc_states (ni,1)
             ib_j = unocc_states (ni,2)
@@ -782,13 +787,19 @@ MODULE zfs_module
       !
       !      ESO_ab = \sum_o,s,s' \sum_n^unocc Re{ <Psi_o^s|HSO^a|Psi_n^s'>
       !                  <Psi_n^s'|HSO^b|Psi_o^s> / (e_o(s) - e_n(s'))
-      
+
+      USE wvfct,                        ONLY : et
+      USE spin_orbit_operator,          ONLY : HSO_a
       
       IMPLICIT NONE
       
+      integer, intent(in)                    :: ntr
+      integer, intent(in)                    :: transitions_list (ntr,6)
+
       !     internal variables
-      
-      
+
+      integer                                :: a, b, itr
+      integer                                :: ki, kpi, ni, oi, si, spi
       
       !
       !     iterate over transitions

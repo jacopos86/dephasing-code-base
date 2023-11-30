@@ -24,6 +24,11 @@ MODULE spin_orbit_operator
   complex(DP), allocatable                        :: Dso (:,:,:,:)
   !
   !  SOC operator
+  complex(DP)                                     :: sigma_x (2,2), sigma_y (2,2), sigma_z (2,2)
+  !
+  !  spin operators
+  complex(DP), allocatable                        :: HSO_a (:,:)
+  !  spin orbit matrix elements
   
   !
 CONTAINS
@@ -1199,11 +1204,23 @@ CONTAINS
     !             \sum_uv < Psi_o | beta_u > [chi(s) sigma_a chi(s')] <beta_v|Psi_n> Dso_a(u,v)
     !
     
-    
+    USE bec_module,           ONLY : bec_sp
+    USE ions_base,            ONLY : ntyp => nsp, nat, ityp
+    USE uspp_param,           ONLY : nh
+    USE control_flags,        ONLY : gamma_only
     
     IMPLICIT NONE
     
+    integer, intent(in)            :: ntr
+    integer, intent(in)            :: transitions_list (ntr,6)
+    
     !    internal variables
+
+    integer                        :: a, ih, jh, ikb, jkb, ijkb0, itr, na, nt
+    integer                        :: ki, kpi, ni, oi, si, spi
+    complex(DP)                    :: s_xyz (3)
+    !    spin vector
+    INTEGER                        :: ierr
     
     
     
@@ -1250,9 +1267,15 @@ CONTAINS
                       do jh= 1, nh(nt)
                          jkb = ijkb0 + jh
                          !
-                         HSO_a (itr,a) = HSO_a (itr,a) +     &
-                              conjg (bec_sp (ki)%r (ikb,oi)) * s_xyz (a) * Dso (ih,jh,a,nt) * bec_sp (kpi)%r (jkb,ni)
-                         !
+                         IF (gamma_only) THEN
+                            HSO_a (itr,a) = HSO_a (itr,a) +     &
+                                 bec_sp (ki)%r (ikb,oi) * s_xyz (a) * Dso (ih,jh,a,nt) * bec_sp (kpi)%r (jkb,ni)
+                            !
+                         ELSE
+                            HSO_a (itr,a) = HSO_a (itr,a) +     &
+                                 conjg (bec_sp (ki)%k (ikb,oi)) * s_xyz (a) * Dso (ih,jh,a,nt) * bec_sp (kpi)%k (jkb,ni)
+                            !
+                         END IF
                       end do
                    end do
                    ijkb0 = ijkb0 + nh (nt)

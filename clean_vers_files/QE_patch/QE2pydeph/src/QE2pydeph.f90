@@ -18,10 +18,11 @@ PROGRAM QE_pydeph
   USE environment,               ONLY : environment_start, environment_end
   USE input_parameters,          ONLY : ZFS, HFI, nconfig, SOC_CORR
   USE zfs_module,                ONLY : compute_ddig_space, compute_invfft_ddiG,     &
-       allocate_array_variables, compute_zfs_tensor, set_spin_band_index_occ_levels
+       allocate_array_variables, compute_zfs_tensor, set_spin_band_index_occ_levels, &
+       set_SOC_transitions_list, compute_soc_zfs_tensor
   USE noncollin_module,          ONLY : npol
   USE spin_orbit_operator,       ONLY : read_FR_pseudo, frpsfile, read_FR_pseudo_from_file,  &
-       set_spin_orbit_operator, init_run_frpp, dvan_so_pauli_basis
+       set_spin_orbit_operator, init_run_frpp, dvan_so_pauli_basis, compute_soc_matrix_elements
   USE funct,                     ONLY : get_dft_name
   USE spin_orb,                  ONLY : lspinorb
   USE klist,                     ONLY : nks
@@ -41,9 +42,8 @@ PROGRAM QE_pydeph
   CHARACTER (LEN=20)               :: dft_name
   !
   INTEGER                          :: ios
-  
-  
-  
+  integer                          :: ntr
+  integer, allocatable             :: transitions_list (:,:)
   
   !
   !   NAMELIST zfs_hfi module
@@ -178,6 +178,12 @@ PROGRAM QE_pydeph
         call allocate_bec_arrays ()
         !
         call compute_bec_array ()
+        !
+        call set_SOC_transitions_list ( transitions_list, ntr )
+        !
+        call compute_soc_matrix_elements ( transitions_list, ntr )
+        !
+        call compute_soc_zfs_tensor ( transitions_list, ntr )
         !
      END IF
      !

@@ -10,10 +10,6 @@ MODULE bec_module
   !
   !   <beta|psi>
   
-  
-  
-  
-  
   !
   !
 CONTAINS
