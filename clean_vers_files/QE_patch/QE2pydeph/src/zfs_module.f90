@@ -788,8 +788,11 @@ MODULE zfs_module
       !      ESO_ab = \sum_o,s,s' \sum_n^unocc Re{ <Psi_o^s|HSO^a|Psi_n^s'>
       !                  <Psi_n^s'|HSO^b|Psi_o^s> / (e_o(s) - e_n(s'))
 
+      USE constants,                    ONLY : ELECTRONVOLT_SI, RYTOEV
+      USE physical_constants,           ONLY : Hz_to_joule
       USE wvfct,                        ONLY : et
       USE spin_orbit_operator,          ONLY : HSO_a
+      USE io_global,                    ONLY : stdout
       
       IMPLICIT NONE
       
@@ -804,16 +807,17 @@ MODULE zfs_module
       !
       !     iterate over transitions
       !
-      
+      WRITE(stdout,*) ntr
       do itr= 1, ntr
          !
-         oi = transitions_list (itr, 1)
-         si = transitions_list (itr, 2)
-         ki = transitions_list (itr, 3) 
-         ni = transitions_list (itr, 4)
-         spi= transitions_list (itr, 5)
-         kpi= transitions_list (itr, 6)
-
+         ki = transitions_list (itr, 1)
+         oi = transitions_list (itr, 2)
+         si = transitions_list (itr, 3) 
+         kpi= transitions_list (itr, 4)
+         ni = transitions_list (itr, 5)
+         spi= transitions_list (itr, 6)
+         WRITE(stdout,*) transitions_list (itr, 1), transitions_list (itr, 2), &
+              transitions_list (itr, 3), transitions_list (itr, 4), transitions_list (itr, 5), transitions_list (itr, 6)
          !
          do a= 1, 3
             do b= 1, 3
@@ -824,7 +828,7 @@ MODULE zfs_module
                !
             end do
          end do
-
+         WRITE(stdout,*) DSO_ab (1,1), HSO_a (itr,1), HSO_a (itr,2), HSO_a (itr,3), (et (oi,ki) - et (ni,kpi))
          !
       end do
       !
@@ -833,6 +837,7 @@ MODULE zfs_module
       !  Joule units
       DSO_ab (:,:) = DSO_ab (:,:) / Hz_to_joule * 1.e-6
       !  MHz units
+      WRITE(stdout,*) DSO_ab (1,1), DSO_ab (2,2), DSO_ab (3,3)
       
       !
       RETURN

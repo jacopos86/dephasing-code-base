@@ -37,13 +37,7 @@ CONTAINS
   subroutine set_spin_operators ()
     ! ----------------------------------------------------------------------------------
     
-    
-    
     IMPLICIT NONE
-    
-    !    internal variables
-    
-    
     
     !
     !    sigma operators
@@ -66,14 +60,9 @@ CONTAINS
   subroutine init_run_frpp ( )
     ! ==================================================================================
     
-    
-    
     implicit none
     
     !
-    !   internal variables
-    
-    
     call init_frpp_parameters ( )
     
     !
@@ -1208,6 +1197,7 @@ CONTAINS
     USE ions_base,            ONLY : ntyp => nsp, nat, ityp
     USE uspp_param,           ONLY : nh
     USE control_flags,        ONLY : gamma_only
+    USE io_global,            ONLY : stdout
     
     IMPLICIT NONE
     
@@ -1237,20 +1227,21 @@ CONTAINS
     
     do itr= 1, ntr
        !
-       oi = transitions_list (itr, 1)
-       si = transitions_list (itr, 2)
-       ki = transitions_list (itr, 3) 
-       ni = transitions_list (itr, 4)
-       spi= transitions_list (itr, 5)
-       kpi= transitions_list (itr, 6) 
+       ki = transitions_list (itr, 1)
+       oi = transitions_list (itr, 2)
+       si = transitions_list (itr, 3) 
+       kpi= transitions_list (itr, 4)
+       ni = transitions_list (itr, 5)
+       spi= transitions_list (itr, 6) 
        
        !
        !  S matrix elements
-
+       
        s_xyz = (0.d0,0.d0)
        s_xyz (1) = sigma_x (si,spi)
        s_xyz (2) = sigma_y (si,spi)
        s_xyz (3) = sigma_z (si,spi)
+       WRITE(stdout,*) s_xyz
        
        !
        !  iterate over a index
@@ -1271,6 +1262,7 @@ CONTAINS
                             HSO_a (itr,a) = HSO_a (itr,a) +     &
                                  bec_sp (ki)%r (ikb,oi) * s_xyz (a) * Dso (ih,jh,a,nt) * bec_sp (kpi)%r (jkb,ni)
                             !
+                            !WRITE(stdout,*) HSO_a (itr,a), bec_sp (ki)%r (ikb,oi), s_xyz (a) 
                          ELSE
                             HSO_a (itr,a) = HSO_a (itr,a) +     &
                                  conjg (bec_sp (ki)%k (ikb,oi)) * s_xyz (a) * Dso (ih,jh,a,nt) * bec_sp (kpi)%k (jkb,ni)
