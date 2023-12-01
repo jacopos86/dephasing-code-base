@@ -819,11 +819,20 @@ MODULE zfs_module
             do b= 1, 3
                DSO_ab (a,b) = DSO_ab (a,b) +        &
                     real (HSO_a (itr,a) * conjg (HSO_a (itr,b))) / (et (oi,ki) - et (ni,kpi))
+               !
+               !  Ry units
+               !
             end do
          end do
 
          !
       end do
+      !
+      !  conversion to MHz
+      DSO_ab (:,:) = DSO_ab (:,:) * RYTOEV * ELECTRONVOLT_SI
+      !  Joule units
+      DSO_ab (:,:) = DSO_ab (:,:) / Hz_to_joule * 1.e-6
+      !  MHz units
       
       !
       RETURN
