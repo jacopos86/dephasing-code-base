@@ -72,6 +72,24 @@ CONTAINS
   end subroutine init_run_frpp
   !
   ! ====================================================================================
+  subroutine compute_spin_orbit_operator ( )
+    ! ----------------------------------------------------------------------------------
+    
+    implicit none
+    
+    !
+    call set_spin_operators ()
+    !
+    call set_spin_orbit_operator ()
+    !
+    call dvan_so_pauli_basis ()
+    
+    !
+    RETURN
+    !
+  end subroutine compute_spin_orbit_operator
+  !
+  ! ====================================================================================
   subroutine init_frpp_parameters ( )
     ! ----------------------------------------------------------------------------------
     
