@@ -19,7 +19,8 @@ PROGRAM QE_pydeph
   USE input_parameters,          ONLY : ZFS, HFI, nconfig, SOC_CORR
   USE zfs_module,                ONLY : compute_zfs_tensor, compute_soc_zfs_tensor
   USE noncollin_module,          ONLY : npol
-  USE spin_orbit_operator,       ONLY : read_FR_pseudo, init_run_frpp
+  USE spin_orbit_operator,       ONLY : read_FR_pseudo, init_run_frpp, frpsfile,    &
+       read_FR_pseudo_from_file, compute_spin_orbit_operator
   USE funct,                     ONLY : get_dft_name
   USE spin_orb,                  ONLY : lspinorb
   USE klist,                     ONLY : nks

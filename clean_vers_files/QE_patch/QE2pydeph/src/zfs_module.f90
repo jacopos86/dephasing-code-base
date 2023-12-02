@@ -818,8 +818,15 @@ MODULE zfs_module
     ! ==========================================================================
     SUBROUTINE compute_soc_zfs_tensor ()
       ! ------------------------------------------------------------------------
+
+      USE spin_orbit_operator,      ONLY : compute_soc_matrix_elements
+      USE bec_module,               ONLY : allocate_bec_arrays, compute_bec_array
       
       implicit none
+
+      !
+      integer                           :: ntr
+      integer, allocatable              :: transitions_list (:,:)
       
       !
       call set_SOC_transitions_list ( transitions_list, ntr )
