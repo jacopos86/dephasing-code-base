@@ -277,7 +277,6 @@ MODULE zfs_module
          end do
       end do
       !
-      
       RETURN
       !
     END SUBROUTINE set_SOC_transitions_list
@@ -449,63 +448,37 @@ MODULE zfs_module
       !   of f1(r), f2(r) and f3(r)
       
       USE fft_base,              ONLY : dffts
-      USE gvect,                 ONLY : ngm, g
       USE io_global,             ONLY : stdout
       USE fft_interfaces,        ONLY : fwfft
-      USE wavefunctions,         ONLY : evc
       USE noncollin_module,      ONLY : npol
       USE cell_base,             ONLY : omega
-      USE klist,                 ONLY : nks
-      USE wvfct,                 ONLY : nbnd
       USE physical_constants,    ONLY : D0
       USE control_flags,         ONLY : gamma_only
       
-      USE cell_base,             ONLY : tpiba2
-  USE io_files,              ONLY : iunwfc, nwordwfc
-  USE wavefunctions,         ONLY : evc
-  USE klist,                 ONLY : nks, ngk, xk, igk_k
-  USE wvfct,                 ONLY : nbnd, npwx
-  USE gvect,                 ONLY : g, ngm
-  USE gvecw,                 ONLY : ecutwfc
       implicit none
       
       !  internal variables
+      !
       complex(DP), allocatable        :: f1_aux (:), f2_aux (:), f3_aux (:)
       ! aux. real space arrays
       complex(DP), allocatable        :: f1_G (:), f2_G (:), f3_G (:)
       ! aux. rec. space arrays
-      complex(DP), allocatable        :: evc_r (:,:,:)
-      ! real space wfc
       complex(DP), allocatable        :: rhog (:)
       ! rho_12(G,-G)
-      integer                         :: ij, ib_i, ib_j, ig, ik, ik_i, ik_j, ir
+      integer                         :: ij, ib_i, ib_j, ik_i, ik_j, ir
       ! band index
       integer                         :: ierr
       !
-      logical                         :: use_tg
-      
-      integer                         :: npw
-  real(DP), allocatable           :: gk (:)
       
       !
       !  allocate real space wfc
       
-      allocate ( evc_r (1:dffts%nnr, 1:nks, 1:nbnd), stat=ierr )
-      if (ierr/=0) call errore ('compute_rho12_G','allocating evc_r', ABS(ierr))
-      evc_r = cmplx (0._dp, 0._dp)
-
-      !
-      use_tg = dffts%has_task_groups
+      allocate ( evci_r (1:dffts%nnr), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating evci_r', ABS(ierr))
       
       !
-      !  produce real space wave functions
-      !
-      
-      do ik= 1, 1
-         !
-         call extract_real_space_wfc ( ik, evc_r )
-         !
-      end do
+      allocate ( evcj_r (1:dffts%nnr), stat=ierr )
+      if (ierr/=0) call errore ('compute_rho12_G','allocating evcj_r', ABS(ierr))
       
       !
       ! allocate arrays
@@ -546,30 +519,29 @@ MODULE zfs_module
          !     compute f1(r)
          ! -----------------------------------------
          
-         !
-         !evci_r (:,:) = cmplx (0._dp, 0._dp, kind=dp)
-         !do ig= 1, npw
-         !   evci_r (dffts%nl (igk_k(ig,ik_i)), 1) = evc (ig,ib_i)
-         !end do
+         evci_r (:) = cmplx (0._dp, 0._dp)
          
          !
-         !call invfft ('Wave', evc1_r (:,1), dffts)
+         IF (gamma_only) THEN
+            call extract_evc_r_gamma_only ( ik_i, ib_i, evci_r )
+         ELSE
+            call extract_evc_r_ofk ( ik_i, ib_i, evci_r )
+         END IF
          
          !
          f1_G (:) = cmplx (0._dp, 0._dp, kind=dp)
-         !
          f1_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
          
          !
          do ir= 1, dffts%nnr
-            f1_aux (ir) = evc_r (ir,ik_i,ib_i) * conjg (evc_r (ir,ik_i,ib_i))
+            f1_aux (ir) = evci_r (ir) * CONJG (evci_r (ir))
          end do
          
          !
          !  compute f1(G)
          !
          
-         call fwfft ('Rho', f1_aux, dffts)
+         call fwfft ('Wave', f1_aux, dffts)
          
          !
          f1_G (1:ngm) = f1_aux (dffts%nl (1:ngm))
@@ -587,29 +559,29 @@ MODULE zfs_module
          !  real space evc2_r
          !
          
-         !evc2_r (:,:) = cmplx (0._dp, 0._dp) 
-         !
-         !do ig= 1, npw
-         !evc2_r (dffts%nl (igk_k(ig,ik)), 1) = evc (ig,ib2)
-         !end do
+         evcj_r (:) = cmplx (0._dp, 0._dp) 
          
          !
-         !call invfft ('Wave', evc2_r (:,1), dffts)
-         !
+         IF (gamma_only) THEN
+            call extract_evc_r_gamma_only ( ik_j, ib_j, evcj_r )
+         ELSE
+            call extract_evc_r_ofk ( ik_j, ib_j, evcj_r )
+         END IF
          
+         !
          f2_G (:) = cmplx (0._dp, 0._dp, kind=dp)
-         !
          f2_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         
          !
          do ir= 1, dffts%nnr
-            f2_aux (ir) = evc_r (ir,ik_j,ib_j) * conjg (evc_r (ir,ik_j,ib_j))
+            f2_aux (ir) = evcj_r (ir) * CONJG (evcj_r (ir))
          end do
          
          !
          !  compute f2(G)
          !
          
-         call fwfft ('Rho', f2_aux, dffts)
+         call fwfft ('Wave', f2_aux, dffts)
          
          !
          f2_G (1:ngm) = f2_aux (dffts%nl (1:ngm))
@@ -890,8 +862,6 @@ MODULE zfs_module
          kpi= transitions_list (itr, 4)
          ni = transitions_list (itr, 5)
          spi= transitions_list (itr, 6)
-         WRITE(stdout,*) transitions_list (itr, 1), transitions_list (itr, 2), &
-              transitions_list (itr, 3), transitions_list (itr, 4), transitions_list (itr, 5), transitions_list (itr, 6)
          !
          do a= 1, 3
             do b= 1, 3
@@ -902,7 +872,6 @@ MODULE zfs_module
                !
             end do
          end do
-         WRITE(stdout,*) DSO_ab (1,1), HSO_a (itr,1), HSO_a (itr,2), HSO_a (itr,3), (et (oi,ki) - et (ni,kpi))
          !
       end do
       !
@@ -911,7 +880,7 @@ MODULE zfs_module
       !  Joule units
       DSO_ab (:,:) = DSO_ab (:,:) / Hz_to_joule * 1.e-6
       !  MHz units
-      WRITE(stdout,*) DSO_ab (1,1), DSO_ab (2,2), DSO_ab (3,3)
+      WRITE(stdout,*) DSO_ab (1,1), DSO_ab (2,2), DSO_ab (3,3), DSO_ab (1,2)
       
       !
       RETURN
