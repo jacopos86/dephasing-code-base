@@ -459,8 +459,6 @@ MODULE zfs_module
       
       !  internal variables
       !
-      complex(DP), allocatable        :: f1_aux (:), f2_aux (:), f3_aux (:)
-      ! aux. real space arrays
       complex(DP), allocatable        :: f1_G (:), f2_G (:), f3_G (:)
       ! aux. rec. space arrays
       complex(DP), allocatable        :: rhog (:)
@@ -484,25 +482,16 @@ MODULE zfs_module
       ! allocate arrays
       !
       
-      allocate ( f1_aux (1:dffts%nnr), stat=ierr )
-      if (ierr/=0) call errore ('compute_rho12_G','allocating f1_aux', ABS(ierr))
-      !
-      allocate ( f1_G (1:ngm), stat=ierr )
+      allocate ( f1_G (ngm,2), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f1_G', ABS(ierr))
       !
-      allocate ( f2_aux (1:dffts%nnr), stat=ierr )
-      if (ierr/=0) call errore ('compute_rho12_G','allocating f2_aux', ABS(ierr))
-      !
-      allocate ( f2_G (1:ngm), stat=ierr )
+      allocate ( f2_G (ngm,2), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f2_G', ABS(ierr))
       !
-      allocate ( f3_aux (1:dffts%nnr), stat=ierr )
-      if (ierr/=0) call errore ('compute_rho12_G','allocating f3_aux', ABS(ierr))
-      !
-      allocate ( f3_G (1:ngm), stat=ierr )
+      allocate ( f3_G (ngm,2), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f3_G', ABS(ierr))
       !
-      allocate ( rhog (1:ngm), stat=ierr )
+      allocate ( rhog (ngm), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating rhog', ABS(ierr))
       
       !
@@ -529,25 +518,34 @@ MODULE zfs_module
          END IF
          
          !
-         f1_G (:) = cmplx (0._dp, 0._dp, kind=dp)
-         f1_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         f1_G (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+         psic (:) = (0.d0, 0.d0)
          
          !
          do ir= 1, dffts%nnr
-            f1_aux (ir) = evci_r (ir) * CONJG (evci_r (ir))
+            psic (ir) = evci_r (ir) * CONJG (evci_r (ir))
          end do
          
          !
          !  compute f1(G)
          !
          
-         call fwfft ('Wave', f1_aux, dffts)
+         call fwfft ('Wave', psic, dffts)
          
          !
-         f1_G (1:ngm) = f1_aux (dffts%nl (1:ngm))
+         npw_i = ngk (ik_i)
+         WRITE(stdout,*) npw_i, ngm
+         f1_G (1:npw_i,1) = psic (dffts%nl (igk_k (1:npw_i,ik_i)))
          
-         !WRITE(6,*) f1_G (1), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_i)))
+         !
+         IF (gamma_only) THEN
+            IF (gstart==2) psic (dffts%nlm(1)) = (0.d0,0.d0)
+            f1_G (1:npw_i,2) = psic(dffts%nlm(igk_k (1:npw_i,ik_i)))
+            ! -G index
+         END IF
          
+         WRITE(6,*) f1_G (1,:), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_i)))
+         call stop_pp
          ! ----------------------------------------
          !   compute f2(r)
          ! ----------------------------------------
@@ -569,55 +567,95 @@ MODULE zfs_module
          END IF
          
          !
-         f2_G (:) = cmplx (0._dp, 0._dp, kind=dp)
-         f2_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         f2_G (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+         psic (:) = (0.d0,0.d0)
          
          !
          do ir= 1, dffts%nnr
-            f2_aux (ir) = evcj_r (ir) * CONJG (evcj_r (ir))
+            psic (ir) = evcj_r (ir) * CONJG (evcj_r (ir))
          end do
          
          !
          !  compute f2(G)
          !
          
-         call fwfft ('Wave', f2_aux, dffts)
+         call fwfft ('Wave', psic, dffts)
          
          !
-         f2_G (1:ngm) = f2_aux (dffts%nl (1:ngm))
+         npw_j = ngk (ik_j)
+         WRITE(stdout,*) npw_j, ngm
+         f2_G (1:npw_j,1) = psic (dffts%nl (igk_k (1:npw_j,ik_j)))
+
+         !
+         IF (gamma_only) THEN
+            IF (gstart==2) psic (dffts%nlm(1)) = (0.d0,0.d0)
+            f2_G (1:npw_j,2) = psic (dffts%nlm(igk_k (1:npw_j,ik_j)))
+            ! -G index
+         END IF
          
+         WRITE(6,*) f2_G (1,:), g (:,1), sum(evc (:,ib_j) * conjg(evc(:,ib_j)))
+         call stop_pp
          ! =========================================================
          !  compute -> f3(r) = psi1(r)* psi2(r)
          ! =========================================================
          
-         f3_G (:) = cmplx (0._dp, 0._dp, kind=dp)   
-         !
-         f3_aux (:) = cmplx (0._dp, 0._dp, kind=dp)
+         f3_G (:,:) = cmplx (0._dp, 0._dp, kind=dp)   
+         psic (:) = (0.d0,0.d0)
+         
          !
          do ir= 1, dffts%nnr
-            f3_aux (ir) = conjg (evc_r (ir,ik_i,ib_i)) * evc_r (ir,ik_j,ib_j)
+            psic (ir) = CONJG (evci_r (ir)) * evcj_r (ir)
          end do
          
          !
          !  compute f3 (G)
          !
          
-         call fwfft ('Rho', f3_aux, dffts)
+         call fwfft ('Wave', psic, dffts)
          
          !
-         f3_G (1:ngm) = f3_aux (dffts%nl (1:ngm))
+         npw_ij = MINVAL (npw_i, npw_j)
+         IF (npw_i < npw_j ) THEN
+            ik_ij = ik_i
+         ELSE
+            ik_ij = ik_j
+         END IF
+         !
+         WRITE(stdout,*) npw_ij, ngm
+         f3_G (1:npw_ij,1) = psic (dffts%nl (igk_k (1:npw_ij,ik_ij)))
          
          !
-         rhog (:) = cmplx (0._dp, 0._dp, kind=dp)
-         rhog (:) = f1_G (:) * conjg (f2_G (:)) - f3_G (:) * conjg (f3_G (:))
+         IF (gamma_only) THEN
+            IF (gstart==2) psic (dffts%nlm(1)) = (0.d0,0.d0)
+            f3_G (1:npw_ij,2) = psic (dffts%nlm(igk_k (1:npw_ij,ik_ij)))
+            ! -G index
+         END IF
+         
+         !
+         WRITE(stdout,*) f3_G (1,:), g (:,1), sum(evc (:,ib_ji * conjg(evc(:,ib_j)))
+         call stop_pp
+         
+         ! --------------------------------------------------------
+         !  comoute -> rho(G)
+         ! --------------------------------------------------------
+         
+         rhog (:,:) = cmplx (0._dp, 0._dp, kind=dp)
+         rhog (:,:) = f1_G (:,:) * conjg (f2_G (:,:)) - f3_G (:,:) * conjg (f3_G (:,:))
          
          !
          !   compute Dab_ij
          !
          
          do ig= 1, ngm
-            Dab_ij (ij,:,:) = Dab_ij (ij,:,:) + rhog (ig) * ddi_G (ig,:,:)
+            Dab_ij (ij,:,:) = Dab_ij (ij,:,:) + rhog (ig,1) * ddi_G (ig,:,:)
          end do
+         !
+         IF (gamma_only) THEN
+            do ig= 1, ngm
+               Dab_ij (ij,:,:) = Dab_ij (ij,:,:) + rhog (ig,2) * ddi_G (ig,:,:)
+            end do
+         END IF
+         !
          WRITE(stdout,*) ik_i, ib_i, ik_j, ib_j, Dab_ij (ij,1,2)
          
          !
