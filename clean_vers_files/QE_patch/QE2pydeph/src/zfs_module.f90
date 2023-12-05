@@ -454,19 +454,35 @@ MODULE zfs_module
       USE cell_base,             ONLY : omega
       USE physical_constants,    ONLY : D0
       USE control_flags,         ONLY : gamma_only
+      USE wavefunctions,         ONLY : psic, evc
+      USE klist,                 ONLY : igk_k, ngk, nks, xk
+      USE gvect,                 ONLY : ngm, g, gstart
+      USE io_files,              ONLY : iunwfc, nwordwfc
+      USE buffers,               ONLY : get_buffer
+      USE wvfct,                ONLY : npwx
+      USE cell_base,            ONLY : tpiba2
+      USE gvecw,                ONLY : ecutwfc
+      USE lsda_mod, only : nspin
       
       implicit none
       
       !  internal variables
       !
-      complex(DP), allocatable        :: f1_G (:), f2_G (:), f3_G (:)
+      complex(DP), allocatable        :: f1_G (:,:), f2_G (:,:), f3_G (:,:)
       ! aux. rec. space arrays
-      complex(DP), allocatable        :: rhog (:)
+      complex(DP), allocatable        :: evci_r (:), evcj_r (:)
+      ! aux. wave functions
+      complex(DP), allocatable        :: rhog (:,:)
       ! rho_12(G,-G)
-      integer                         :: ij, ib_i, ib_j, ik_i, ik_j, ir
-      ! band index
+      integer                         :: ij, ib_i, ib_j, ik_i, ik_j, ik_ij, ir, ig
+      ! indexes
+      integer                         :: npw_i, npw_ij, npw_j
+      ! n. pws
       integer                         :: ierr
       !
+      integer                       :: npw
+      real(DP), ALLOCATABLE         :: gk (:)
+      real(DP)                      :: gcutw
       
       !
       !  allocate real space wfc
@@ -491,7 +507,7 @@ MODULE zfs_module
       allocate ( f3_G (ngm,2), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating f3_G', ABS(ierr))
       !
-      allocate ( rhog (ngm), stat=ierr )
+      allocate ( rhog (ngm,2), stat=ierr )
       if (ierr/=0) call errore ('compute_rho12_G','allocating rhog', ABS(ierr))
       
       !
@@ -503,13 +519,18 @@ MODULE zfs_module
          
          ik_i = transitions_table (ij,1)
          ib_i = transitions_table (ij,2)
+         ib_i = 1
          
          ! -----------------------------------------
          !     compute f1(r)
          ! -----------------------------------------
          
          evci_r (:) = cmplx (0._dp, 0._dp)
-         
+         ALLOCATE ( gk (npwx) )
+         npw = ngk (ik_i)
+         gcutw = ecutwfc/tpiba2
+         call gk_sort ( xk (1,ik_i), ngm, g, gcutw, npw, igk_k (1,ik_i), gk )
+         call get_buffer ( evc, nwordwfc, iunwfc, ik_i )
          !
          IF (gamma_only) THEN
             call extract_evc_r_gamma_only ( ik_i, ib_i, evci_r )
@@ -534,9 +555,9 @@ MODULE zfs_module
          
          !
          npw_i = ngk (ik_i)
-         WRITE(stdout,*) npw_i, ngm
+         WRITE(stdout,*) npw_i, ngm, gamma_only, gstart, nks, nspin
          f1_G (1:npw_i,1) = psic (dffts%nl (igk_k (1:npw_i,ik_i)))
-         
+         !f1_G (1:npw_i,1) = psic (igk_k (1:npw_i,ik_i))
          !
          IF (gamma_only) THEN
             IF (gstart==2) psic (dffts%nlm(1)) = (0.d0,0.d0)
@@ -544,14 +565,26 @@ MODULE zfs_module
             ! -G index
          END IF
          
+         !
+         !ALLOCATE( igk_k(npwx,nks) )
+         !ALLOCATE( ngk(nks) )
+         
+         !igk_k (:,:) = 0
+         
+         
+         !   call gk_sort
+         
+         
+         write(6,*) shape (evc)
          WRITE(6,*) f1_G (1,:), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_i)))
-         call stop_pp
+         !call stop_pp
          ! ----------------------------------------
          !   compute f2(r)
          ! ----------------------------------------
          
          ik_j = transitions_table (ij,4)
          ib_j = transitions_table (ij,5)
+         ib_j = 2
          
          !
          !  real space evc2_r
@@ -594,7 +627,7 @@ MODULE zfs_module
          END IF
          
          WRITE(6,*) f2_G (1,:), g (:,1), sum(evc (:,ib_j) * conjg(evc(:,ib_j)))
-         call stop_pp
+         !call stop_pp
          ! =========================================================
          !  compute -> f3(r) = psi1(r)* psi2(r)
          ! =========================================================
@@ -614,11 +647,12 @@ MODULE zfs_module
          call fwfft ('Wave', psic, dffts)
          
          !
-         npw_ij = MINVAL (npw_i, npw_j)
          IF (npw_i < npw_j ) THEN
             ik_ij = ik_i
+            npw_ij = npw_i
          ELSE
             ik_ij = ik_j
+            npw_ij = npw_j
          END IF
          !
          WRITE(stdout,*) npw_ij, ngm
@@ -632,7 +666,7 @@ MODULE zfs_module
          END IF
          
          !
-         WRITE(stdout,*) f3_G (1,:), g (:,1), sum(evc (:,ib_ji * conjg(evc(:,ib_j)))
+         WRITE(stdout,*) f3_G (1,:), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_j)))
          call stop_pp
          
          ! --------------------------------------------------------

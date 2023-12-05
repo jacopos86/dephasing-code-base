@@ -13,6 +13,7 @@ SUBROUTINE extract_evc_r_gamma_only ( ik, ibnd, evc_r )
   USE wvfct,                 ONLY : nbnd
   USE control_flags,         ONLY : lxdm
   USE funct,                 ONLY : dft_is_meta
+  USE buffers,               ONLY : get_buffer
   
   implicit none
   
@@ -87,12 +88,14 @@ SUBROUTINE extract_evc_r_ofk ( ik, ibnd, evc_r )
   USE klist,                ONLY : igk_k, ngk, nks, xk
   USE wavefunctions,        ONLY : evc, psic
   USE control_flags,        ONLY : lxdm
+  USE fft_interfaces,       ONLY : invfft
   USE funct,                ONLY : dft_is_meta
   USE gvecw,                ONLY : ecutwfc
   USE gvect,                ONLY : g, ngm
   USE cell_base,            ONLY : tpiba2
   USE io_files,             ONLY : nwordwfc, iunwfc
   USE wvfct,                ONLY : npwx
+  USE buffers,              ONLY : get_buffer
   
   !
   implicit none
