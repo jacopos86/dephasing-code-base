@@ -153,7 +153,7 @@ class acf_ph(object):
             A_lq  = compute_ph_amplitude_q(wu, nat, ql_list_2)
             # set 2nd order force object
             eff_force_obj = phr_force_2nd_order().generate_instance()
-            eff_force_obj.set_up_2nd_order_force_phr(qpts, Fax, Faxby, H)
+            eff_force_obj.set_up_2nd_order_force_phr(nat, qpts, Fax, Faxby, H)
             # driver of ACF - order 2 calculation
             self.compute_acf_2_driver(nat, wq, u, wu, ql_list_2, qlp_list_2, qmq_map, A_lq, eff_force_obj, H)
     #

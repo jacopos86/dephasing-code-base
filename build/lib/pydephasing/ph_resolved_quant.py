@@ -1,5 +1,6 @@
 import numpy as np
 import cmath
+import collections
 from pydephasing.phys_constants import hbar, mp, THz_to_ev
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.input_parameters import p
@@ -104,7 +105,7 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         self.M_LST = None
     #
     # prepare order 2 phr force calculation
-    def set_up_2nd_order_force_phr(self, qpts, Fax, Faxby, H):
+    def set_up_2nd_order_force_phr(self, nat, qpts, Fax, Faxby, H):
         #
         if p.deph:
             self.CALCTYP = np.int32(0)
@@ -140,27 +141,50 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
             for jby in range(n):
                 if np.abs(Faxby[jax,jby])/F0 > self.toler:
                     jaxby_lst.append((jax,jby))
+        jaxby_lst.append((0,1))
+        jaxby_lst.append((0,10))
+        jaxby_lst.append((1,2))
         # define local Faxby
-        naxby = len(self.jaxby_lst)
+        naxby = len(jaxby_lst)
         self.FAXBY = collections.defaultdict(list)
         self.JAXBY_LST = collections.defaultdict(list)
         for jaxby in range(naxby):
-            jax, jby = self.jaxby_lst[jaxby]
+            jax, jby = jaxby_lst[jaxby]
             self.FAXBY[jax].append(Faxby[jax,jby])
             self.JAXBY_LST[jax].append(jby)
         # set GPU input arrays
         self.RAMAN_IND = collections.defaultdict(list)
         self.FAXBY_IND = collections.defaultdict(list)
+        jaxby_keys = [key for key, lst in self.JAXBY_LST.items() if len(lst) > 0]
+        print(jaxby_keys)
+        import sys
+        sys.exit()
         for jax in range(3*nat):
-            if jax in self.JAX_LST and jax not in self.JAXBY_LST.dict_keys():
+            if jax in self.JAX_LST and jax not in self.JAXBY_LST.items():
                 self.RAMAN_IND[jax] = self.JAX_LST
-                self.FAXBY_IND[jax] = -np.ones(len(self.JAX_LST), dtype=np.int32)
+                self.FAXBY_IND[jax] =-np.ones(len(self.JAX_LST), dtype=np.int32)
             elif jax not in self.JAX_LST and jax in self.JAXBY_LST.dict_keys():
-                self.FULL_JAXBY_LST[jax] = np.array(self.JAXBY_LST[jax], dtype=np.int32)
+                self.FAXBY_IND[jax] = self.JAXBY_LST[jax]
+                self.RAMAN_IND[jax] =-np.ones(len(self.JAXBY_LST[jax]), dtype=np.int32)
             elif jax in self.JAX_LST and jax in self.JAXBY_LST:
+                TMP_LST = list(set(self.JAX_LST + self.JAXBY_LST[jax]))
+                RAMAN_LST =-np.ones(len(TMP_LST), dtype=np.int32)
+                FAXBY_LST =-np.ones(len(TMP_LST), dtype=np.int32)
+                for ij in range(len(TMP_LST)):
+                    jby = TMP_LST[ij]
+                    if jby in self.JAX_LST:
+                        RAMAN_LST[ij] = jby
+                    if jby in self.JAXBY_LST:
+                        FAXBY_LST[ij] = jby       
+                self.RAMAN_IND[jax] = RAMAN_LST
+                self.FAXBY_IND[jax] = FAXBY_LST
+            else:
                 pass
         for jax in self.FAXBY.keys():
             self.FAXBY[jax] = np.array(self.FAXBY[jax], dtype=np.double)
+        import sys
+        print(self.RAMAN_IND)
+        sys.exit()
         # Q vectors list
         nq = len(qpts)
         self.NQ = np.int32(nq)
