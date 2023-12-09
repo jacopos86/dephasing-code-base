@@ -53,6 +53,7 @@ class data_input():
         self.w_resolved = False
         # zfs 2nd order correction
         self.order_2_correct = False
+        self.raman_correct = False
         ####################################
         # physical parameters : deph - relax
         self.index_qs0 = None
@@ -174,6 +175,8 @@ class data_input():
         # 2nd order ZFS correction
         if '2nd_order_correct' in data:
             self.order_2_correct = data['2nd_order_correct']
+            if 'raman' in data:
+                self.raman_correct = data['raman']
         # time variables
         if 'T' in data:
             self.time_resolved = True

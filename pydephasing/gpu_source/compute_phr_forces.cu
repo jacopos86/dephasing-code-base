@@ -117,6 +117,18 @@ cmplx *F_lqlqp) {
 
 /*
 
+Flq_lqp force calculation
+
+*/
+
+__global__ void compute_Flqlqp(int *qp_lst, int *ilp_lst, int *jby_lst, int nqlp, int nby,
+double wql, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst, double *faxby,
+int calc_typ, cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
+
+}
+
+/*
+
 Raman function calculation 
 
 */

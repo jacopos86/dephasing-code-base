@@ -287,31 +287,27 @@ MODULE zfs_module
       !
       !    compute dipole - dipole interaction in G space
       !
-      !    ddi(G)_{xy} = 4 * pi * [Gx * Gy / G^2 - delta(x,y) / 3 ]
+      !    ddi(G)_{xy} = 4 * pi * e^2 * [Gx * Gy / G^2 - delta(x,y) / 3 ]
       !
       
-      USE constants,    ONLY : eps8, fpi
+      USE constants,    ONLY : eps8, fpi, e2
       USE cell_base,    ONLY : omega
       USE gvect,        ONLY : ngm, g
       USE io_global,    ONLY : stdout
-      
       
       !
       implicit none
       
       !    internal variables
-      
+      !
       integer               :: x, y
       integer               :: ng
       !
       real(DP)              :: gsq
       
-      
-      
       !    initialize ddi (G)
       
       ddi_G = 0._dp
-      
       
       !    iterate over G vectors
       
@@ -331,9 +327,8 @@ MODULE zfs_module
             end do
          ENDIF
       end do
-      !WRITE(6,*) ddi_G (:,1,2)
       !
-      ddi_G (:,:,:) = ddi_G (:,:,:) * fpi / omega
+      ddi_G (:,:,:) = ddi_G (:,:,:) * fpi * e2 / omega
       !  bohr^-3
       
       !
@@ -341,7 +336,7 @@ MODULE zfs_module
       
       !        
     END SUBROUTINE compute_ddig_space
-
+    
     !
     !  compute ddi (r) : inv fft
     !
@@ -455,14 +450,8 @@ MODULE zfs_module
       USE physical_constants,    ONLY : D0
       USE control_flags,         ONLY : gamma_only
       USE wavefunctions,         ONLY : psic, evc
-      USE klist,                 ONLY : igk_k, ngk, nks, xk
-      USE gvect,                 ONLY : ngm, g, gstart
-      USE io_files,              ONLY : iunwfc, nwordwfc
-      USE buffers,               ONLY : get_buffer
-      USE wvfct,                ONLY : npwx
-      USE cell_base,            ONLY : tpiba2
-      USE gvecw,                ONLY : ecutwfc
-      USE lsda_mod, only : nspin
+      USE klist,                 ONLY : ngk, igk_k
+      USE gvect,                 ONLY : gstart, ngm
       
       implicit none
       
@@ -480,9 +469,6 @@ MODULE zfs_module
       ! n. pws
       integer                         :: ierr
       !
-      integer                       :: npw
-      real(DP), ALLOCATABLE         :: gk (:)
-      real(DP)                      :: gcutw
       
       !
       !  allocate real space wfc
@@ -519,18 +505,12 @@ MODULE zfs_module
          
          ik_i = transitions_table (ij,1)
          ib_i = transitions_table (ij,2)
-         ib_i = 1
          
          ! -----------------------------------------
          !     compute f1(r)
          ! -----------------------------------------
          
          evci_r (:) = cmplx (0._dp, 0._dp)
-         ALLOCATE ( gk (npwx) )
-         npw = ngk (ik_i)
-         gcutw = ecutwfc/tpiba2
-         call gk_sort ( xk (1,ik_i), ngm, g, gcutw, npw, igk_k (1,ik_i), gk )
-         call get_buffer ( evc, nwordwfc, iunwfc, ik_i )
          !
          IF (gamma_only) THEN
             call extract_evc_r_gamma_only ( ik_i, ib_i, evci_r )
@@ -555,9 +535,7 @@ MODULE zfs_module
          
          !
          npw_i = ngk (ik_i)
-         WRITE(stdout,*) npw_i, ngm, gamma_only, gstart, nks, nspin
          f1_G (1:npw_i,1) = psic (dffts%nl (igk_k (1:npw_i,ik_i)))
-         !f1_G (1:npw_i,1) = psic (igk_k (1:npw_i,ik_i))
          !
          IF (gamma_only) THEN
             IF (gstart==2) psic (dffts%nlm(1)) = (0.d0,0.d0)
@@ -565,26 +543,14 @@ MODULE zfs_module
             ! -G index
          END IF
          
-         !
-         !ALLOCATE( igk_k(npwx,nks) )
-         !ALLOCATE( ngk(nks) )
+         !WRITE(6,*) f1_G (1,:), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_i)))
          
-         !igk_k (:,:) = 0
-         
-         
-         !   call gk_sort
-         
-         
-         write(6,*) shape (evc)
-         WRITE(6,*) f1_G (1,:), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_i)))
-         !call stop_pp
          ! ----------------------------------------
          !   compute f2(r)
          ! ----------------------------------------
          
          ik_j = transitions_table (ij,4)
          ib_j = transitions_table (ij,5)
-         ib_j = 2
          
          !
          !  real space evc2_r
@@ -616,9 +582,8 @@ MODULE zfs_module
          
          !
          npw_j = ngk (ik_j)
-         WRITE(stdout,*) npw_j, ngm
          f2_G (1:npw_j,1) = psic (dffts%nl (igk_k (1:npw_j,ik_j)))
-
+         
          !
          IF (gamma_only) THEN
             IF (gstart==2) psic (dffts%nlm(1)) = (0.d0,0.d0)
@@ -626,8 +591,8 @@ MODULE zfs_module
             ! -G index
          END IF
          
-         WRITE(6,*) f2_G (1,:), g (:,1), sum(evc (:,ib_j) * conjg(evc(:,ib_j)))
-         !call stop_pp
+         !WRITE(6,*) f2_G (1,:), g (:,1), sum(evc (:,ib_j) * conjg(evc(:,ib_j)))
+         
          ! =========================================================
          !  compute -> f3(r) = psi1(r)* psi2(r)
          ! =========================================================
@@ -655,7 +620,6 @@ MODULE zfs_module
             npw_ij = npw_j
          END IF
          !
-         WRITE(stdout,*) npw_ij, ngm
          f3_G (1:npw_ij,1) = psic (dffts%nl (igk_k (1:npw_ij,ik_ij)))
          
          !
@@ -666,8 +630,7 @@ MODULE zfs_module
          END IF
          
          !
-         WRITE(stdout,*) f3_G (1,:), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_j)))
-         call stop_pp
+         !WRITE(stdout,*) f3_G (1,:), g (:,1), sum(evc (:,ib_i) * conjg(evc(:,ib_j)))
          
          ! --------------------------------------------------------
          !  comoute -> rho(G)
@@ -689,8 +652,6 @@ MODULE zfs_module
                Dab_ij (ij,:,:) = Dab_ij (ij,:,:) + rhog (ig,2) * ddi_G (ig,:,:)
             end do
          END IF
-         !
-         WRITE(stdout,*) ik_i, ib_i, ik_j, ib_j, Dab_ij (ij,1,2)
          
          !
       END DO
@@ -770,7 +731,10 @@ MODULE zfs_module
          !
       end do
       !
-      WRITE(stdout,*) Dab
+      WRITE(stdout,*) Dab (1,1), Dab (1,2), Dab (1,3)
+      WRITE(stdout,*) Dab (2,1), Dab (2,2), Dab (2,3)
+      WRITE(stdout,*) Dab (3,1), Dab (3,2), Dab (3,3)
+      
       !  SYMMETRIZE D matrix
       !
       
@@ -816,7 +780,8 @@ MODULE zfs_module
          call errore ('error in compute_zfs_tensor : DSYEV', INFO)
       END IF
       !
-      WRITE(stdout,*) D, E
+      WRITE(stdout,*) "D= ", D
+      WRITE(stdout,*) "E= ", E
       
       RETURN
       !
