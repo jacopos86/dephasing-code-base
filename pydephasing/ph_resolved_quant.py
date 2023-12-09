@@ -141,9 +141,6 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
             for jby in range(n):
                 if np.abs(Faxby[jax,jby])/F0 > self.toler:
                     jaxby_lst.append((jax,jby))
-        jaxby_lst.append((0,1))
-        jaxby_lst.append((0,10))
-        jaxby_lst.append((1,2))
         # define local Faxby
         naxby = len(jaxby_lst)
         self.FAXBY = collections.defaultdict(list)
@@ -172,17 +169,18 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                     jby = TMP_LST[ij]
                     if jby in self.JAX_LST:
                         RAMAN_LST[ij] = jby
-                    if jby in self.JAXBY_LST:
+                    if jby in self.JAXBY_LST[jax]:
                         FAXBY_LST[ij] = jby       
                 self.RAMAN_IND[jax] = RAMAN_LST
                 self.FAXBY_IND[jax] = FAXBY_LST
             else:
                 pass
-        for jax in self.FAXBY.keys():
+        #
+        # set GPU array FAXBY
+        for jax in jaxby_keys:
             self.FAXBY[jax] = np.array(self.FAXBY[jax], dtype=np.double)
         import sys
         print(self.RAMAN_IND)
-        sys.exit()
         # Q vectors list
         nq = len(qpts)
         self.NQ = np.int32(nq)
