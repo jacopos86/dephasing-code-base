@@ -227,8 +227,11 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         # load file
         gpu_src = Path('./pydephasing/gpu_source/compute_phr_forces.cu').read_text()
         mod = SourceModule(gpu_src)
-        compute_F_raman = mod.get_function("compute_raman_force")
-        compute_Flq_lqp = mod.get_function("compute_Flqlqp")
+        if self.calc_raman:
+            compute_F_raman = mod.get_function("compute_raman_force")
+            compute_F_lq_lqp_raman = mod.get_function("compute_Flqlqp_raman")
+        else:
+            compute_Flq_lqp = mod.get_function("compute_Flqlqp")
         # prepare input quantities
         NAT = np.int32(nat)
         wql = wu[iq][il] * THz_to_ev
