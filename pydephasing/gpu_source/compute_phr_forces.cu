@@ -121,10 +121,85 @@ Flq_lqp force calculation
 
 */
 
-__global__ void compute_Flqlqp(int *qp_lst, int *ilp_lst, int *jby_lst, int nqlp, int nby,
-double wql, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst, double *faxby,
-int calc_typ, cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
+__global__ void compute_Flqlqp(int *qp_lst, int *ilp_lst, int *jby_lst, int nqlp,
+int nby, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst, double *f_axby,
+cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
+    /* internal variables */
+    const int i = threadIdx.x + blockDim.x * blockIdx.x;
+    const int j = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k = threadIdx.z + blockDim.z * blockIdx.z;
+    const int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
+    const int iqlx= threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
+    const int jx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
+    /* local (q',l') pair */
+    const int iqp = qp_lst[iqlx];
+    const int ilp = ilp_lst[iqlx];
+    /* jby index */
+    const int jby = jby_lst[jx];
+    /* start calculation on the thread */
+    if (iqlx < nqlp && jx < nby) {
+        /* mass Mb */
+        Mb = m_lst[jby];
+        /* atom's index */
+        ib = jby / 3;
+        /* e^iq'Rb */
+        qpRb = qv_lst[iqp*3]*r_lst[ib*3];
+        qpRb+= qv_lst[iqp*3+1]*r_lst[ib*3+1];
+        qpRb+= qv_lst[iqp*3+2]*r_lst[ib*3+2];
+        re = cos(2.*PI*qpRb);
+        im = sin(2.*PI*qpRb);
+        cmplx eiqpRb(re, im);
+        /* compute force */
+        f_lqlqp[idx] += f_axby[jx] * eiqpRb * euqlp[3*nat*iqlx+jby] / sqrt(Mb);
+    }
+}
 
+/*
+
+Flq_lqp Raman force calculation
+
+*/
+
+__global__ void compute_Flqlqp_raman(int *qp_lst, int *ilp_lst, int *jbyr_lst, int *jaxby_lst,
+int nqlp, int nby, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst, double *f_axby,
+double *fr_axby, cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
+    /* internal variables */
+    const int i = threadIdx.x + blockDim.x * blockIdx.x;
+    const int j = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k = threadIdx.z + blockDim.z * blockIdx.z;
+    const int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
+    const int iqlx= threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
+    const int jx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
+    /* local (q',l') pair */
+    const int iqp = qp_lst[iqlx];
+    const int ilp = ilp_lst[iqlx];
+    /* jby index */
+    const int jby = jaxby_lst[jx];
+    const int jrby= jbyr_lst[jx];
+    cmplx F(0.,0.);
+    /* compute effective force */
+    if (jby > -1) {
+        F += f_axby[jx];
+    }
+    if (jrby > -1) {
+        F += fr_axby[idx];
+    }
+    /* start calculation on the thread */
+    if (iqlx < nqlp && jx < nby) {
+        /* mass Mb */
+        Mb = m_lst[jby];
+        /* atom's index */
+        ib = jby / 3;
+        /* e^iq'Rb */
+        qpRb = qv_lst[iqp*3]*r_lst[ib*3];
+        qpRb+= qv_lst[iqp*3+1]*r_lst[ib*3+1];
+        qpRb+= qv_lst[iqp*3+2]*r_lst[ib*3+2];
+        re = cos(2.*PI*qpRb);
+        im = sin(2.*PI*qpRb);
+        cmplx eiqpRb(re, im);
+        /* compute force */
+        f_lqlqp[idx] += F * eiqpRb * euqlp[3*nat*iqlx+jby] / sqrt(Mb);
+    }
 }
 
 /*

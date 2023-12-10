@@ -306,6 +306,8 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                         # to fql_qlp calculation directly here
                         # THIS SHOULD SAVE A LOT OF TIME 
                         # Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
+                        compute_F_lq_lqp_raman(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(self.RAMAN_IND), cuda.In(self.FAXBY_IND),
+                            SIZE)
                         # new iqlp0
                         iqlp0 = iqlp1
                     jjby0 = jjby1
@@ -337,9 +339,9 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                         F_LQLMQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         F_LMQLMQP= np.zeros(gpu.gpu_size, dtype=np.complex128)
                         # call gpu function
-                        compute_Flq_lqp(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(JBY_LST), SIZE, NBY, WQL,
-                                cuda.In(EUQLP), cuda.In(self.R_LST), cuda.In(self.QV), cuda.In(self.M_LST), 
-                                cuda.In(self.FAXBY[jax]), self.CALCTYP, cuda.Out(F_LQLQP), cuda.Out(F_LMQLQP), 
+                        compute_Flq_lqp(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(JBY_LST), SIZE, NBY,
+                                cuda.In(EUQLP), cuda.In(self.R_LST), cuda.In(self.QV), cuda.In(self.M_LST),
+                                cuda.In(self.FAXBY[jax]), cuda.Out(F_LQLQP), cuda.Out(F_LMQLQP), 
                                 cuda.Out(F_LQLMQP), cuda.Out(F_LMQLMQP), block=gpu.block, grid=gpu.grid)
                         log.info("SEI UNA PIPPA")
                         import sys
