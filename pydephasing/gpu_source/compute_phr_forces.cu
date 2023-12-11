@@ -122,7 +122,7 @@ Flq_lqp force calculation
 */
 
 __global__ void compute_Flqlqp(int *qp_lst, int *ilp_lst, int *jby_lst, int nqlp,
-int nby, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst, double *f_axby,
+int nby, int nat, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst, double *f_axby,
 cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -150,7 +150,12 @@ cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
         im = sin(2.*PI*qpRb);
         cmplx eiqpRb(re, im);
         /* compute force */
-        f_lqlqp[idx] += f_axby[jx] * eiqpRb * euqlp[3*nat*iqlx+jby] / sqrt(Mb);
+        r1 = f_axby[jx] * eiqpRb * euqlp[3*nat*iqlx+jby] / sqrt(Mb);
+        f_lqlqp[idx]  += r1;
+        f_lmqlqp[idx] += r1;
+        r2 = f_axby[jx] * conj(eiqpRb) * conj(euqlp[3*nat*iqlx+jby]) / sqrt(Mb);
+        f_lqlmqp[idx] += r2;
+        f_lmqlmqp[idx]+= r2;
     }
 }
 
