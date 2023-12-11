@@ -136,6 +136,12 @@ cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
     const int ilp = ilp_lst[iqlx];
     /* jby index */
     const int jby = jby_lst[jx];
+    /* local variables */
+    double Mb, qpRb;
+    double re, im;
+    cmplx r1(0.,0.);
+    cmplx r2(0.,0.);
+    int ib;
     /* start calculation on the thread */
     if (iqlx < nqlp && jx < nby) {
         /* mass Mb */
@@ -165,9 +171,10 @@ Flq_lqp Raman force calculation
 
 */
 
-__global__ void compute_Flqlqp_raman(int *qp_lst, int *ilp_lst, int *jbyr_lst, int *jaxby_lst,
-int nqlp, int nby, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst, double *f_axby,
-double *fr_axby, cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
+__global__ void compute_Flqlqp_raman(int *qp_lst, int *ilp_lst, int *rmn_index, int *jbyr_lst,
+int *faxby_ind, int *jaxby_lst, int nqlp, int nby, int nat, cmplx *euqlp, double *r_lst, 
+double *qv_lst, double *m_lst, double *f_axby, cmplx *fr, cmplx *f_lqlqp, cmplx *f_lmqlqp, 
+cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
@@ -178,10 +185,13 @@ double *fr_axby, cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmql
     /* local (q',l') pair */
     const int iqp = qp_lst[iqlx];
     const int ilp = ilp_lst[iqlx];
-    /* jby index */
-    const int jby = jaxby_lst[jx];
-    const int jrby= jbyr_lst[jx];
+    // effective force
     cmplx F(0.,0.);
+    /* jby index */
+    if (rmn_index[jx] > -1) {
+        const int jby= jbyr_lst[jx];
+        F += fr[idx];
+    }
     /* compute effective force */
     if (jby > -1) {
         F += f_axby[jx];
