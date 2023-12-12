@@ -230,7 +230,7 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         mod = SourceModule(gpu_src)
         if self.calc_raman:
             compute_F_raman = mod.get_function("compute_raman_force")
-            #compute_F_lq_lqp_raman = mod.get_function("compute_Flqlqp_raman")
+            compute_F_lq_lqp_raman = mod.get_function("compute_Flqlqp_raman")
         else:
             compute_Flq_lqp = mod.get_function("compute_Flqlqp")
         # prepare input quantities
@@ -275,9 +275,9 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         if self.calc_raman:
             # LEN IFAX_LST
             naxr = len(self.IFAX_LST)
-            # Raman force array
-            Fr = np.zeros((naxr,naxr,nqlp), dtype=np.complex128)
+            # run over jax index
             for jjax in range(naxr):
+                jax = self.JAX_LST[jjax]
                 IAX = np.int32(self.IFAX_LST[jjax])
                 # first set GRID calculations
                 jjby0 = 0
@@ -307,8 +307,9 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                         # to fql_qlp calculation directly here
                         # THIS SHOULD SAVE A LOT OF TIME 
                         # Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
-                        #compute_F_lq_lqp_raman(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(self.RAMAN_IND), cuda.In(self.FAXBY_IND),
-                        #    SIZE)
+                        compute_F_lq_lqp_raman(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(self.RAMAN_IND[jax]), 
+                            cuda.In(self.JAX_LST), cuda.In(self.FAXBY_IND[jax]), cuda.In(self.JAXBY_LST[jax]), 
+                            cuda.In(F_RAMAN), cuda.In(self.FAXBY[jax]), block=gpu.block, grid=gpu.grid)
                         # new iqlp0
                         iqlp0 = iqlp1
                     jjby0 = jjby1

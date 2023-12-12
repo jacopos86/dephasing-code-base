@@ -116,21 +116,21 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
             # prepare force arrays
             nqs = H.eig.shape[0]
             F0 = np.abs(np.max(Fax))
-            self.JAX_LST = []
+            jax_lst = []
             for jax in range(n):
                 for msr in range(nqs):
                     for msc in range(nqs):
                         if np.abs(Fax[msr,msc,jax])/F0 > self.toler:
-                            self.JAX_LST.append(jax)
-            self.JAX_LST = list(set(self.JAX_LST))
+                            jax_lst.append(jax)
+            jax_lst = list(set(jax_lst))
             # define FAX matrix
-            nax = len(self.JAX_LST)
+            nax = len(jax_lst)
             self.FAX = np.zeros(nqs*nqs*nax, dtype=np.complex128)
-            self.IFAX_LST = np.zeros(nax, dtype=np.int32)
+            IFAX_LST = np.zeros(nax, dtype=np.int32)
             for jjax in range(nax):
-                jax = self.JAX_LST[jjax]
+                jax = jax_lst[jjax]
                 iax = nqs*nqs*jjax
-                self.IFAX_LST[jjax] = iax
+                IFAX_LST[jjax] = iax
                 for msr in range(nqs):
                     for msc in range(nqs):
                         self.FAX[iax+msr*nqs+msc] = Fax[msr,msc,jax]
@@ -155,36 +155,45 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
             self.JAXBY_LST[jax].append(jby)
         #
         # set GPU input arrays RAMAN/FAXBY INDEX
-        jaxby_keys = [key for key, lst in self.JAXBY_LST.items() if len(lst) > 0]
-        if self.calc_raman:
-            # RAMAN_IND MAPS TO JAX_LST
-            self.RAMAN_IND = collections.defaultdict(list)
-            self.FAXBY_IND = collections.defaultdict(list)
-            for jax in range(3*nat):
-                if jax in self.JAX_LST and jax not in jaxby_keys:
-                    self.RAMAN_IND[jax] = np.array(range(len(self.JAX_LST)), dtype=np.int32)
-                    self.FAXBY_IND[jax] =-np.ones(len(self.JAX_LST), dtype=np.int32)
-                elif jax not in self.JAX_LST and jax in jaxby_keys:
-                    self.FAXBY_IND[jax] = np.array(range(len(self.JAXBY_LST[jax])), dtype=np.int32)
-                    self.RAMAN_IND[jax] =-np.ones(len(self.JAXBY_LST[jax]), dtype=np.int32)
-                elif jax in self.JAX_LST and jax in jaxby_keys:
-                    TMP_LST = list(set(self.JAX_LST + self.JAXBY_LST[jax]))
-                    RAMAN_LST =-np.ones(len(TMP_LST), dtype=np.int32)
-                    FAXBY_LST =-np.ones(len(TMP_LST), dtype=np.int32)
-                    for ij in range(len(TMP_LST)):
-                        jby = TMP_LST[ij]
-                        if jby in self.JAX_LST:
-                            RAMAN_LST[ij] = self.JAX_LST.index(jby)
-                        if jby in self.JAXBY_LST[jax]:
-                            FAXBY_LST[ij] = self.JAXBY_LST[jax].index(jby)       
-                    self.RAMAN_IND[jax] = RAMAN_LST
-                    self.FAXBY_IND[jax] = FAXBY_LST
-                else:
-                    pass
+        self.JAXBY_KEYS = [key for key, lst in self.JAXBY_LST.items() if len(lst) > 0]
         #
         # set GPU array FAXBY
-        for jax in jaxby_keys:
+        for jax in self.JAXBY_KEYS:
             self.FAXBY[jax] = np.array(self.FAXBY[jax], dtype=np.double)
+        # raman calc. indexes
+        if self.calc_raman:
+            # RAMAN_IND MAPS TO JAX_LST
+            self.FBY_IND   = collections.defaultdict(list)
+            self.FAX_IND   = collections.defaultdict(list)
+            self.JBY_LST   = collections.defaultdict(list)
+            self.FAXBY_IND = collections.defaultdict(list)
+            for jax in range(3*nat):
+                if jax in jax_lst and jax not in self.JAXBY_KEYS:
+                    self.JBY_LST[jax] = np.array(jax_lst, dtype=np.int32)
+                    self.FAX_IND[jax]   = np.int32(jax_lst.index(jax)*nqs*nqs)
+                    self.FBY_IND[jax]   = np.array(IFAX_LST, dtype=np.int32)
+                    self.FAXBY_IND[jax] =-np.ones(len(jax_lst), dtype=np.int32)
+                elif jax not in jax_lst and jax in self.JAXBY_KEYS:
+                    self.FAXBY_IND[jax] = np.array(range(len(self.JAXBY_LST[jax])), dtype=np.int32)
+                    self.JBY_LST[jax]   =-np.ones(len(self.JAXBY_LST[jax]), dtype=np.int32)
+                    self.FAX_IND[jax]   = np.int32(-1)
+                    self.FBY_IND[jax]   =-np.ones(len(self.JAXBY_LST[jax]), dtype=np.int32)
+                elif jax in jax_lst and jax in self.JAXBY_KEYS:
+                    self.JBY_LST[jax] = list(set(jax_lst + self.JAXBY_LST[jax]))
+                    FBY_TMP   =-np.ones(len(self.JBY_LST), dtype=np.int32)
+                    FAXBY_TMP =-np.ones(len(self.JBY_LST), dtype=np.int32)
+                    for ij in range(len(self.JBY_LST[jax])):
+                        jby = self.JBY_LST[jax][ij]
+                        if jby in jax_lst:
+                            FBY_TMP[ij]   = nqs*nqs*jax_lst.index(jby)
+                        if jby in self.JAXBY_LST[jax]:
+                            FAXBY_TMP[ij] = self.JAXBY_LST[jax].index(jby)
+                    self.FBY_IND[jax]   = FBY_TMP
+                    self.FAXBY_IND[jax] = FAXBY_TMP
+                    self.FAX_IND[jax]   = np.int32(jax_lst.index(jax)*nqs*nqs)
+                else:
+                    pass
+            self.JAX_KEYS = [key for key, lst in self.FBY_IND.items() if len(lst) > 0]
         # Q vectors list
         nq = len(qpts)
         self.NQ = np.int32(nq)
@@ -230,7 +239,7 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         mod = SourceModule(gpu_src)
         if self.calc_raman:
             compute_F_raman = mod.get_function("compute_raman_force")
-            compute_F_lq_lqp_raman = mod.get_function("compute_Flqlqp_raman")
+            compute_Flq_lqp_raman = mod.get_function("compute_Flqlqp_raman")
         else:
             compute_Flq_lqp = mod.get_function("compute_Flqlqp")
         # prepare input quantities
@@ -273,21 +282,24 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         # first compute raman term
         # if needed
         if self.calc_raman:
-            # LEN IFAX_LST
-            naxr = len(self.IFAX_LST)
+            # LEN FAX_IND
+            nax = len(self.JAX_KEYS)
             # run over jax index
-            for jjax in range(naxr):
-                jax = self.JAX_LST[jjax]
-                IAX = np.int32(self.IFAX_LST[jjax])
+            for jjax in range(nax):
+                jax = self.JAX_KEYS[jjax]
+                IAX = self.FAX_IND[jax]
                 # first set GRID calculations
                 jjby0 = 0
-                while jjby0 < naxr:
+                nbx = len(self.JBY_LST[jax])
+                while jjby0 < nbx:
                     jjby1 = jjby0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
-                    nby = min(jjby1,naxr) - jjby0
+                    nby = min(jjby1,nbx) - jjby0
                     NBY = np.int32(nby)
                     # build local IFBY_LST
-                    IFBY_LST = np.zeros(nby, dtype=np.int32)
-                    IFBY_LST[:] = self.IFAX_LST[jjby0:min(jjby1,naxr)]
+                    FBY_IND = np.zeros(nby, dtype=np.int32)
+                    FBY_IND[:] = self.FBY_IND[jjby0:min(jjby1,nbx)]
+                    JBY_LST = np.zeros(nby, dtype=np.int32)
+                    JBY_LST[:] = self.JBY_LST[jjby0:min(jjby1,nbx)]
                     # run over (qp,lp)
                     iqlp0 = 0
                     while (iqlp0 < nqlp):
@@ -298,18 +310,19 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                         QLP_LST = np.zeros(size, dtype=np.int32)
                         for iqlp in range(iqlp0, min(iqlp1,nqlp)):
                             QLP_LST[iqlp-iqlp0] = iqlp
-                        # Raman force
-                        F_RAMAN = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        compute_F_raman(self.IQS0, self.IQS1, self.NQS, IAX, cuda.In(IFBY_LST), NBY, cuda.In(QLP_LST), WQL, 
-                            cuda.In(WQLP), SIZE, cuda.In(self.FAX), cuda.In(self.EIG), self.CALCTYP, cuda.Out(F_RAMAN), 
-                            block=gpu.block, grid=gpu.grid)
-                        # intead of doing this give F_RAMAN in input
-                        # to fql_qlp calculation directly here
-                        # THIS SHOULD SAVE A LOT OF TIME 
-                        # Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
-                        compute_F_lq_lqp_raman(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(self.RAMAN_IND[jax]), 
-                            cuda.In(self.JAX_LST), cuda.In(self.FAXBY_IND[jax]), cuda.In(self.JAXBY_LST[jax]), 
-                            cuda.In(F_RAMAN), cuda.In(self.FAXBY[jax]), block=gpu.block, grid=gpu.grid)
+                        if IAX > -1:
+                            # Raman force
+                            F_RAMAN = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                            compute_F_raman(self.IQS0, self.IQS1, self.NQS, IAX, cuda.In(FBY_IND), NBY, cuda.In(QLP_LST), WQL, 
+                                cuda.In(WQLP), SIZE, cuda.In(self.FAX), cuda.In(self.EIG), self.CALCTYP, cuda.Out(F_RAMAN), 
+                                block=gpu.block, grid=gpu.grid)
+                            # intead of doing this give F_RAMAN in input
+                            # to fql_qlp calculation directly here
+                            # THIS SHOULD SAVE A LOT OF TIME 
+                            # Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
+                            compute_Flq_lqp_raman(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(self.RAMAN_IND[jax]), 
+                                cuda.In(self.JAX_LST), cuda.In(self.FAXBY_IND[jax]), cuda.In(self.JAXBY_LST[jax]), 
+                                cuda.In(F_RAMAN), cuda.In(self.FAXBY[jax]), block=gpu.block, grid=gpu.grid)
                         # new iqlp0
                         iqlp0 = iqlp1
                     jjby0 = jjby1
