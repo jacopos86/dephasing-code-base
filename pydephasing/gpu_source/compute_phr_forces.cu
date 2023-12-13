@@ -171,10 +171,10 @@ Flq_lqp Raman force calculation
 
 */
 
-__global__ void compute_Flqlqp_raman(int *qp_lst, int *ilp_lst, int *rmn_index, int *jbyr_lst,
-int *faxby_ind, int *jaxby_lst, int nqlp, int nby, int nat, cmplx *euqlp, double *r_lst, 
-double *qv_lst, double *m_lst, double *f_axby, cmplx *fr, cmplx *f_lqlqp, cmplx *f_lmqlqp, 
-cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
+__global__ void compute_Flqlqp_raman(int nby, int nqlp, cmplx *euqlp, double *r_lst, 
+double *qv_lst, double *m_lst, int *qp_lst, int *ilp_lst, int *fby_ind, int *faxby_ind, 
+int *jby_lst, cmplx *fr, double *f_axby, cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp,
+cmplx *f_lmqlmqp) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
@@ -183,21 +183,20 @@ cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
     const int iqlx= threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     const int jx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* local (q',l') pair */
-    const int iqp = qp_lst[iqlx];
-    const int ilp = ilp_lst[iqlx];
+    if (iqlx < nqlp) {
+        const int iqp = qp_lst[iqlx];
+        const int ilp = ilp_lst[iqlx];
+    }
     // effective force
     cmplx F(0.,0.);
-    /* jby index */
-    if (rmn_index[jx] > -1) {
+    if (jx < nby) {
+        /* jby index */
         const int jby= jbyr_lst[jx];
-        F += fr[idx];
-    }
-    /* compute effective force */
-    if (jby > -1) {
-        F += f_axby[jx];
-    }
-    if (jrby > -1) {
-        F += fr_axby[idx];
+        /* compute eff. force */
+        F = fr[idx];
+        if (faxby_ind[jx] > -1) {
+            F += f_axby[faxby_ind[jx]];
+        }
     }
     /* start calculation on the thread */
     if (iqlx < nqlp && jx < nby) {
@@ -222,7 +221,7 @@ cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
 Raman function calculation 
 
 */
-__global__ void compute_raman_force(int qs0, int qs1, int nqs, int iax, int *iFby_lst, int nby, int *qlp_lst,
+__global__ void compute_raman_force(int qs0, int qs1, int nqs, int iax, int *iFby_ind, int nby, int *qlp_lst,
 double wql, double *wqlp, int size, cmplx *Fjax, double *eig, int calc_typ, cmplx *Fr) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -233,9 +232,9 @@ double wql, double *wqlp, int size, cmplx *Fjax, double *eig, int calc_typ, cmpl
     const int jjby= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     // local variables
     int ms;
-    int iby = iFby_lst[jjby];
+    int iby = iFby_ind[jjby];
     /* iqlx < size and jx < ndof */
-    if (iqlx < size && jjby < nby) {
+    if (iqlx < size && jjby < nby && jby > -1) {
         /* if deph/rel */
         if (calc_typ == 0) {
             /* deph. calculation*/

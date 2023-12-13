@@ -175,11 +175,12 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                     self.FAXBY_IND[jax] =-np.ones(len(jax_lst), dtype=np.int32)
                 elif jax not in jax_lst and jax in self.JAXBY_KEYS:
                     self.FAXBY_IND[jax] = np.array(range(len(self.JAXBY_LST[jax])), dtype=np.int32)
-                    self.JBY_LST[jax]   =-np.ones(len(self.JAXBY_LST[jax]), dtype=np.int32)
+                    self.JBY_LST[jax]   = np.array(self.JAXBY_LST[jax], dtype=np.int32)
                     self.FAX_IND[jax]   = np.int32(-1)
                     self.FBY_IND[jax]   =-np.ones(len(self.JAXBY_LST[jax]), dtype=np.int32)
                 elif jax in jax_lst and jax in self.JAXBY_KEYS:
                     self.JBY_LST[jax] = list(set(jax_lst + self.JAXBY_LST[jax]))
+                    self.JBY_LST[jax] = np.array(self.JBY_LST[jax], dtype=np.int32)
                     FBY_TMP   =-np.ones(len(self.JBY_LST), dtype=np.int32)
                     FAXBY_TMP =-np.ones(len(self.JBY_LST), dtype=np.int32)
                     for ij in range(len(self.JBY_LST[jax])):
@@ -288,44 +289,62 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
             for jjax in range(nax):
                 jax = self.JAX_KEYS[jjax]
                 IAX = self.FAX_IND[jax]
-                # first set GRID calculations
-                jjby0 = 0
-                nbx = len(self.JBY_LST[jax])
-                while jjby0 < nbx:
-                    jjby1 = jjby0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
-                    nby = min(jjby1,nbx) - jjby0
-                    NBY = np.int32(nby)
-                    # build local IFBY_LST
-                    FBY_IND = np.zeros(nby, dtype=np.int32)
-                    FBY_IND[:] = self.FBY_IND[jjby0:min(jjby1,nbx)]
-                    JBY_LST = np.zeros(nby, dtype=np.int32)
-                    JBY_LST[:] = self.JBY_LST[jjby0:min(jjby1,nbx)]
-                    # run over (qp,lp)
-                    iqlp0 = 0
-                    while (iqlp0 < nqlp):
-                        iqlp1 = iqlp0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
-                        size = min(iqlp1,nqlp) - iqlp0
-                        SIZE = np.int32(size)
-                        # QLP_LST
-                        QLP_LST = np.zeros(size, dtype=np.int32)
-                        for iqlp in range(iqlp0, min(iqlp1,nqlp)):
-                            QLP_LST[iqlp-iqlp0] = iqlp
+                # run over (qp,lp)
+                iqlp0 = 0
+                while (iqlp0 < nqlp):
+                    iqlp1 = iqlp0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
+                    size = min(iqlp1,nqlp) - iqlp0
+                    SIZE = np.int32(size)
+                    F_LQ_LQP = np.zeros((4,size), dtype=np.complex128)
+                    # first set GRID calculations
+                    jjby0 = 0
+                    nbx = len(self.JBY_LST[jax])
+                    while jjby0 < nbx:
+                        jjby1 = jjby0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
+                        nby = min(jjby1,nbx) - jjby0
+                        NBY = np.int32(nby)
+                        # local jby list
+                        JBY_LST = np.zeros(nby, dtype=np.int32)
+                        JBY_LST[:] = self.JBY_LST[jax][jjby0:min(jjby1,nbx)]
+                        # build local IFBY_LST
+                        FBY_IND = np.zeros(nby, dtype=np.int32)
+                        FBY_IND[:] = self.FBY_IND[jax][jjby0:min(jjby1,nbx)]
+                        FAXBY_IND = np.zeros(nby, dtype=np.int32)
+                        FAXBY_IND[:] = self.FAXBY_IND[jax][jjby0:min(jjby1,nbx)]
+                        # Raman force
+                        F_RAMAN = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         if IAX > -1:
-                            # Raman force
-                            F_RAMAN = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             compute_F_raman(self.IQS0, self.IQS1, self.NQS, IAX, cuda.In(FBY_IND), NBY, cuda.In(QLP_LST), WQL, 
                                 cuda.In(WQLP), SIZE, cuda.In(self.FAX), cuda.In(self.EIG), self.CALCTYP, cuda.Out(F_RAMAN), 
                                 block=gpu.block, grid=gpu.grid)
-                            # intead of doing this give F_RAMAN in input
-                            # to fql_qlp calculation directly here
-                            # THIS SHOULD SAVE A LOT OF TIME 
-                            # Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
-                            compute_Flq_lqp_raman(cuda.In(QP_LST), cuda.In(ILP_LST), cuda.In(self.RAMAN_IND[jax]), 
-                                cuda.In(self.JAX_LST), cuda.In(self.FAXBY_IND[jax]), cuda.In(self.JAXBY_LST[jax]), 
-                                cuda.In(F_RAMAN), cuda.In(self.FAXBY[jax]), block=gpu.block, grid=gpu.grid)
-                        # new iqlp0
-                        iqlp0 = iqlp1
-                    jjby0 = jjby1
+                        # intead of doing this give F_RAMAN in input
+                        # to fql_qlp calculation directly here
+                        # THIS SHOULD SAVE A LOT OF TIME
+                        # F_lq_lqp array
+                        FLQLQP  = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                        FLMQLQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                        FLQLMQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                        FLMQLMQP= np.zeros(gpu.gpu_size, dtype=np.complex128)
+                        # Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
+                        compute_Flq_lqp_raman(NBY, SIZE, cuda.In(EUQLP), cuda.In(self.R_LST),
+                            cuda.In(self.QV), cuda.In(self.M_LST), cuda.In(QP_LST), cuda.In(ILP_LST), 
+                            cuda.In(FBY_IND), cuda.In(FAXBY_IND), cuda.In(JBY_LST), cuda.In(F_RAMAN), 
+                            cuda.In(self.FAXBY[jax]), cuda.Out(FLQLQP), cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), 
+                            cuda.Out(FLMQLMQP), block=gpu.block, grid=gpu.grid)
+                        # compute eff. force
+                        F_LQ_LQP += gpu.recover_eff_force_from_grid(FLQLQP, FLMQLQP, FLQLMQP, FLMQLMQP, nby, size)
+                        jjby0 = jjby1
+                    # reconstruct final array
+                    for iqlp in range(iqlp0,min(iqlp1,nqlp)):
+                        F_lq_lqp[:,jax,iqlp] += F_LQ_LQP[:,iqlp-iqlp0]
+                    # new iqlp0
+                    iqlp0 = iqlp1
+                # compute final force
+                # each jax
+                F_lq_lqp[0,jax,:] = EIQR[jax] * euq[jax,il] * F_lq_lqp[0,jax,:] / np.sqrt(self.M_LST[jax])
+                F_lq_lqp[2,jax,:] = EIQR[jax] * euq[jax,il] * F_lq_lqp[2,jax,:] / np.sqrt(self.M_LST[jax])
+                F_lq_lqp[1,jax,:] = np.conj(EIQR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[1,jax,:] / np.sqrt(self.M_LST[jax])
+                F_lq_lqp[3,jax,:] = np.conj(EIQR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[3,jax,:] / np.sqrt(self.M_LST[jax])
         else:
             print("-------------- OK")
             #
