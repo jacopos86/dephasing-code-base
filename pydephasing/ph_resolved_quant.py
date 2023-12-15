@@ -181,8 +181,8 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                 elif jax in jax_lst and jax in self.JAXBY_KEYS:
                     self.JBY_LST[jax] = list(set(jax_lst + self.JAXBY_LST[jax]))
                     self.JBY_LST[jax] = np.array(self.JBY_LST[jax], dtype=np.int32)
-                    FBY_TMP   =-np.ones(len(self.JBY_LST), dtype=np.int32)
-                    FAXBY_TMP =-np.ones(len(self.JBY_LST), dtype=np.int32)
+                    FBY_TMP   =-np.ones(len(self.JBY_LST[jax]), dtype=np.int32)
+                    FAXBY_TMP =-np.ones(len(self.JBY_LST[jax]), dtype=np.int32)
                     for ij in range(len(self.JBY_LST[jax])):
                         jby = self.JBY_LST[jax][ij]
                         if jby in jax_lst:
@@ -194,6 +194,7 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                     self.FAX_IND[jax]   = np.int32(jax_lst.index(jax)*nqs*nqs)
                 else:
                     pass
+                print(jax, self.FAX_IND[jax])
             self.JAX_KEYS = [key for key, lst in self.FBY_IND.items() if len(lst) > 0]
         # Q vectors list
         nq = len(qpts)
