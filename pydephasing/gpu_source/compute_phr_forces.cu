@@ -171,7 +171,7 @@ Flq_lqp Raman force calculation
 
 */
 
-__global__ void compute_Flqlqp_raman(int nby, int nqlp, cmplx *euqlp, double *r_lst, 
+__global__ void compute_Flqlqp_raman(int nat, int nby, int nqlp, cmplx *euqlp, double *r_lst, 
 double *qv_lst, double *m_lst, int *qp_lst, int *ilp_lst, int *fby_ind, int *faxby_ind, 
 int *jby_lst, cmplx *fr, double *f_axby, cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp,
 cmplx *f_lmqlmqp) {
@@ -212,7 +212,12 @@ cmplx *f_lmqlmqp) {
         im = sin(2.*PI*qpRb);
         cmplx eiqpRb(re, im);
         /* compute force */
-        f_lqlqp[idx] += F * eiqpRb * euqlp[3*nat*iqlx+jby] / sqrt(Mb);
+        r1 = F * eiqpRb * euqlp[3*nat*iqlx+jby] / sqrt(Mb);
+        f_lqlqp[idx]  += r1;
+        f_lmqlqp[idx] += r1;
+        r2 = F * conj(eiqpRb) * conj(euqlp[3*nat*iqlx+jby]) / sqrt(Mb);
+        f_lqlmqp[idx] += r2;
+        f_lmqlmqp[idx]+= r2;
     }
 }
 

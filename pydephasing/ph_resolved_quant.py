@@ -326,7 +326,7 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                         FLQLMQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         FLMQLMQP= np.zeros(gpu.gpu_size, dtype=np.complex128)
                         # Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
-                        compute_Flq_lqp_raman(NBY, SIZE, cuda.In(EUQLP), cuda.In(self.R_LST),
+                        compute_Flq_lqp_raman(NAT, NBY, SIZE, cuda.In(EUQLP), cuda.In(self.R_LST),
                             cuda.In(self.QV), cuda.In(self.M_LST), cuda.In(QP_LST), cuda.In(ILP_LST), 
                             cuda.In(FBY_IND), cuda.In(FAXBY_IND), cuda.In(JBY_LST), cuda.In(F_RAMAN), 
                             cuda.In(self.FAXBY[jax]), cuda.Out(FLQLQP), cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), 
