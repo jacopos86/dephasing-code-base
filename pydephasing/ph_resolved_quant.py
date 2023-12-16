@@ -157,9 +157,6 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         # set GPU input arrays RAMAN/FAXBY INDEX
         self.JAXBY_KEYS = [key for key, lst in self.JAXBY_LST.items() if len(lst) > 0]
         #
-        # set GPU array FAXBY
-        for jax in self.JAXBY_KEYS:
-            self.FAXBY[jax] = np.array(self.FAXBY[jax], dtype=np.double)
         # raman calc. indexes
         if self.calc_raman:
             # RAMAN_IND MAPS TO JAX_LST
@@ -173,8 +170,10 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                     self.FAX_IND[jax]   = np.int32(jax_lst.index(jax)*nqs*nqs)
                     self.FBY_IND[jax]   = np.array(IFAX_LST, dtype=np.int32)
                     self.FAXBY_IND[jax] =-np.ones(len(jax_lst), dtype=np.int32)
+                    self.FAXBY[jax]     = np.array([], dtype=np.double)
                 elif jax not in jax_lst and jax in self.JAXBY_KEYS:
                     self.FAXBY_IND[jax] = np.array(range(len(self.JAXBY_LST[jax])), dtype=np.int32)
+                    self.FAXBY[jax]     = np.array(self.FAXBY[jax], dtype=np.double)
                     self.JBY_LST[jax]   = np.array(self.JAXBY_LST[jax], dtype=np.int32)
                     self.FAX_IND[jax]   = np.int32(-1)
                     self.FBY_IND[jax]   =-np.ones(len(self.JAXBY_LST[jax]), dtype=np.int32)
@@ -191,10 +190,10 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                             FAXBY_TMP[ij] = self.JAXBY_LST[jax].index(jby)
                     self.FBY_IND[jax]   = FBY_TMP
                     self.FAXBY_IND[jax] = FAXBY_TMP
+                    self.FAXBY[jax]     = np.array(self.FAXBY[jax], dtype=np.double)
                     self.FAX_IND[jax]   = np.int32(jax_lst.index(jax)*nqs*nqs)
                 else:
                     pass
-                print(jax, self.FAX_IND[jax])
             self.JAX_KEYS = [key for key, lst in self.FBY_IND.items() if len(lst) > 0]
         # Q vectors list
         nq = len(qpts)
@@ -330,11 +329,14 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                         FLQLMQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         FLMQLMQP= np.zeros(gpu.gpu_size, dtype=np.complex128)
                         # Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
+                        print(FAXBY_IND, )
                         compute_Flq_lqp_raman(NAT, NBY, SIZE, cuda.In(EUQLP), cuda.In(self.R_LST),
                             cuda.In(self.QV), cuda.In(self.M_LST), cuda.In(QP_LST), cuda.In(QLP_LST), 
-                            cuda.In(FAXBY_IND), cuda.In(JBY_LST), cuda.In(F_RAMAN), cuda.In(self.FAXBY[jax]), 
-                            cuda.Out(FLQLQP), cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), cuda.Out(FLMQLMQP), 
+                            cuda.In(FAXBY_IND), cuda.In(JBY_LST), cuda.In(F_RAMAN), cuda.In(self.FAXBY[jax]),
+                            cuda.Out(FLQLQP), cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), cuda.Out(FLMQLMQP),
                             block=gpu.block, grid=gpu.grid)
+                        import sys
+                        sys.exit()
                         # compute eff. force
                         F_LQ_LQP += gpu.recover_eff_force_from_grid(FLQLQP, FLMQLQP, FLQLMQP, FLMQLMQP, nby, size)
                         jjby0 = jjby1
