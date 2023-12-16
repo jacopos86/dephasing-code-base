@@ -121,8 +121,8 @@ Flq_lqp force calculation
 
 */
 
-__global__ void compute_Flqlqp(int *qp_lst, int *ilp_lst, int *jby_lst, int nqlp,
-int nby, int nat, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst, double *f_axby,
+__global__ void compute_Flqlqp(int nat, int nby, int nqlp, int *qp_lst, int *qlp_lst, 
+int *jby_lst, cmplx *euqlp, double *r_lst, double *qv_lst, double *m_lst, double *f_axby,
 cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -131,17 +131,21 @@ cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
     const int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
     const int iqlx= threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     const int jx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
-    /* local (q',l') pair */
-    const int iqp = qp_lst[iqlx];
-    const int ilp = ilp_lst[iqlx];
-    /* jby index */
-    const int jby = jby_lst[jx];
     /* local variables */
     double Mb, qpRb;
     double re, im;
     cmplx r1(0.,0.);
     cmplx r2(0.,0.);
     int ib;
+    /* local (q',l') pair */
+    if (iqlx < nqlp) {
+        const int iqlp = qlp_lst[iqlx];
+        const int iqp  = qp_lst[iqlp];
+    }
+    /* jby index */
+    if (jx < nby) {
+        const int jby = jby_lst[jx];
+    }
     /* start calculation on the thread */
     if (iqlx < nqlp && jx < nby) {
         /* mass Mb */
@@ -156,10 +160,10 @@ cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
         im = sin(2.*PI*qpRb);
         cmplx eiqpRb(re, im);
         /* compute force */
-        r1 = f_axby[jx] * eiqpRb * euqlp[3*nat*iqlx+jby] / sqrt(Mb);
+        r1 = f_axby[jx] * eiqpRb * euqlp[3*nat*iqlp+jby] / sqrt(Mb);
         f_lqlqp[idx]  += r1;
         f_lmqlqp[idx] += r1;
-        r2 = f_axby[jx] * conj(eiqpRb) * conj(euqlp[3*nat*iqlx+jby]) / sqrt(Mb);
+        r2 = f_axby[jx] * conj(eiqpRb) * conj(euqlp[3*nat*iqlp+jby]) / sqrt(Mb);
         f_lqlmqp[idx] += r2;
         f_lmqlmqp[idx]+= r2;
     }
@@ -172,9 +176,8 @@ Flq_lqp Raman force calculation
 */
 
 __global__ void compute_Flqlqp_raman(int nat, int nby, int nqlp, cmplx *euqlp, double *r_lst, 
-double *qv_lst, double *m_lst, int *qp_lst, int *ilp_lst, int *fby_ind, int *faxby_ind, 
-int *jby_lst, cmplx *fr, double *f_axby, cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp,
-cmplx *f_lmqlmqp) {
+double *qv_lst, double *m_lst, int *qp_lst, int *qlp_lst, int *faxby_ind, int *jby_lst, 
+cmplx *fr, double *f_axby, cmplx *f_lqlqp, cmplx *f_lmqlqp, cmplx *f_lqlmqp, cmplx *f_lmqlmqp) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
@@ -184,14 +187,14 @@ cmplx *f_lmqlmqp) {
     const int jx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* local (q',l') pair */
     if (iqlx < nqlp) {
-        const int iqp = qp_lst[iqlx];
-        const int ilp = ilp_lst[iqlx];
+        const int iqlp= qlp_lst[iqlx];
+        const int iqp = qp_lst[iqlp];
     }
     // effective force
     cmplx F(0.,0.);
     if (jx < nby) {
         /* jby index */
-        const int jby= jbyr_lst[jx];
+        const int jby= jby_lst[jx];
         /* compute eff. force */
         F = fr[idx];
         if (faxby_ind[jx] > -1) {
@@ -212,10 +215,10 @@ cmplx *f_lmqlmqp) {
         im = sin(2.*PI*qpRb);
         cmplx eiqpRb(re, im);
         /* compute force */
-        r1 = F * eiqpRb * euqlp[3*nat*iqlx+jby] / sqrt(Mb);
+        r1 = F * eiqpRb * euqlp[3*nat*iqlp+jby] / sqrt(Mb);
         f_lqlqp[idx]  += r1;
         f_lmqlqp[idx] += r1;
-        r2 = F * conj(eiqpRb) * conj(euqlp[3*nat*iqlx+jby]) / sqrt(Mb);
+        r2 = F * conj(eiqpRb) * conj(euqlp[3*nat*iqlp+jby]) / sqrt(Mb);
         f_lqlmqp[idx] += r2;
         f_lmqlmqp[idx]+= r2;
     }
@@ -237,23 +240,28 @@ double wql, double *wqlp, int size, cmplx *Fjax, double *eig, int calc_typ, cmpl
     const int jjby= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     // local variables
     int ms;
-    int iby = iFby_ind[jjby];
+    /* local jby index */
+    if (jjby < nby) {
+        int iby = iFby_ind[jjby];
+    }
     /* iqlx < size and jx < ndof */
-    if (iqlx < size && jjby < nby && jby > -1) {
+    if (iqlx < size && jjby < nby && iby > -1) {
+        /* set local qlp index */
+        iqlp = qlp_lst[iqlx];
         /* if deph/rel */
         if (calc_typ == 0) {
             /* deph. calculation*/
             for (ms=0; ms<nqs; ms++) {
                 Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs0] / (eig[qs0] - eig[ms] + wql);
                 Fr[idx] -= Fjax[iax+qs1*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] + wql);
-                Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs0] / (eig[qs0] - eig[ms] - wqlp[iqlx]);
-                Fr[idx] -= Fjax[iax+qs1*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] - wqlp[iqlx]);
+                Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs0] / (eig[qs0] - eig[ms] - wqlp[iqlp]);
+                Fr[idx] -= Fjax[iax+qs1*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] - wqlp[iqlp]);
             }
         }
         else {
             /* relax calculation */
             for (ms=0; ms<nqs; ms++) {
-                Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] + wqlp[iqlx]);
+                Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] + wqlp[iqlp]);
                 Fr[idx] += Fjax[iax+qs0*nqs+ms] * Fjax[iby+ms*nqs+qs1] / (eig[qs1] - eig[ms] - wql);
             }
         }
