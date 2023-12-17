@@ -89,32 +89,6 @@ typedef pycuda::complex<double> cmplx;
 //    }
 //}
 
-/* Raman function calculation */
-//__global__ cmplx compute_raman_force2(int qs0, int qs1, int nqs, cmplx *Fjax, cmplx *Fjby,
-//double *eig, double wql, double wqlp, int calc_typ) {
-    /* internal variables */
- //   int ms;
- //   cmplx Fr(0.,0.);
-    /* if deph/rel */
- //   if (calc_typ == 0) {
-        /* deph calculation*/
- //       for (ms=0; ms<nqs; ms++) {
- //           Fr += Fjax[qs0*nqs+ms] * Fjby[ms*nqs+qs0] / (eig[qs0] - eig[ms] + wql);
- //           Fr -= Fjax[qs1*nqs+ms] * Fjby[ms*nqs+qs1] / (eig[qs1] - eig[ms] + wql);
- //           Fr += Fjax[qs0*nqs+ms] * Fjby[ms*nqs+qs0] / (eig[qs0] - eig[ms] - wqlp);
- //           Fr -= Fjax[qs1*nqs+ms] * Fjby[ms*nqs+qs1] / (eig[qs1] - eig[ms] - wqlp);
- //       }
- //   }
- //   else {
-        /* relax calculation */
- //       for (ms=0; ms<nqs; ms++) {
- //           Fr += Fjax[qs0*nqs+ms] * Fjby[ms*nqs+qs1] / (eig[qs1] - eig[ms] + wqlp);
- //           Fr += Fjax[qs0*nqs+ms] * Fjby[ms*nqs+qs1] / (eig[qs1] - eig[ms] - wql);
- //       }
- //   }
- //   return Fr;
-//}
-
 /*
 
 Flq_lqp force calculation
