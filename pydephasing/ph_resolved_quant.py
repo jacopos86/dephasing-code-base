@@ -147,11 +147,10 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         # define local Faxby
         #
         naxby = len(jaxby_lst)
-        self.FAXBY = collections.defaultdict(list)
         self.JAXBY_LST = collections.defaultdict(list)
         for jaxby in range(naxby):
             jax, jby = jaxby_lst[jaxby]
-            self.FAXBY[jax].append(Faxby[jax,jby])
+            #faxby_lst[jax].append(Faxby[jax,jby])
             self.JAXBY_LST[jax].append(jby)
         #
         # set GPU input arrays RAMAN/FAXBY INDEX
@@ -164,33 +163,40 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
             self.FAX_IND   = collections.defaultdict(list)
             self.JBY_LST   = collections.defaultdict(list)
             self.FAXBY_IND = collections.defaultdict(list)
+            self.FAXBY     = collections.defaultdict(list)
             for jax in range(3*nat):
                 if jax in jax_lst and jax not in self.JAXBY_KEYS:
                     self.JBY_LST[jax] = np.array(jax_lst, dtype=np.int32)
                     self.FAX_IND[jax]   = np.int32(jax_lst.index(jax)*nqs*nqs)
                     self.FBY_IND[jax]   = np.array(IFAX_LST, dtype=np.int32)
                     self.FAXBY_IND[jax] =-np.ones(len(jax_lst), dtype=np.int32)
-                    self.FAXBY[jax]     = np.array([], dtype=np.double)
+                    self.FAXBY[jax]     = np.zeros(len(jax_lst), dtype=np.double)
                 elif jax not in jax_lst and jax in self.JAXBY_KEYS:
                     self.FAXBY_IND[jax] = np.array(range(len(self.JAXBY_LST[jax])), dtype=np.int32)
                     self.FAXBY[jax]     = np.array(self.FAXBY[jax], dtype=np.double)
                     self.JBY_LST[jax]   = np.array(self.JAXBY_LST[jax], dtype=np.int32)
                     self.FAX_IND[jax]   = np.int32(-1)
                     self.FBY_IND[jax]   =-np.ones(len(self.JAXBY_LST[jax]), dtype=np.int32)
+                    self.FAXBY[jax]     = np.zeros(len(self.JAXBY_LST[jax]), dtype=np.double)
+                    jjby = 0
+                    for jby in self.JAXBY_LST[jax]:
+                        self.FAXBY[jax][jjby] = Faxby[jax,jby]
+                        jjby += 1
                 elif jax in jax_lst and jax in self.JAXBY_KEYS:
                     self.JBY_LST[jax] = list(set(jax_lst + self.JAXBY_LST[jax]))
                     self.JBY_LST[jax] = np.array(self.JBY_LST[jax], dtype=np.int32)
                     FBY_TMP   =-np.ones(len(self.JBY_LST[jax]), dtype=np.int32)
                     FAXBY_TMP =-np.ones(len(self.JBY_LST[jax]), dtype=np.int32)
+                    self.FAXBY[jax]   = np.zeros(len(self.JBY_LST[jax]), dtype=np.double)
                     for ij in range(len(self.JBY_LST[jax])):
                         jby = self.JBY_LST[jax][ij]
                         if jby in jax_lst:
                             FBY_TMP[ij]   = nqs*nqs*jax_lst.index(jby)
                         if jby in self.JAXBY_LST[jax]:
                             FAXBY_TMP[ij] = self.JAXBY_LST[jax].index(jby)
+                            self.FAXBY[jax][ij] = Faxby[jax,jby]
                     self.FBY_IND[jax]   = FBY_TMP
                     self.FAXBY_IND[jax] = FAXBY_TMP
-                    self.FAXBY[jax]     = np.array(self.FAXBY[jax], dtype=np.double)
                     self.FAX_IND[jax]   = np.int32(jax_lst.index(jax)*nqs*nqs)
                 else:
                     pass
