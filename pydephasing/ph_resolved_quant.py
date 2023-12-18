@@ -200,6 +200,13 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
                 else:
                     pass
             self.JAX_KEYS = [key for key, lst in self.FBY_IND.items() if len(lst) > 0]
+        else:
+            self.FAXBY     = collections.defaultdict(list)
+            for jax in self.JAXBY_KEYS:
+                self.FAXBY[jax] = np.array(len(self.JAXBY_LST[jax]), dtype=np.double)
+                for ij in range(len(self.JAXBY_LST[jax])):
+                    jby = self.JAXBY_LST[jax][ij]
+                    self.FAXBY[jax][ij] = Faxby[jax,jby]
         # Q vectors list
         nq = len(qpts)
         self.NQ = np.int32(nq)
