@@ -203,7 +203,7 @@ class GPU_phr_force_2nd_order(phr_force_2nd_order):
         else:
             self.FAXBY     = collections.defaultdict(list)
             for jax in self.JAXBY_KEYS:
-                self.FAXBY[jax] = np.array(len(self.JAXBY_LST[jax]), dtype=np.double)
+                self.FAXBY[jax] = np.zeros(len(self.JAXBY_LST[jax]), dtype=np.double)
                 for ij in range(len(self.JAXBY_LST[jax])):
                     jby = self.JAXBY_LST[jax][ij]
                     self.FAXBY[jax][ij] = Faxby[jax,jby]
