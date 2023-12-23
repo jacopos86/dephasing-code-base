@@ -6,8 +6,8 @@ typedef pycuda::complex<double> cmplx;
 
 __global__ void compute_acf_V2_oft(int *qlp_init, int *lgth, int *qlp_lst, const int SIZE,
 double *time, double wq, double *wqp, double wuq, double *wuqp, double Alq, double *Alqp, 
-cmplx *Flqlqp, double T, double DE, double NU, double MINFREQ, double THZTOEV, double KB, 
-const double TOLER, cmplx *acf, cmplx *acf_int) {
+cmplx *Flqlqp, double T, double DE, const double NU, const double MINFREQ, const double THZTOEV, 
+const double KB, const double TOLER, cmplx *acf, cmplx *acf_int) {
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
     const int k = threadIdx.z + blockDim.z * blockIdx.z;
@@ -16,7 +16,8 @@ const double TOLER, cmplx *acf, cmplx *acf_int) {
     int tx  = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int iqlx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal variables */
-
+    int iqlp0;
+    /* check tx value */
     if (tx < SIZE) {
         iqlp0 = qlp_init[iqlx];
         n = lgth[iqlx];

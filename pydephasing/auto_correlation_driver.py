@@ -113,6 +113,7 @@ class acf_ph(object):
                 self.compute_acf_V2_oft(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
             if p.w_resolved:
                 self.compute_acf_V2_ofw(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
+            sys.exit()
             # -----------------------------------
             #    AT / PHR calculation
             # -----------------------------------

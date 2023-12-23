@@ -8,8 +8,8 @@ typedef pycuda::complex<double> cmplx;
 
 __global__ void compute_acf_V2_oft(int *qlp_init, int *lgth, int *qlp_lst, const int SIZE,
 double *time, double wq, double *wqp, double wuq, double *wuqp, double Alq, double *Alqp, 
-cmplx *Flqlqp, double T, double DE, double NU, double MINFREQ, double THZTOEV, double KB, 
-const double TOLER, cmplx *acf) {
+cmplx *Flqlqp, double T, double DE, const double NU, const double MINFREQ, const double THZTOEV, 
+const double KB, const double TOLER, cmplx *acf) {
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
     const int k = threadIdx.z + blockDim.z * blockIdx.z;
@@ -18,7 +18,12 @@ const double TOLER, cmplx *acf) {
     int tx  = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int iqlx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal variables */
-
+    int iqlp0, n, iqlp, ii;
+    double wql, Eql, x, wqlp, Eqlp;
+    double re, im;
+    double nql, nqlp;
+    cmplx ft;
+    /* check tx index */
     if (tx < SIZE) {
         iqlp0 = qlp_init[iqlx];
         n = lgth[iqlx];
@@ -41,7 +46,7 @@ const double TOLER, cmplx *acf) {
                 x = Eqlp / (KB * T);
                 nqlp = bose_occup(x, T, TOLER);
                 /* acf^2(t) */
-                ft = nql * (1.+nqlp) * eiwt * EXP(-NU*time[tx]);
+                ft = nql * (1.+nqlp) * eiwt * exp(-NU*time[tx]);
                 acf[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * ft * Flqlqp[iqlp] * conj(Flqlqp[iqlp]);
             }
         }
@@ -61,9 +66,9 @@ cmplx *acf) {
     int tx = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int ax = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal vars. */
-
-
-
+    double wql, Eql, x, wqlp, Eqlp;
+    double nql;
+    double re;
     /* tx < SIZE : PROCEED */
     if (tx < SIZE && ax < NA_SIZE) {
         int ia = at_lst[ax];
