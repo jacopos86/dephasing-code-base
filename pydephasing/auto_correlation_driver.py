@@ -100,13 +100,12 @@ class acf_ph(object):
             #Fr = eff_force_obj.compute_raman_force_phr(il, iq, wu, nat, qlp_list)
             # compute eff. force
             Fjax_lqlqp = eff_force_obj.transf_2nd_order_force_phr(il, iq, wu, u, nat, qlp_list)
-            sys.exit()
+            # num. (q',l')
             nlqp = len(qlp_list)
             F_lqlqp = np.zeros((4,nlqp), dtype=np.complex128)
             for jax in range(3*nat):
                 F_lqlqp[:,:] += Fjax_lqlqp[:,jax,:]
                 # [ps^-2]
-            sys.exit()
             # ----------------------------------
             #    ACF calculation
             # ----------------------------------
@@ -129,6 +128,7 @@ class acf_ph(object):
                     self.Delta_2 += self.compute_acf_V2_t0(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
                 if p.w_resolved:
                     self.Delta_w0 += self.compute_acf_V2_w0(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
+            sys.exit()
             # iterate (q,l)
             iql += 1
     #
