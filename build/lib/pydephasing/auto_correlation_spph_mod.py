@@ -30,8 +30,15 @@ class acf_sp_ph(acf_ph):
     def __init__(self):
         super(acf_sp_ph, self).__init__()
         self.dE = 0.0
-        # single proc. ACFs
-        self.acf_sp = None
+    #
+    #  instance CPU / GPU
+    #           deph / relax
+    def generate_instance(self):
+        if GPU_ACTIVE:
+            return GPU_acf_sp_ph ()
+        else:
+            return CPU_acf_sp_ph ()
+    # allocate arrays
     def allocate_acf_arrays(self, nat):
         if p.time_resolved:
             if p.ACF_FIT:
@@ -44,6 +51,12 @@ class acf_sp_ph(acf_ph):
                     self.acf_atr_sp = np.zeros((p.nt2, nat, p.ntmp), dtype=np.complex128)
             elif p.ACF_INTEG:
                 self.acf_sp = np.zeros((p.nt, 2, p.ntmp), dtype=np.complex128)
+                if p.ph_resolved:
+                    if p.nphr > 0:
+                        self.acf_phr_sp = np.zeros((p.nt2, 2, p.nphr, p.ntmp), dtype=np.complex128)
+                    self.acf_wql_sp = np.zeros((p.nt2, 2, p.nwbn, p.ntmp), dtype=np.complex128)
+                if p.at_resolved:
+                    self.acf_atr_sp = np.zeros((p.nt2, 2, nat, p.ntmp))
         elif p.w_resolved:
             self.acf_sp = np.zeros((p.nwg, p.ntmp), dtype=np.complex128)
             if p.ph_resolved:
@@ -136,7 +149,7 @@ class acf_sp_ph(acf_ph):
                     #
                     # compute Delta^2
                     A_th = nql_T[iT] * (1. + nqlp_T)
-                    Delta_2[iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * A_th * F_llp[iqlp] * np.conjugate(F_llp[iqlp])
+                    Delta_2[iT] += wq[iq] * wq[iqp] * A_lq ** 2 * A_lqp[iqlp] ** 2 * A_th * F_llp * np.conjugate(F_llp)
                 iqlp += 1
         # final result
         Delta_2r = np.zeros(p.ntmp)
@@ -767,11 +780,11 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 SIZE = np.int32(size)
                 # acf array
                 ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
                 TIME= np.zeros(size, dtype=np.double)
                 for t in range(t0, min(t1,p.nt)):
                     TIME[t-t0] = p.time[t]
                 if p.ACF_INTEG:
+                    ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
                     # call function
                     compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QL_LIST), SIZE, cuda.In(TIME),
                                 cuda.In(WQ), cuda.In(WUQ), cuda.In(A_LQ), cuda.In(F_LQ), T, DE, NU, 
@@ -793,6 +806,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         self.acf_sp[t,iT] += ACF[t-t0]
                 t0 = t1
         #plt.plot(p.time, self.acf_sp[:,0,0])
+        #plt.plot(p.time, self.acf_sp[:,0,0].real)
         plt.plot(p.time, self.acf_sp[:,0].real)
         plt.show()
     #
@@ -864,14 +878,11 @@ class GPU_acf_sp_ph(acf_sp_ph):
         mod = SourceModule(gpu_src)
         # CHECK ph/at res.
         if p.ph_resolved:
-            self.acf_phr_sp = np.zeros((p.nt2, 2, p.nphr, p.ntmp), dtype=np.complex128)
-            self.acf_wql_sp = np.zeros((p.nt2, 2, p.nwbn, p.ntmp), dtype=np.complex128)
             # load files
             compute_acf_phr = mod.get_function("compute_acf_V1_phr_oft")
         if p.at_resolved:
             NMODES = np.int32(len(ql_list))
             NAT = np.int32(nat)
-            self.acf_atr_sp = np.zeros((p.nt2, 2, nat, p.ntmp), dtype=np.complex128)
             # load files
             compute_acf_atr = mod.get_function("compute_acf_V1_atr_oft")
         if not p.ph_resolved and not p.at_resolved:
@@ -929,9 +940,10 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         for a in range(ia0, min(ia1, nat)):
                             AT_LIST[a-ia0] = a
                         NA_SIZE = np.int32(na)
+                        # ACF array
+                        ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
+                        # check calculation type
                         if p.ACF_FIT:
-                            # ACF array
-                            ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             # compute ACF
                             compute_acf_atr(cuda.In(AT_LIST), cuda.In(WQ), cuda.In(WUQ), cuda.In(TIME), DE, NU,
                                             cuda.In(FJAX_LQ), cuda.In(A_LQ), SIZE, NA_SIZE, NMODES, NAT,
@@ -944,7 +956,6 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                     self.acf_atr_sp[t,a,iT] += ACF[t-t0,a-ia0]
                         elif p.ACF_INTEG:
                             # ACF array
-                            ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             # compute ACF
                             compute_acf_atr(cuda.In(AT_LIST), cuda.In(WQ), cuda.In(WUQ), cuda.In(TIME), DE, NU,
@@ -971,9 +982,10 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         for iph in range(iph0,min(iph1,len(ql_list))):
                             PH_LST[iph-iph0] = iph
                         NPH = np.int32(nph)
+                        # ACF ARRAYS
+                        ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         if p.ACF_INTEG:
                             # ACF ARRAYS
-                            ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             # compute ACF
                             compute_acf_phr(NPH, cuda.In(PH_LST), SIZE, cuda.In(TIME), cuda.In(WQ), cuda.In(WUQ), 
@@ -1133,6 +1145,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
         '''
         compute ACF partial sum
         '''
+        print(p.ACF_INTEG, p.ACF_FIT)
         if p.ACF_INTEG:
             gpu_src = Path('./pydephasing/gpu_source/compute_acf_V2_integ_oft.cu').read_text()
         elif p.ACF_FIT:
@@ -1199,8 +1212,8 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         # call function
                         compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), SIZE, cuda.In(TIME),
                             WQ, cuda.In(WQP), WUQ, cuda.In(WUQP), ALQ, cuda.In(ALQP), cuda.In(FLQLQP),
-                            T, DE, NU, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, 
-                            cuda.Out(ACF), block=gpu.block, grid=gpu.grid)
+                            T, DE, NU, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, cuda.Out(ACF), 
+                            block=gpu.block, grid=gpu.grid)
                         ACF = gpu.recover_data_from_grid(ACF)
                         for t in range(t0, min(t1,p.nt)):
                             self.acf_sp[t,iT] += ACF[t-t0]
@@ -1251,8 +1264,8 @@ class GPU_acf_sp_ph(acf_sp_ph):
                     ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
                     # local freq. array
                     WG = np.zeros(size, dtype=np.double)
-                    for w in range(iw0, min(iw1,p.nwg)):
-                        WG[w-iw0] = p.w_grid[w]
+                    for iw in range(iw0, min(iw1,p.nwg)):
+                        WG[iw-iw0] = p.w_grid[iw]
                         # eV
                     # call GPU function
                     compute_acf(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), SIZE, cuda.In(WG),
@@ -1260,8 +1273,8 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                 T, DE, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, ETA, cuda.Out(ACFW),
                                 block=gpu.block, grid=gpu.grid)
                     ACFW = gpu.recover_data_from_grid(ACFW)
-                    for w in range(iw0, min(iw1,p.nwg)):
-                        self.acf_sp[w,iT] += ACFW[w-iw0]
+                    for iw in range(iw0, min(iw1,p.nwg)):
+                        self.acf_sp[iw,iT] += ACFW[iw-iw0]
                     iw0 = iw1
     #
     # compute <Delta V^(2)(t) Delta V^(2)(t')> -> ph / at resolved
@@ -1347,9 +1360,9 @@ class GPU_acf_sp_ph(acf_sp_ph):
                             for a in range(ia0, min(ia1,nat)):
                                 AT_LIST[a-ia0] = a
                             NA_SIZE = np.int32(na)
+                            # ACF array
+                            ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             if p.ACF_INTEG:
-                                # ACF array
-                                ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                                 ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
                                 # compute ACF
                                 compute_acf_atr(cuda.In(AT_LIST), NA_SIZE, cuda.In(TIME), SIZE, NMODES,
@@ -1365,8 +1378,6 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                         self.acf_atr_sp[t,0,a,iT] += ACF[t-t0,a-ia0]
                                         self.acf_atr_sp[t,1,a,iT] += ACF_INT[t-t0,a-ia0]
                             elif p.ACF_FIT:
-                                # ACF array
-                                ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                                 # compute ACF
                                 compute_acf_atr(cuda.In(AT_LIST), NA_SIZE, cuda.In(TIME), SIZE, NMODES,
                                             NAT, DE, NU, WQ, WUQ, ALQ, cuda.In(WQP), cuda.In(WUQP),
@@ -1382,15 +1393,16 @@ class GPU_acf_sp_ph(acf_sp_ph):
                     #
                     # PH. RES.
                     if p.ph_resolved:
+                        # ACF ARRAYS
+                        ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         if p.ACF_INTEG:
                             # ACF ARRAYS
-                            ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             ACF_INT = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             # compute ACF
-                            compute_acf_phr(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), cuda.In(TIME),
-                                        SIZE, DE, NU, WQ, WUQ, ALQ, cuda.In(WQP), cuda.In(WUQP), 
-                                        cuda.In(ALQP), cuda.In(F_LQLQP), T, self.MINFREQ, self.THZTOEV, 
-                                        self.KB, self.TOLER, cuda.Out(ACF), cuda.Out(ACF_INT), 
+                            compute_acf_phr(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), SIZE, 
+                                        cuda.In(TIME), WQ, cuda.In(WQP), WUQ, cuda.In(WUQP), ALQ, 
+                                        cuda.In(ALQP), cuda.In(F_LQLQP), T, DE, NU, self.MINFREQ, 
+                                        self.THZTOEV, self.KB, self.TOLER, cuda.Out(ACF), cuda.Out(ACF_INT), 
                                         block=gpu.block, grid=gpu.grid)
                             ACF = gpu.recover_data_from_grid(ACF)
                             ACF_INT = gpu.recover_data_from_grid(ACF_INT)
@@ -1403,8 +1415,6 @@ class GPU_acf_sp_ph(acf_sp_ph):
                                     self.acf_phr_sp[t,0,iphr,iT] += ACF[t-t0]
                                     self.acf_phr_sp[t,1,iphr,iT] += ACF_INT[t-t0]
                         elif p.ACF_FIT:
-                            # ACF ARRAYS
-                            ACF = np.zeros(gpu.gpu_size, dtype=np.complex128)
                             # compute ACF
                             compute_acf_phr(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), cuda.In(TIME),
                                         SIZE, DE, NU, WQ, WUQ, ALQ, cuda.In(WQP), cuda.In(WUQP), 
@@ -1517,10 +1527,10 @@ class GPU_acf_sp_ph(acf_sp_ph):
                         # ACF arrays
                         ACFW = np.zeros(gpu.gpu_size, dtype=np.complex128)
                         # compute ACF
-                        compute_acf_phr(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), cuda.In(WG),
-                                        SIZE, DE, ETA, WQ, WUQ, ALQ, cuda.In(WQP), cuda.In(WUQP),
-                                        cuda.In(ALQP), cuda.In(F_LQLQP), T, self.MINFREQ, self.THZTOEV,
-                                        self.KB, self.TOLER, cuda.Out(ACFW), block=gpu.block, grid=gpu.grid)
+                        compute_acf_phr(cuda.In(INIT), cuda.In(LGTH), cuda.In(QLP_LIST), SIZE, cuda.In(WG),
+                                        WQ, cuda.In(WQP), WUQ, cuda.In(WUQP), ALQ, cuda.In(ALQP), cuda.In(F_LQLQP), 
+                                        T, DE, self.MINFREQ, self.THZTOEV, self.KB, self.TOLER, ETA, cuda.Out(ACFW), 
+                                        block=gpu.block, grid=gpu.grid)
                         # eV units
                         ACFW = gpu.recover_data_from_grid(ACFW)
                         for w in range(w0, min(w1,p.nwg)):

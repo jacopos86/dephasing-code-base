@@ -117,7 +117,7 @@ class perturbation_ZFS(ABC):
 		self.Dns = np.zeros((3,3))
 		# run over atoms
 		# start from half of list
-		for ia in range(int(2*nat/3)+1, nat):
+		for ia in range(int(p.frac_kept_atoms*nat)+1, nat):
 			iia = at_index[ia]
 			for idx in range(3):
 				pair = '(' + str(iia+1) + ',' + str(idx+1) + ')'
@@ -409,6 +409,9 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			output_ij = mpi.collect_list(output_ij)
 			full_output.append(output_ij)
 		# learn model
+		print(self.Dns)
+		import sys
+		sys.exit()
 		self.learn_network_model(full_input, full_output, p.write_dir)
 		# compute grad ^ 2 tensor
 		self.compute_2nd_derivative_tensor(jax_list, displ_structs)

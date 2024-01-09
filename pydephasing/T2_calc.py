@@ -5,74 +5,191 @@
 #
 import numpy as np
 import scipy
+from scipy import integrate
+import yaml
+import logging
 from pydephasing.T2_classes import T2i_class, Delta_class, tauc_class, lw_class
 from pydephasing.phys_constants import hbar
 from pydephasing.log import log
 from pydephasing.input_parameters import p
+from pydephasing.mpi import mpi
 from abc import ABC, abstractmethod
 import warnings
 warnings.filterwarnings("ignore")
 #
-# functions : Exp ExpSin exp_gt gt
+# functions : 
+# 1)  Exp 
+# 2)  ExpSin 
+# 3)  Explg
 #
 def Exp(x, c):
     return np.exp(-c * x)
+def ExpSin(x, c, w, phi):
+    return np.sin(w * x + phi) * np.exp(-c * x)
 # fit gaussian+lorentzian decay
 def Explg(x, a, b, c, sig):
     return a * np.exp(-c * x) + b * np.exp(-x**2 / 2 / sig**2)
-# fitting function int_0^t acf(t)
-def fitting_function(x, offset, a, b, c, d):
-    '''use y(x) = offset + a * cos(x) / (b + c * exp(d*x))'''
-    y = offset + a * np.cos(x) / (b + c * np.exp(d * x))
-    return y
 #
 #   class T2_eval_class -> freq. resolved
 class T2_eval_class_freq_res:
     def __init__(self):
         self.T2_obj = None
         self.lw_obj = None
-    def set_up_param_objects(self):
-        self.T2_obj = T2i_class().generate_instance()
-        self.lw_obj = lw_class().generate_instance()
+    def set_up_param_objects_from_scratch(self, nat, nconf=None):
+        self.T2_obj = T2i_class().generate_instance(nat, nconf)
+        self.lw_obj = lw_class().generate_instance(nat, nconf)
+    def set_up_param_objects(self, T2_obj, lw_obj):
+        self.T2_obj = T2_obj
+        self.lw_obj = lw_obj
     def get_T2_data(self):
         decoher_dict = {'T2' : None, 'lw' : None}
         decoher_dict['T2'] = self.T2_obj
         decoher_dict['lw'] = self.lw_obj
         return decoher_dict
-#
+    # compute T2_inv
+    def evaluate_T2(self, acf_w):
+        acf_w0 = acf_w[0]
+        # eV units
+        T2_inv = acf_w0 / hbar
+        # ps^-1
+        return T2_inv
+    # print ACF data
+    def print_autocorrel_data(self, namef, wg, acf_w):
+        # write data on file
+        if log.level <= logging.INFO:
+            # acf dictionary
+            acf_dict = {'wg' : 0, 'acf' : 0}
+            acf_dict['wg'] = wg
+            acf_dict['acf'] = acf_w
+            # save dict on file
+            with open(namef, 'w') as out_file:
+                yaml.dump(acf_dict, out_file)
+# ----------------------------------------------------
+# subclass of the frequency calculation model
+# to be used for homogeneous calculations
+# ----------------------------------------------------
+class T2_eval_freq_homo_class(T2_eval_class_freq_res):
+    def __init__(self):
+        super(T2_eval_freq_homo_class, self).__init__()
+    # extract phys. quant.
+    def extract_physical_quantities(self, acf_obj, nat):
+        for iT in range(p.ntmp):
+            # compute Cw
+            Cw = self.parameter_eval_driver(acf_obj, iT)
+            # write data on file
+            namef = p.write_dir + "/acf-data-iT" + str(iT) + ".yml"
+            self.print_autocorrel_data(namef, p.w_grid, Cw)
+            #
+            # atom resolved
+            if p.at_resolved:
+                # local atom list
+                atr_list = mpi.split_list(range(nat))
+                Cw_atr = np.zeros((p.nwg,nat))
+                # run over atoms
+                for ia in atr_list:
+                    # compute T2 times
+                    Ca_t = self.atr_parameter_eval_driver(acf_obj, ia, iT)
+                    if Ca_t is not None:
+                        Cw_atr[:,ia] = Ca_t[:]
+                Cw_atr = mpi.collect_array(Cw_atr)
+                # collect to single proc.
+                self.T2_obj.collect_atr_from_other_proc(iT)
+                self.lw_obj.collect_atr_from_other_proc(iT)
+                # write data on file
+                namef = p.write_dir + "/acf-data-atr-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.w_grid, Cw_atr)
+    # compute parameters
+    def parameter_eval_driver(self, acf_obj, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf_w
+        acf_ofw[:] = np.real(acf_obj.acf[:,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        self.T2_obj.set_T2_sec(iT, T2_inv)
+        self.lw_obj.set_lw(iT, T2_inv)
+        return acf_ofw
+    def atr_parameter_eval_driver(self, acf_obj, ia, iT):
+        pass
+# ----------------------------------------------------
+# subclass of the frequency calculation model
+# to be used for inhomogeneous calculations
+# ----------------------------------------------------
+class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
+    def __init__(self):
+        super(T2_eval_freq_inhom_class, self).__init__()
+    # extract phys. quant.
+    def extract_physical_quantities(self, acf_obj, ic, nat):
+        # run over temperatures
+        for iT in range(p.ntmp):
+            #    Cw
+            Cw = self.parameter_eval_driver(acf_obj, ic, iT)
+            # write data on file
+            namef = p.write_dir + "/acf-data-ic" + str(ic) + "-iT" + str(iT) + ".yml"
+            self.print_autocorrel_data(namef, p.w_grid, Cw)
+    # compute parameters
+    def parameter_eval_driver(self, acf_obj, ic, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf_ofw data
+        acf_ofw[:] = np.real(acf_obj.acf[:,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store data
+        self.T2_obj.set_T2_sec(ic, iT, T2_inv)
+        self.lw_obj.set_lw(ic, iT, T2_inv)
+        return acf_ofw
+# ----------------------------------------------------
 #   abstract T2_eval_class -> time resolved
+# ----------------------------------------------------
 class T2_eval_class_time_res(ABC):
     def __init__(self):
         self.T2_obj = None
         self.lw_obj = None
         self.tauc_obj = None
         self.Delt_obj = None
-    @classmethod
-    def set_up_param_objects(self):
-        self.T2_obj   = T2i_class().generate_instance()
-        self.Delt_obj = Delta_class().generate_instance()
-        self.tauc_obj = tauc_class().generate_instance()
-        self.lw_obj   = lw_class().generate_instance()
-    @classmethod
+    def set_up_param_objects_from_scratch(self, nat, nconf=None):
+        self.T2_obj   = T2i_class().generate_instance(nat, nconf)
+        self.Delt_obj = Delta_class().generate_instance(nat, nconf)
+        self.tauc_obj = tauc_class().generate_instance(nat, nconf)
+        self.lw_obj   = lw_class().generate_instance(nat, nconf)
+    def set_up_param_objects(self, T2_obj, Delt_obj, tauc_obj, lw_obj):
+        self.T2_obj = T2_obj
+        self.Delt_obj = Delt_obj
+        self.tauc_obj = tauc_obj
+        self.lw_obj = lw_obj
     def parametrize_acf(self, t, acf_oft):
         # units of tau_c depends on units of t
         # if it is called by static calculation -> mu sec
         # otherwise p sec
         D2 = acf_oft[0]
-        Ct = acf_oft / D2
+        if D2 == 0.:
+            Ct = acf_oft
+        else:
+            Ct = acf_oft / D2
         # check non Nan
         if not np.isfinite(Ct).all():
             return None, None, None, None
         # set parametrization
-        # e^-t/tau parametrization
+        # e^-t/tau * sin(wt) parametrization
         # fit over exp. function
-        p0 = 1    # start with values near those we expect
-        res = scipy.optimize.curve_fit(Exp, t, Ct, p0, maxfev=self.maxiter)
-        p = res[0]
+        if p.FIT_MODEL == "ExS":
+            p0 = [1, 1, 1]    # start with values near those we expect
+            res = scipy.optimize.curve_fit(ExpSin, t, Ct, p0, maxfev=self.maxiter)
+            param = res[0]
+            # fitting function
+            ft = ExpSin(t, param[0], param[1], param[2])
+        elif p.FIT_MODEL == "Ex":
+            p0 = 1    # start with values near those we expect
+            res = scipy.optimize.curve_fit(Exp, t, Ct, p0, maxfev=self.maxiter)
+            param = res[0]
+            # fitting function
+            ft = Exp(t, param[0])
         # p = 1/tau_c (ps^-1/musec^-1)
-        tau_c = 1./p[0]
-        return D2, tau_c, Ct, Exp(t, p)
-    @classmethod
+        tau_c = 1./param[0]
+        if D2 == 0.:
+            tau_c = 0.
+        return D2, tau_c, Ct, ft
+    #
+    # get T2 data
     def get_T2_data(self):
         decoher_dict = {'T2' : None, 'lw' : None, 'Delt' : None, 'tau_c' : None}
         decoher_dict['T2']   = self.T2_obj
@@ -155,15 +272,32 @@ class T2_eval_fit_model_class(T2_eval_class_time_res):
 class T2_eval_from_integ_class(T2_eval_class_time_res):
     def __init__(self):
         super().__init__()
+        # max. number iter. curve fitting
+        self.maxiter = p.maxiter
     def get_T2_data(self):
         super().get_T2_data()
-    @classmethod
-    def evaluate_T2(self, t, acf_int_oft):
-        '''use y(x) = offset + a * cos(x) / (b + c * exp(d*x))'''
-        p0 = [1., 1., 1., 1., 1.]              # start with values close to those expected
-        p = scipy.optimize.curve_fit(fitting_function, t, acf_int_oft, p0, maxfev=self.maxiter)
-        T2i = p[0]
-        return T2i, fitting_function(t, p[0], p[1], p[2], p[3], p[4])
+    def evaluate_T2(self, acf_int_oft):
+        # extract T2i as limt t->inf of acf_int_oft
+        nt = acf_int_oft.shape[0]
+        ft = acf_int_oft[int(7/8*nt):]
+        T2i = sum(ft)/len(ft)
+        T2i = T2i / hbar ** 2
+        # eV^2 ps / eV^2 ps^2 = ps^-1
+        return T2i
+    # print ACF data
+    #
+    def print_autocorrel_data(self, namef, time, ft, Ct, integ_oft):
+        # write data on file
+        if log.level <= logging.INFO:
+            # acf dictionary
+            acf_dict = {'time' : 0, 'acf' : 0, 'ft' : 0, 'acf_integ' : 0}
+            acf_dict['time'] = time
+            acf_dict['acf'] = Ct
+            acf_dict['ft'] = ft
+            acf_dict['acf_integ'] = integ_oft
+            # save dict on file
+            with open(namef, 'w') as out_file:
+                yaml.dump(acf_dict, out_file)
 # -------------------------------------------------------------
 # subclass of the integral model
 # to be used for dynamical homogeneous calculations
@@ -171,6 +305,98 @@ class T2_eval_from_integ_class(T2_eval_class_time_res):
 class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
     def __init__(self):
         super(T2_eval_from_integ_homo_class, self).__init__()
+    def extract_physical_quantities(self, acf_obj, nat):
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # Ct, ft, acf_integ_oft
+            Ct, ft, acf_integ_oft = self.parameter_eval_driver(acf_obj, iT)
+            # write data on file
+            namef = p.write_dir + "/acf-data-iT" + str(iT) + ".yml"
+            self.print_autocorrel_data(namef, p.time, ft, Ct, acf_integ_oft)
+            #
+            # atom resolved
+            if p.at_resolved:
+                # local atom list
+                atr_list = mpi.split_list(range(nat))
+                ft_atr = np.zeros((p.nt2,nat))
+                Ct_atr = np.zeros((p.nt2,nat))
+                integ_atr = np.zeros((p.nt2,nat))
+                # run over atoms
+                for ia in atr_list:
+                    # compute T2 times
+                    Ca_t, fa_t, acf_integ_a_oft = self.atr_parameter_eval_driver(acf_obj, ia, iT)
+                    if fa_t is not None:
+                        ft_atr[:,ia] = fa_t[:]
+                    if Ca_t is not None:
+                        Ct_atr[:,ia] = Ca_t[:]
+                    if acf_integ_a_oft is not None:
+                        integ_atr[:,ia] = acf_integ_a_oft[:]
+                ft_atr = mpi.collect_array(ft_atr)
+                Ct_atr = mpi.collect_array(Ct_atr)
+                integ_atr = mpi.collect_array(integ_atr)
+                # collect into single processor
+                self.T2_obj.collect_atr_from_other_proc(iT)
+                self.Delt_obj.collect_atr_from_other_proc(iT)
+                self.tauc_obj.collect_atr_from_other_proc(iT)
+                self.lw_obj.collect_atr_from_other_proc(iT)
+                # write data on file
+                namef = p.write_dir + "/acf-data-atr-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_atr, Ct_atr, integ_atr)
+            #
+            # ph. resolved
+            if p.ph_resolved:
+                # local wql grid list
+                local_wql_lst = mpi.split_list(np.arange(0, p.nwbn, 1))
+                ft_wql = np.zeros((p.nt2,p.nwbn))
+                Ct_wql = np.zeros((p.nt2,p.nwbn))
+                integ_wql = np.zeros((p.nt2,p.nwbn))
+                # run over modes
+                for iwb in local_wql_lst:
+                    # compute T2 times + print data
+                    Cw_t, fw_t, acf_integ_w_oft = self.wql_parameter_eval_driver(acf_obj, iwb, iT)
+                    if fw_t is not None:
+                        ft_wql[:,iwb] = fw_t[:]
+                    if Cw_t is not None:
+                        Ct_wql[:,iwb] = Cw_t[:]
+                    if acf_integ_w_oft is not None:
+                        integ_wql[:,iwb] = acf_integ_w_oft[:]
+                ft_wql = mpi.collect_array(ft_wql)
+                Ct_wql = mpi.collect_array(Ct_wql)
+                integ_wql = mpi.collect_array(integ_wql)
+                # write data on file
+                namef = p.write_dir + "/acf-data-wql-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_wql, Ct_wql, integ_wql)
+                # check if nphr > 0
+                if p.nphr > 0:
+                    # local list of modes
+                    local_ph_lst = mpi.split_list(p.phm_list)
+                    # run over modes
+                    ft_phr = np.zeros((p.nt2,p.nphr))
+                    Ct_phr = np.zeros((p.nt2,p.nphr))
+                    integ_phr = np.zeros((p.nt2,p.nphr))
+                    for im in local_ph_lst:
+                        iph = p.phm_list.index(im)
+                        # compute T2 times + print data
+                        Cp_t, fp_t, acf_integ_p_oft = self.phr_parameter_eval_driver(acf_obj, iph, iT)
+                        if fp_t is not None:
+                            ft_phr[:,iph] = fp_t[:]
+                        if Cp_t is not None:
+                            Ct_phr[:,iph] = Cp_t[:]
+                        if acf_integ_p_oft is not None:
+                            integ_phr[:,iph] = acf_integ_p_oft[:]
+                    ft_phr = mpi.collect_array(ft_phr)
+                    Ct_phr = mpi.collect_array(Ct_phr)
+                    integ_phr = mpi.collect_array(integ_phr)
+                    # write data on file
+                    namef = p.write_dir + "/acf-data-phr-iT" + str(iT) + ".yml"
+                    self.print_autocorrel_data(namef, p.time2, ft_phr, Ct_phr, integ_phr)
+                # collect into single processor
+                self.T2_obj.collect_phr_from_other_proc(iT)
+                self.Delt_obj.collect_phr_from_other_proc(iT)
+                self.tauc_obj.collect_phr_from_other_proc(iT)
+                self.lw_obj.collect_phr_from_other_proc(iT)
+    #
+    # parameters evaluation
     def parameter_eval_driver(self, acf_obj, iT):
         acf_oft = np.zeros(p.nt)
         acf_integ_oft = np.zeros(p.nt)
@@ -182,10 +408,10 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc(iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf[:,1,iT])
-        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_sec(iT, T2_inv)
         self.lw_obj.set_lw(iT, T2_inv)
-        return Ct, ft, acf_integ_oft, f_it
+        return Ct, ft, acf_integ_oft
     # atom resolved version
     def atr_parameter_eval_driver(self, acf_obj, ia, iT):
         acf_oft = np.zeros(p.nt2)
@@ -198,10 +424,10 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_atr(ia, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_atr[:,1,ia,iT])
-        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_atr(ia, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, iT, T2_inv)
-        return Ct, ft, acf_integ_oft, f_it
+        return Ct, ft, acf_integ_oft
     # ph. res. version
     def phr_parameter_eval_driver(self, acf_obj, iph, iT):
         acf_oft = np.zeros(p.nt2)
@@ -214,10 +440,10 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_phr(iph, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_phr[:,1,iph,iT])
-        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_phr(iph, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, iT, T2_inv)
-        return Ct, ft, acf_integ_oft, f_it
+        return Ct, ft, acf_integ_oft
     # wql resolved
     def wql_parameter_eval_driver(self, acf_obj, iwql, iT):
         acf_oft = np.zeros(p.nt2)
@@ -230,10 +456,10 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_wql(iwql, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_wql[:,1,iwql,iT])
-        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_wql(iwql, iT, T2_inv)
         self.lw_obj.set_lw_wql(iwql, iT, T2_inv)
-        return Ct, ft, acf_integ_oft, f_it
+        return Ct, ft, acf_integ_oft
 # -------------------------------------------------------------
 # subclass of the integral model
 # to be used for dynamical inhomogeneous calculations
@@ -241,6 +467,98 @@ class T2_eval_from_integ_homo_class(T2_eval_from_integ_class):
 class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
     def __init__(self):
         super(T2_eval_from_integ_inhom_class, self).__init__()
+    def extract_physical_quantities(self, acf_obj, ic, nat):
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # Ct, ft, acf_integ_oft
+            Ct, ft, acf_integ_oft = self.parameter_eval_driver(acf_obj, ic, iT)
+            # write data on file
+            namef = p.write_dir + "/acf-data-ic" + str(ic) + "-iT" + str(iT) + ".yml"
+            self.print_autocorrel_data(namef, p.time, ft, Ct, acf_integ_oft)
+            #
+            # atom resolved
+            if p.at_resolved:
+                # local atom list
+                atr_list = mpi.split_list(range(nat))
+                ft_atr = np.zeros((p.nt2,nat))
+                Ct_atr = np.zeros((p.nt2,nat))
+                integ_atr = np.zeros((p.nt2,nat))
+                # run over atoms
+                for ia in atr_list:
+                    # compute T2 times
+                    Ca_t, fa_t, acf_integ_a_oft = self.atr_parameter_eval_driver(acf_obj, ia, ic, iT)
+                    if fa_t is not None:
+                        ft_atr[:,ia] = fa_t[:]
+                    if Ca_t is not None:
+                        Ct_atr[:,ia] = Ca_t[:]
+                    if acf_integ_a_oft is not None:
+                        integ_atr[:,ia] = acf_integ_a_oft[:]
+                ft_atr = mpi.collect_array(ft_atr)
+                Ct_atr = mpi.collect_array(Ct_atr)
+                integ_atr = mpi.collect_array(integ_atr)
+                # collect into single processor
+                self.T2_obj.collect_atr_from_other_proc(ic, iT)
+                self.Delt_obj.collect_atr_from_other_proc(ic, iT)
+                self.tauc_obj.collect_atr_from_other_proc(ic, iT)
+                self.lw_obj.collect_atr_from_other_proc(ic, iT)
+                # write data on file
+                namef = p.write_dir + "/acf-data-atr-ic" + str(ic) + "-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_atr, Ct_atr, integ_atr)
+            #
+            # ph. resolved
+            if p.ph_resolved:
+                # local wql grid list
+                local_wql_lst = mpi.split_list(np.arange(0, p.nwbn, 1))
+                ft_wql = np.zeros((p.nt2,p.nwbn))
+                Ct_wql = np.zeros((p.nt2,p.nwbn))
+                integ_wql = np.zeros((p.nt2,p.nwbn))
+                # run over modes
+                for iwb in local_wql_lst:
+                    # compute T2 times + print data
+                    Cw_t, fw_t, acf_integ_w_oft = self.wql_parameter_eval_driver(acf_obj, iwb, ic, iT)
+                    if fw_t is not None:
+                        ft_wql[:,iwb] = fw_t[:]
+                    if Cw_t is not None:
+                        Ct_wql[:,iwb] = Cw_t[:]
+                    if acf_integ_w_oft is not None:
+                        integ_wql[:,iwb] = acf_integ_w_oft[:]
+                ft_wql = mpi.collect_array(ft_wql)
+                Ct_wql = mpi.collect_array(Ct_wql)
+                integ_wql = mpi.collect_array(integ_wql)
+                # write data on file
+                namef = p.write_dir + "/acf-data-wql-ic" + str(ic) + "-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_wql, Ct_wql, integ_wql)
+                # check if nphr > 0
+                if p.nphr > 0:
+                    # local list of modes
+                    local_ph_lst = mpi.split_list(p.phm_list)
+                    # run over modes
+                    ft_phr = np.zeros((p.nt2,p.nphr))
+                    Ct_phr = np.zeros((p.nt2,p.nphr))
+                    integ_phr = np.zeros((p.nt2,p.nphr))
+                    for im in local_ph_lst:
+                        iph = p.phm_list.index(im)
+                        # compute T2 times + print data
+                        Cp_t, fp_t, acf_integ_p_oft = self.phr_parameter_eval_driver(acf_obj, iph, ic, iT)
+                        if fp_t is not None:
+                            ft_phr[:,iph] = fp_t[:]
+                        if Cp_t is not None:
+                            Ct_phr[:,iph] = Cp_t[:]
+                        if acf_integ_p_oft is not None:
+                            integ_phr[:,iph] = acf_integ_p_oft[:]
+                    ft_phr = mpi.collect_array(ft_phr)
+                    Ct_phr = mpi.collect_array(Ct_phr)
+                    integ_phr = mpi.collect_array(integ_phr)
+                    # write data on file
+                    namef = p.write_dir + "/acf-data-phr-ic" + str(ic) + "-iT" + str(iT) + ".yml"
+                    self.print_autocorrel_data(namef, p.time2, ft_phr, Ct_phr, integ_phr)
+                # collect into single processor
+                self.T2_obj.collect_phr_from_other_proc(ic, iT)
+                self.Delt_obj.collect_phr_from_other_proc(ic, iT)
+                self.tauc_obj.collect_phr_from_other_proc(ic, iT)
+                self.lw_obj.collect_phr_from_other_proc(ic, iT)
+    #
+    # parameters evaluation
     def parameter_eval_driver(self, acf_obj, ic, iT):
         acf_oft = np.zeros(p.nt)
         acf_integ_oft = np.zeros(p.nt)
@@ -252,10 +570,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc(ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf[:,1,iT])
-        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_sec(ic, iT, T2_inv)
         self.lw_obj.set_lw(ic, iT, T2_inv)
-        return Ct, ft, acf_integ_oft, f_it
+        return Ct, ft, acf_integ_oft
     # atom resolved version
     def atr_parameter_eval_driver(self, acf_obj, ia, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -268,10 +586,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_atr(ia, ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_atr[:,1,ia,iT])
-        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
-        return Ct, ft, acf_integ_oft, f_it
+        return Ct, ft, acf_integ_oft
     # ph. resolved version
     def phr_parameter_eval_driver(self, acf_obj, iph, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -284,10 +602,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_phr(iph, ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_phr[:,1,iph,iT])
-        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
-        return Ct, ft, acf_integ_oft, f_it
+        return Ct, ft, acf_integ_oft
     # wql resolved version
     def wql_parameter_eval_driver(self, acf_obj, iwql, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -300,10 +618,10 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.tauc_obj.set_tauc_wql(iwql, ic, iT, tauc_ps)
         # compute T2_inv
         acf_integ_oft[:] = np.real(acf_obj.acf_wql[:,1,iwql,iT])
-        T2_inv, f_it = self.evaluate_T2(acf_integ_oft)
+        T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_wql(iwql, ic, iT, T2_inv)
         self.lw_obj.set_lw_wql(iwql, ic, iT, T2_inv)
-        return Ct, ft, acf_integ_oft, f_it
+        return Ct, ft, acf_integ_oft
 # -------------------------------------------------------------
 # subclass -> template for pure fitting calculation
 # this is also abstract -> real class we must specifiy
@@ -312,8 +630,9 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
 class T2_eval_fit_model_class(T2_eval_class_time_res):
     def __init__(self):
         super().__init__()
+        self.maxiter = p.maxiter
     @abstractmethod
-    def evaluate_T2(self, D2, tauc_ps):
+    def evaluate_T2(self, args):
         '''method to implement'''
         return
     def T2inv_interp_eval(self, D2, tauc_ps):
@@ -343,6 +662,19 @@ class T2_eval_fit_model_class(T2_eval_class_time_res):
         except RuntimeError:
             T2_inv = None
         return T2_inv
+    #
+    # print ACF data
+    def print_autocorrel_data(self, namef, time, ft, Ct):
+        # write data on file
+        if log.level <= logging.INFO:
+            # acf dictionary
+            acf_dict = {'time' : 0, 'acf' : 0, 'ft' : 0}
+            acf_dict['time'] = time
+            acf_dict['acf'] = Ct
+            acf_dict['ft'] = ft
+            # save dict on file
+            with open(namef, 'w') as out_file:
+                yaml.dump(acf_dict, out_file)
 # -------------------------------------------------------------
 # abstract subclass of the fitting model
 # template for homo/inhomo dynamical calculations
@@ -350,7 +682,16 @@ class T2_eval_fit_model_class(T2_eval_class_time_res):
 class T2_eval_fit_model_dyn_class(T2_eval_fit_model_class):
     def __init__(self):
         super(T2_eval_fit_model_dyn_class, self).__init__()
-    def evaluate_T2(self, D2, tauc_ps):
+    def evaluate_T2(self, args):
+        if p.FIT_MODEL == "Ex":
+            [D2, tauc_ps] = args
+            return self.evaluate_T2_exp_fit(D2, tauc_ps)
+        elif p.FIT_MODEL == "ExS":
+            [D2, t, ft] = args
+            return self.evaluate_T2_expsin_fit(D2, t, ft)
+    #
+    #  T2 implementation    
+    def evaluate_T2_exp_fit(self, D2, tauc_ps):
         # compute r = Delta tau_c
         # dynamical calculations -> r << 1
         r = np.sqrt(D2) / hbar * tauc_ps
@@ -364,6 +705,16 @@ class T2_eval_fit_model_dyn_class(T2_eval_fit_model_class):
             log.warning("\t dynamical calc: r >~ 1 : " + str(r))
             T2_inv = None
         return T2_inv
+    def evaluate_T2_expsin_fit(self, D2, t, ft):
+        # T2_inv = D2 * int_0^T dt ft -> eV^2 ps
+        # T2_inv /= hbar^2 -> ps^-1
+        if ft is not None:
+            T2_inv = integrate.simpson(ft, t)
+            T2_inv = T2_inv * D2 / hbar ** 2
+            # ps^-1
+        else:
+            T2_inv = None
+        return T2_inv
 # -------------------------------------------------------------
 # subclass of the fitting model
 # to be used for dynamical calculation -> different fitting
@@ -372,6 +723,86 @@ class T2_eval_fit_model_dyn_class(T2_eval_fit_model_class):
 class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
     def __init__(self):
         super(T2_eval_fit_model_dyn_homo_class, self).__init__()
+    def extract_physical_quantities(self, acf_obj, nat):
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # Ct, ft
+            Ct, ft = self.parameter_eval_driver(acf_obj, iT)
+            # write data on file
+            namef = p.write_dir + "/acf-data-iT" + str(iT) + ".yml"
+            self.print_autocorrel_data(namef, p.time, ft, Ct)
+            #
+            # atom resolved
+            if p.at_resolved:
+                # local atom list
+                atr_list = mpi.split_list(range(nat))
+                ft_atr = np.zeros((p.nt2,nat))
+                Ct_atr = np.zeros((p.nt2,nat))
+                # run over atoms
+                for ia in atr_list:
+                    # compute T2 times
+                    Ca_t, fa_t = self.atr_parameter_eval_driver(acf_obj, ia, iT)
+                    if fa_t is not None:
+                        ft_atr[:,ia] = fa_t[:]
+                    if Ca_t is not None:
+                        Ct_atr[:,ia] = Ca_t[:]
+                ft_atr = mpi.collect_array(ft_atr)
+                Ct_atr = mpi.collect_array(Ct_atr)
+                # collect into single proc.
+                self.T2_obj.collect_atr_from_other_proc(iT)
+                self.Delt_obj.collect_atr_from_other_proc(iT)
+                self.tauc_obj.collect_atr_from_other_proc(iT)
+                self.lw_obj.collect_atr_from_other_proc(iT)
+                # write data on file
+                namef = p.write_dir + "/acf-data-atr-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_atr, Ct_atr)
+            #
+            # ph. resolved
+            if p.ph_resolved:
+                # local wql list
+                local_wql_lst = mpi.split_list(np.arange(0, p.nwbn, 1))
+                ft_wql = np.zeros((p.nt2,p.nwbn))
+                Ct_wql = np.zeros((p.nt2,p.nwbn))
+                # run over modes
+                for iwb in local_wql_lst:
+                    # compute T2 times + print data
+                    Cw_t, fw_t = self.wql_parameter_eval_driver(acf_obj, iwb, iT)
+                    if fw_t is not None:
+                        ft_wql[:,iwb] = fw_t[:]
+                    if Cw_t is not None:
+                        Ct_wql[:,iwb] = Cw_t[:]
+                ft_wql = mpi.collect_array(ft_wql)
+                Ct_wql = mpi.collect_array(Ct_wql)
+                # write data on file
+                namef = p.write_dir + "/acf-data-wql-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_wql, Ct_wql)
+                # check if nphr > 0
+                if p.nphr > 0:
+                    # local list modes
+                    local_ph_lst = mpi.split_list(p.phm_list)
+                    # run over modes
+                    ft_phr = np.zeros((p.nt2,p.nphr))
+                    Ct_phr = np.zeros((p.nt2,p.nphr))
+                    for im in local_ph_lst:
+                        iph = p.phm_list.index(im)
+                        # compute T2 times
+                        Cp_t, fp_t = self.phr_parameter_eval_driver(acf_obj, iph, iT)
+                        if fp_t is not None:
+                            ft_phr[:,iph] = fp_t[:]
+                        if Cp_t is not None:
+                            Ct_phr[:,iph] = Cp_t[:]
+                    ft_phr = mpi.collect_array(ft_phr)
+                    Ct_phr = mpi.collect_array(Ct_phr)
+                    # write data file
+                    namef = p.write_dir + "/acf-data-phr-iT" + str(iT) + ".yml"
+                    self.print_autocorrel_data(namef, p.time2, ft_phr, Ct_phr)
+                # collect data
+                self.T2_obj.collect_phr_from_other_proc(iT)
+                self.Delt_obj.collect_phr_from_other_proc(iT)
+                self.tauc_obj.collect_phr_from_other_proc(iT)
+                self.lw_obj.collect_phr_from_other_proc(iT)
+    #
+    #  parameters calculation
     def parameter_eval_driver(self, acf_obj, iT):
         acf_oft = np.zeros(p.nt)
         # store acf_oft
@@ -381,7 +812,10 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
         self.Delt_obj.set_Delt(iT, D2)
         self.tauc_obj.set_tauc(iT, tauc_ps)
         # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time, ft])
         self.T2_obj.set_T2_sec(iT, T2_inv)
         # lw obj
         self.lw_obj.set_lw(iT, T2_inv)
@@ -396,7 +830,10 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
         self.Delt_obj.set_Delt_atr(ia, iT, D2)
         self.tauc_obj.set_tauc_atr(ia, iT, tauc_ps)
         # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time2, ft])
         self.T2_obj.set_T2_atr(ia, iT, T2_inv)
         # lw obj.
         self.lw_obj.set_lw_atr(ia, iT, T2_inv)
@@ -411,7 +848,10 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
         self.Delt_obj.set_Delt_phr(iph, iT, D2)
         self.tauc_obj.set_tauc_phr(iph, iT, tauc_ps)
         # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time2, ft])
         self.T2_obj.set_T2_phr(iph, iT, T2_inv)
         # lw obj.
         self.lw_obj.set_lw_phr(iph, iT, T2_inv)
@@ -426,8 +866,12 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
         self.Delt_obj.set_Delt_wql(iwql, iT, D2)
         self.tauc_obj.set_tauc_wql(iwql, iT, tauc_ps)
         # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time2, ft])
         self.T2_obj.set_T2_wql(iwql, iT, T2_inv)
+        # store lw_obj
         self.lw_obj.set_lw_wql(iwql, iT, T2_inv)
         return Ct, ft
 # -------------------------------------------------------------
@@ -438,6 +882,86 @@ class T2_eval_fit_model_dyn_homo_class(T2_eval_fit_model_dyn_class):
 class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
     def __init__(self):
         super(T2_eval_fit_model_dyn_inhom_class, self).__init__()
+    def extract_physical_quantities(self, acf_obj, ic, nat):
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # Ct, ft
+            Ct, ft = self.parameter_eval_driver(acf_obj, ic, iT)
+            # write data on file
+            namef = p.write_dir + "/acf-data-ic" + str(ic) + "-iT" + str(iT) + ".yml"
+            self.print_autocorrel_data(namef, p.time, ft, Ct)
+            #
+            # atom resolved
+            if p.at_resolved:
+                # local atom list
+                atr_list = mpi.split_list(range(nat))
+                ft_atr = np.zeros((p.nt2,nat))
+                Ct_atr = np.zeros((p.nt2,nat))
+                # run over atoms
+                for ia in atr_list:
+                    # compute T2 times
+                    Ca_t, fa_t = self.atr_parameter_eval_driver(acf_obj, ia, ic, iT)
+                    if fa_t is not None:
+                        ft_atr[:,ia] = fa_t[:]
+                    if Ca_t is not None:
+                        Ct_atr[:,ia] = Ca_t[:]
+                ft_atr = mpi.collect_array(ft_atr)
+                Ct_atr = mpi.collect_array(Ct_atr)
+                # into single proc.
+                self.T2_obj.collect_atr_from_other_proc(ic, iT)
+                self.Delt_obj.collect_atr_from_other_proc(ic, iT)
+                self.tauc_obj.collect_atr_from_other_proc(ic, iT)
+                self.lw_obj.collect_atr_from_other_proc(ic, iT)
+                # write data on file
+                namef = p.write_dir + "/acf-data-atr-ic" + str(ic) + "-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_atr, Ct_atr)
+            #
+            # ph. resolved
+            if p.ph_resolved:
+                # local wql list
+                local_wql_list = mpi.split_list(np.arange(0, p.nwbn, 1))
+                ft_wql = np.zeros((p.nt2,p.nwbn))
+                Ct_wql = np.zeros((p.nt2,p.nwbn))
+                # run over modes
+                for iwb in local_wql_list:
+                    # compute T2 times + print data
+                    Cw_t, fw_t = self.wql_parameter_eval_driver(acf_obj, iwb, ic, iT)
+                    if fw_t is not None:
+                        ft_wql[:,iwb] = fw_t[:]
+                    if Cw_t is not None:
+                        Ct_wql[:,iwb] = Cw_t[:]
+                ft_wql = mpi.collect_array(ft_wql)
+                Ct_wql = mpi.collect_array(Ct_wql)
+                # write data on file
+                namef = p.write_dir + "/acf-data-wql-ic" + str(ic) + "-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_wql, Ct_wql)
+                # check if nphr > 0
+                if p.nphr > 0:
+                    # local list of modes
+                    local_ph_list = mpi.split_list(p.phm_list)
+                    # run over modes
+                    ft_phr = np.zeros((p.nt2,p.nphr))
+                    Ct_phr = np.zeros((p.nt2,p.nphr))
+                    for im in local_ph_list:
+                        iph = p.phm_list.index(im)
+                        # compute T2 times + print data
+                        Cp_t, fp_t = self.phr_parameter_eval_driver(acf_obj, iph, ic, iT)
+                        if fp_t is not None:
+                            ft_phr[:,iph] = fp_t[:]
+                        if Cp_t is not None:
+                            Ct_phr[:,iph] = Cp_t[:]
+                    ft_phr = mpi.collect_array(ft_phr)
+                    Ct_phr = mpi.collect_array(Ct_phr)
+                    # write data on file
+                    namef = p.write_dir + "/acf-data-phr-ic" + str(ic) + "-iT" + str(iT) + ".yml"
+                    self.print_autocorrel_data(namef, p.time2, ft_phr, Ct_phr)
+                # collect to single proc.
+                self.T2_obj.collect_phr_from_other_proc(ic, iT)
+                self.Delt_obj.collect_phr_from_other_proc(ic, iT)
+                self.tauc_obj.collect_phr_from_other_proc(ic, iT)
+                self.lw_obj.collect_phr_from_other_proc(ic, iT)
+    #
+    #  parameters evaluation
     def parameter_eval_driver(self, acf_obj, ic, iT):
         acf_oft = np.zeros(p.nt)
         # store acf_oft
@@ -447,7 +971,10 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.Delt_obj.set_Delt(ic, iT, D2)
         self.tauc_obj.set_tauc(ic, iT, tauc_ps)
         # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time, ft])
         # store results in objects
         self.T2_obj.set_T2_sec(ic, iT, T2_inv)
         # lw object
@@ -463,7 +990,11 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.Delt_obj.set_Delt_atr(ia, ic, iT, D2)
         self.tauc_obj.set_tauc_atr(ia, ic, iT, tauc_ps)
         # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time2, ft])
+        # store results
         self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
         # lw obj.
         self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
@@ -478,7 +1009,11 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.Delt_obj.set_Delt_phr(iph, ic, iT, D2)
         self.tauc_obj.set_tauc_phr(iph, ic, iT, tauc_ps)
         # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time2, ft])
+        # store data
         self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
         return Ct, ft
@@ -492,7 +1027,11 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.Delt_obj.set_Delt_wql(iwql, ic, iT, D2)
         self.tauc_obj.set_tauc_wql(iwql, ic, iT, tauc_ps)
         # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time2, ft])
+        # store data
         self.T2_obj.set_T2_wql(iwql, ic, iT, T2_inv)
         self.lw_obj.set_lw_wql(iwql, ic, iT, T2_inv)
         return Ct, ft

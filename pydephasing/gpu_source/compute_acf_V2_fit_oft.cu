@@ -55,10 +55,10 @@ const double KB, const double TOLER, cmplx *acf) {
 
 /* acf V2 at/ph (t) -> fit calculation */
 
-__global__ void compute_acf_V2_atr_oft(int *at_lst, int NA_SIZE, double *time, int SIZE, int NMODES, 
-int NAT, double DE, double NU, double wq, double wuq, double Alq, double *wqp, double *wuqp, 
-double *Alqp, cmplx *Fjax_lqlqp, double T, double MINFREQ, double THZTOEV, double KB, double TOLER,
-cmplx *acf) {
+__global__ void compute_acf_V2_atr_oft(int *at_lst, const int NA_SIZE, double *time, const int SIZE, 
+const int NMODES, const int NAT, double DE, double NU, double wq, double wuq, double Alq, double *wqp, 
+double *wuqp, double *Alqp, cmplx *Fjax_lqlqp, double T, const double MINFREQ, const double THZTOEV, 
+const double KB, const double TOLER, cmplx *acf) {
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
     const int k = threadIdx.z + blockDim.z * blockIdx.z;
@@ -67,11 +67,13 @@ cmplx *acf) {
     int ax = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal vars. */
     double wql, Eql, x, wqlp, Eqlp;
-    double nql;
-    double re;
+    double nql, nqlp;
+    double re, im;
+    int ia, iqlp, iFx, dx;
+    cmplx ft;
     /* tx < SIZE : PROCEED */
     if (tx < SIZE && ax < NA_SIZE) {
-        int ia = at_lst[ax];
+        ia = at_lst[ax];
         if (wuq > MINFREQ) {
             wql = 2.*PI*wuq;
             /* ph. occup. */
@@ -91,17 +93,10 @@ cmplx *acf) {
                     x = Eqlp / (KB * T);
                     nqlp = bose_occup(x, T, TOLER);
                     /* acf^(2)(t) */
-                    ft = nql * (1.+nqlp) * eiwt * EXP(-NU*time[tx]);
+                    ft = nql * (1.+nqlp) * eiwt * exp(-NU*time[tx]);
                     for (dx=0; dx<3; dx++) {
                         iFx = 3*NAT*iqlp+3*ia+dx;
                         acf[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * ft * Fjax_lqlqp[iFx] * conj(Fjax_lqlqp[iFx]);
-                    }
-                    /* compute cumulative sum auto correl. function (eV^2 ps) units*/
-                    cmplx DN(DE+wqlp-wql,-NU);
-                    ft = IU * nql * (1.+nqlp) * (eiwt * EXP(-NU*time[tx]) - 1.) / DN
-                    for (dx=0; dx<3; dx++) {
-                        iFx = 3*NAT*iqlp+3*ia+dx;
-                        acf_int[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * ft * Fjax_lqlqp[iFx] * conj(Fjax_lqlqp[iFx]);
                     }
                 }
             }

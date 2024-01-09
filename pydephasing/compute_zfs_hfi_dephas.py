@@ -10,9 +10,10 @@ from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.extract_ph_data import extract_ph_data
-from pydephasing.auto_correlation_driver import acf_ph
+from pydephasing.auto_correl_inhom_driver import acf_sp_ph_inhom
 from pydephasing.nuclear_spin_config import nuclear_spins_config
 from pydephasing.restart import restart_calculation
+from pydephasing.T2_calc_handler import set_T2_calc_handler
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 import logging
@@ -86,9 +87,9 @@ def compute_full_dephas():
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
+    #
     # set up spin phonon interaction class
-    sp_ph_inter = SpinPhononClass()
-    sp_ph_inter.generate_instance()
+    sp_ph_inter = SpinPhononClass().generate_instance()
     sp_ph_inter.set_quantum_states(Hsp)
     #
     # extract phonon data
@@ -136,54 +137,14 @@ def compute_full_dephas():
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)
     #
-    # prepare calculation over q pts.
-    # and ph. modes
+    # set up ACF over (q,l) list 
+    acf = acf_sp_ph_inhom()
+    acf.allocate_acf_arrays(nat)
+    print(" -- OK HERE -- ")
     #
-    ql_list = mpi.split_ph_modes(nq, 3*nat)
-    #
-    # set ACF 
-    acf = acf_ph().generate_instance()
     # restart calculation
     restart_file = p.write_dir + "/restart_calculation.yml"
-    isExist = os.path.exists(restart_file)
-    if not isExist:
-        ic0 = 0
-        if p.time_resolved:
-            acf_aver = np.zeros((p.nt,2,p.ntmp), dtype=np.complex128)
-        elif p.w_resolved:
-            acf_aver = np.zeros((p.nwg,p.ntmp), dtype=np.complex128)
-        # atom resolved initialization
-        if p.at_resolved:
-            if p.time_resolved:
-                acf_atr_aver = np.zeros((p.nt2,2,nat,p.ntmp), dtype=np.complex128)
-            elif p.w_resolved:
-                acf_atr_aver = np.zeros((p.nwg,nat,p.ntmp), dtype=np.complex128)
-        # ph. resolved initialization
-        if p.ph_resolved:
-            if p.time_resolved:
-                acf_wql_aver = np.zeros((p.nt2,2,p.nwbn,p.ntmp), dtype=np.complex128)
-                if p.nphr > 0:
-                    acf_phr_aver = np.zeros((p.nt2,2,p.nphr,p.ntmp), dtype=np.complex128)
-            elif p.w_resolved:
-                acf_wql_aver = np.zeros((p.nwg,p.nwbn,p.ntmp), dtype=np.complex128)
-                if p.nphr > 0:
-                    acf_phr_aver = np.zeros((p.nwg,p.nphr,p.ntmp), dtype=np.complex128)
-    else:
-        ic0, T2_list, Delt_list, tauc_list, acf_data = restart_calculation(restart_file)
-        acf_aver = acf_data[0]
-        if p.at_resolved:
-            acf_atr_aver = acf_data[1]
-            if p.ph_resolved and len(acf_data) == 3:
-                acf_wql_aver = acf_data[2]
-            elif p.ph_resolved and len(acf_data) == 4:
-                acf_wql_aver = acf_data[2]
-                acf_phr_aver = acf_data[3]
-        else:
-            if p.ph_resolved and len(acf_data) == 2:
-                acf_wql_aver = acf_data[1]
-            elif p.ph_resolved and len(acf_data) == 3:
-                acf_wql_aver = acf_data[1]
-                acf_phr_aver = acf_data[2]
+    ic0, T2_calc_handler = acf.restart_calculation(nat, restart_file)
     # ---------------------------------------------------------
     #  
     #   START ITERATING OVER DIFFERENT CONFIG.
@@ -206,10 +167,10 @@ def compute_full_dephas():
         #       HFI + ZFS forces
         # ---------------------------------------------------------
         Fax = np.zeros(Fzfs_ax.shape, dtype=np.complex128)
-        Fax[:,:,:] = Fzfs_ax[:,:,:] + Fhfi_ax[:,:,:]
+        Fax = Fzfs_ax + Fhfi_ax
         if p.order_2_correct:
             Faxby = np.zeros(Fzfs_axby.shape, dtype=np.complex128)
-            Faxby[:,:,:,:] = Fzfs_axby[:,:,:,:] + Fhfi_axby[:,:,:,:]
+            Faxby = Fzfs_axby + Fhfi_axby
         else:
             Faxby = None
         # ---------------------------------------------------
@@ -217,15 +178,17 @@ def compute_full_dephas():
         #   COMPUTE ACF
         #
         # ---------------------------------------------------
-        acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, ql_list, Hsp)
+        acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, Hsp)
         #
         # collect data from processes
         acf.collect_acf_from_processes(nat)
         # test acf -> check t=0 / w=0
         if log.level <= logging.INFO:
             acf.auto_correl_test()
-        #import matplotlib.pyplot as plt
-        #if mpi.rank == mpi.root and p.w_resolved:
-        #    plt.plot(p.w_grid, acf.acf[:,0])
-        #    plt.savefig('./examples/NV-diamond/Ffull100_1_DEPH_ofw.png')
+        # update avg ACF
+        acf.update_avg_acf()
+        #
+        # extract T2 inv
+        T2_calc_handler.extract_physical_quantities(acf, ic, nat)
+        print(T2_calc_handler.T2_obj.T2_sec)
         sys.exit()

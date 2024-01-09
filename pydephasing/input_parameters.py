@@ -71,6 +71,8 @@ class data_input():
         # integral / fit
         self.ACF_INTEG = False
         self.ACF_FIT = False
+        # fit model (default) ExpSin / Exp
+        self.FIT_MODEL = "ExS"
         # eta decay parameter
         self.eta = 1e-5
         # in eV units
@@ -83,6 +85,9 @@ class data_input():
         self.w_max = 0.
         # eV
         self.lorentz_thres = 0.
+        # fraction of atoms preserved
+        # in gradient calculation
+        self.frac_kept_atoms = 1.
         ######################################
         # hyperfine parameters
         # n. spins list
@@ -200,6 +205,15 @@ class data_input():
                     log.error("\t T2 EXTRACTION METHOD ONLY : [ fit / integ ]")
             else:
                 log.error("\t T2 EXTRACTION METHOD : [ fit / integ ] MUST BE GIVEN IN INPUT")
+            # fitting model -> (1) Exp ; (2) ExpSin
+            # ExpSin -> more accurate dynamical calculations
+            if 'fit_model' in data:
+                if data['fit_model'] == "Exp":
+                    self.FIT_MODEL = 'Ex'
+                elif data['fit_model'] == "ExpSin":
+                    self.FIT_MODEL = 'ExS'
+                else:
+                    log.error("\t fit model ONLY : [ Exp / ExpSin ]") 
             # min. frequency
             if 'min_freq' in data:
                 self.min_freq = data['min_freq']
@@ -243,6 +257,10 @@ class data_input():
         if 'core' in data:
             if data['core'] == False:
                 self.fc_core = False
+        # fraction atoms to be used in the gradient calculation
+        # starting from the farthest away from defect
+        if 'frac_kept_atoms' in data:
+            self.frac_kept_atoms = data['frac_kept_atoms']
         # dynamical decoupling -> number of pulses
         if 'npulses' in data:
             self.n_pulses = data['npulses']
@@ -411,8 +429,7 @@ class data_input():
     #
     def set_dyndec_param(self, wu):
         # compute minimal time interval
-        # dtm = 1 / max_freq / 2
-        max_freq = np.max(wu) / 3.
+        max_freq = np.max(wu) * 5.
         # THz
         dw = max_freq / (self.nw - 1)
         self.wg = np.zeros(self.nw)
@@ -450,7 +467,7 @@ class data_input():
     #
     # set w_grid
     def set_w_grid(self, wu):
-        self.w_max = np.max(wu) * THz_to_ev
+        self.w_max = np.max(wu) * THz_to_ev * 10.
         # eV
         dw = self.w_max / (self.nwg - 1)
         self.w_grid = np.zeros(self.nwg)

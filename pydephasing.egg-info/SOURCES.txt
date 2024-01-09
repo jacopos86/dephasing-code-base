@@ -7,6 +7,7 @@ pydephasing/T2_classes.py
 pydephasing/__init__.py
 pydephasing/__main__.py
 pydephasing/atomic_list_struct.py
+pydephasing/auto_correl_inhom_driver.py
 pydephasing/auto_correlation_driver.py
 pydephasing/auto_correlation_spph_mod.py
 pydephasing/auto_correlation_stat_module.py

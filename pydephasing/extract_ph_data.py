@@ -4,7 +4,7 @@ import numpy as np
 import h5py
 from pydephasing.input_parameters import p
 from pydephasing.phys_constants import eps, THz_to_ev
-from pydephasing.utility_functions import lorentzian
+from pydephasing.utility_functions import lorentzian, bose_occup
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 import logging
@@ -60,6 +60,7 @@ def set_ql_list_red_qgrid(qpts, nat, wu):
 #
 # list of (l',q') pairs
 def set_iqlp_list(il, iq, qlp_list_full, wu, H):
+    T = np.max(p.temperatures)
     # dE
     dE = 0.0
     if p.relax:
@@ -70,23 +71,33 @@ def set_iqlp_list(il, iq, qlp_list_full, wu, H):
         # eV
     # set w_ql (eV)
     E_ql = wu[iq][il] * THz_to_ev
-    ltz_max = 0.
-    for iqp, ilp in qlp_list_full:
-        if iqp != iq or ilp != il:
-            E_qlp = wu[iqp][ilp] * THz_to_ev
-            # eV
-            x = dE + E_qlp - E_ql
-            if lorentzian(x, p.eta) > ltz_max:
-                ltz_max = lorentzian(x, p.eta)
+    nql = bose_occup(E_ql, T)
+    # if freq. resolved calculation
+    if p.w_resolved:
+        ltz_max = 0.
+        for iqp, ilp in qlp_list_full:
+            if iqp != iq or ilp != il:
+                E_qlp = wu[iqp][ilp] * THz_to_ev
+                # eV
+                x = dE + E_qlp - E_ql
+                if lorentzian(x, p.eta) > ltz_max:
+                    ltz_max = lorentzian(x, p.eta)
     # run over (q',l')
     qlp_list = []
     for iqp, ilp in qlp_list_full:
         if iqp != iq or ilp != il:
             E_qlp = wu[iqp][ilp] * THz_to_ev
             # E (eV)
-            x = dE + E_qlp - E_ql
-            if lorentzian(x, p.eta) / ltz_max > p.lorentz_thres:
-                qlp_list.append((iqp,ilp))
+            nqlp = bose_occup(E_qlp, T)
+            A_th = nql * (1. + nqlp)
+            if p.w_resolved:
+                x = dE + E_qlp - E_ql
+                if lorentzian(x, p.eta) / ltz_max > p.lorentz_thres and A_th > 1.E-7:
+                    #print(dE, E_ql, E_qlp, x, lorentzian(x, p.eta))
+                    qlp_list.append((iqp,ilp))
+            else:
+                if A_th > 1.E-7:
+                    qlp_list.append((iqp,ilp))
     return qlp_list
 #
 # check eigenv data

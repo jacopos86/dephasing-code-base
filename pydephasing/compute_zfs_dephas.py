@@ -14,7 +14,7 @@ from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.ph_ampl_module import PhononAmplitude
-from pydephasing.auto_correlation_driver import acf_ph
+from pydephasing.auto_correlation_spph_mod import acf_sp_ph
 from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT
 from pydephasing.T2_calc_handler import set_T2_calc_handler
 import sys
@@ -57,7 +57,7 @@ def compute_homo_dephas():
     atoms.extract_atoms_coords(nat)
     # zfs 2nd order
     # TODO : uncomment here
-    '''
+    #'''
     if p.order_2_correct:
         # set 2nd order tensor
         grad2ZFS = gradient_2nd_ZFS(p.work_dir, p.grad_info)
@@ -76,14 +76,13 @@ def compute_homo_dephas():
                 grad2ZFS.write_grad2Dtensor_to_file(p.write_dir)
         if log.level <= logging.DEBUG and p.order_2_correct:
             grad2ZFS.check_tensor_coefficients()
-    '''
+    #'''
     mpi.comm.Barrier()
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
     # set up spin phonon interaction class
-    sp_ph_inter = SpinPhononClass()
-    sp_ph_inter.generate_instance()
+    sp_ph_inter = SpinPhononClass().generate_instance()
     sp_ph_inter.set_quantum_states(Hsp)
     #
     # extract phonon data
@@ -124,10 +123,11 @@ def compute_homo_dephas():
         # F_axby = <1|S Grad_ax,by D S|1> - <0|S Grad_ax,by D S|0>
         # F should be in eV/ang^2 units
         # TODO : uncomment here 
-        '''
+        #'''
         sp_ph_inter.set_Faxby_zfs(grad2ZFS, Hsp)
         Faxby = sp_ph_inter.Fzfs_axby
-        '''
+        print(np.max(Faxby))
+        #'''
         Faxby = np.zeros((3*nat, 3*nat), dtype=np.complex128)
         # eV / ang^2
     else:
@@ -136,25 +136,22 @@ def compute_homo_dephas():
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)
     #
-    T2_calc_handler = set_T2_calc_handler()
-    #
     # compute acf over local (q,l) list
-    acf = acf_ph().generate_instance()
+    acf = acf_sp_ph().generate_instance()
     acf.allocate_acf_arrays(nat)
     acf.compute_acf(wq, wu, u, qpts, nat, Fax, Faxby, Hsp)
-    print("JABBA")
     #
     # collect data from processes
     acf.collect_acf_from_processes(nat)
     # test acf -> check t=0 / w=0
     if log.level <= logging.INFO:
         acf.auto_correl_test()
-    import matplotlib.pyplot as plt
-    if mpi.rank == mpi.root and p.w_resolved:
-        plt.plot(p.w_grid, acf.acf[:,0])
-        plt.savefig('./examples/NV-diamond/F_1_REL_ofw.png')
-    print('OK')
-    sys.exit()
+    #import matplotlib.pyplot as plt
+    #if mpi.rank == mpi.root and p.w_resolved:
+    #    plt.plot(p.w_grid, acf.acf[:,0])
+    #    plt.savefig('./examples/NV-diamond/F_1_REL_ofw.png')
+    #print('OK')
+    #sys.exit()
     #
     # print average atom displ
     if log.level <= logging.DEBUG:
@@ -179,12 +176,16 @@ def compute_homo_dephas():
         # save data on file
         ph_ampl.print_atom_displ(p.write_dir)
     mpi.comm.Barrier()
-    sys.exit()
+    # set up T2 calculation
+    T2_calc_handler = set_T2_calc_handler()
     # prepare data arrays
-    T2_calc_handler.set_up_param_objects()
-    T2_obj = T2i_ofT(nat)
-    Delt_obj= Delta_ofT(nat)
-    tauc_obj= tauc_ofT(nat)
+    T2_calc_handler.set_up_param_objects_from_scratch(nat)
+    #
+    # compute T2_inv + other phys. parameters
+    T2_calc_handler.extract_physical_quantities(acf, nat)
+    print(T2_calc_handler.T2_obj.T2_sec)
+    import sys
+    sys.exit()
     # run over temperature list
     for iT in range(p.ntmp):
         # extract dephasing data

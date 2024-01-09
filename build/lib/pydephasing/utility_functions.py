@@ -2,7 +2,6 @@ import numpy as np
 from math import exp, atan2
 from pydephasing.phys_constants import eps, kb, hbar
 import yaml
-import sys
 #
 # utility functions module
 #
@@ -24,9 +23,6 @@ import sys
 #    output : psit
 # 8) print ZPL gradient data
 #    input : gradZPL, hessZPL, outdir
-#    output: None
-# 9) print ACF data
-#    input : Ct, ft, name_file
 #    output: None
 #
 #  function 1)
@@ -145,18 +141,3 @@ def print_zpl_fluct(gradZPL, hessZPL, out_dir):
 	# eV / ang - eV / ang^2 units
 	with open(file_name, 'w') as out_file:
 		yaml.dump(data, out_file)
-#
-# function 9) : create acf dict. file
-#
-def print_acf_dict(time, Ct, ft, namef):
-    nct = Ct.shape[0]
-    # acf dictionaries
-    acf_dict = {'time' : 0, 'acf' : 0, 'ft' : 0}
-    acf_dict['acf'] = Ct
-    acf_dict['ft'] = ft
-    acf_dict['time'] = time[:nct]
-    #
-    # save dicts on file
-    #
-    with open(namef, 'w') as out_file:
-        yaml.dump(acf_dict, out_file)

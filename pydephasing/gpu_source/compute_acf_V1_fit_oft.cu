@@ -93,7 +93,7 @@ double T, double MINFREQ, double THZTOEV, double KB, double TOLER, cmplx *acf) {
     }
 }
 
-/* atom res. ACF of t*/
+/* phonon res. ACF of t*/
 
 __global__ void compute_acf_V1_phr_oft(int NPH, int *ph_lst, int SIZE, double *time, double *wq,
 double *wuq, double *Alq, cmplx *Flq, double T, double DE, double NU, double MINFREQ, double THZTOEV, 

@@ -18,7 +18,12 @@ const double TOLER, cmplx *acf, cmplx *acf_int) {
     int tx  = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int iqlx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal variables */
-
+    int iqlp0, n, iqlp, ii;
+    double wql, Eql, x, wqlp, Eqlp;
+    double re, im;
+    double nql, nqlp;
+    const cmplx IU(0.,1.);
+    /* check tx index*/
     if (tx < SIZE) {
         iqlp0 = qlp_init[iqlx];
         n = lgth[iqlx];
@@ -41,12 +46,13 @@ const double TOLER, cmplx *acf, cmplx *acf_int) {
                 x = Eqlp / (KB * T);
                 nqlp = bose_occup(x, T, TOLER);
                 /* acf^2(t) */
-                ft = nql * (1.+nqlp) * eiwt * EXP(-NU*time[tx]);
+                cmplx ft(0.,0.);
+                ft = nql * (1.+nqlp) * eiwt * exp(-NU*time[tx]);
                 acf[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * ft * Flqlqp[iqlp] * conj(Flqlqp[iqlp]);
                 /* \int acf^2(t) */
-                ft(0.,0.);
+                ft = 0.;
                 cmplx DN(DE+wqlp-wql, -NU); 
-                ft = IU * nql * (1.+nqlp) * (eiwt * EXP(-NU*time[tx]) - 1.) / DN;
+                ft = IU * nql * (1.+nqlp) * (eiwt * exp(-NU*time[tx]) - 1.) / DN;
                 acf_int[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * ft * Flqlqp[iqlp] * conj(Flqlqp[iqlp]);
             }
         }
@@ -66,9 +72,12 @@ cmplx *acf, cmplx *acf_int) {
     int tx = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int ax = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal vars. */
-
-
-
+    int iqlp, dx, iFx;
+    double wql, Eql, wqlp, Eqlp;
+    double x;
+    double re, im;
+    double nql, nqlp;
+    const cmplx IU(0.,1.);
     /* tx < SIZE : PROCEED */
     if (tx < SIZE && ax < NA_SIZE) {
         int ia = at_lst[ax];
@@ -91,14 +100,16 @@ cmplx *acf, cmplx *acf_int) {
                     x = Eqlp / (KB * T);
                     nqlp = bose_occup(x, T, TOLER);
                     /* acf^(2)(t) */
-                    ft = nql * (1.+nqlp) * eiwt * EXP(-NU*time[tx]);
+                    cmplx ft(0.,0.);
+                    ft = nql * (1.+nqlp) * eiwt * exp(-NU*time[tx]);
                     for (dx=0; dx<3; dx++) {
                         iFx = 3*NAT*iqlp+3*ia+dx;
                         acf[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * ft * Fjax_lqlqp[iFx] * conj(Fjax_lqlqp[iFx]);
                     }
                     /* compute cumulative sum auto correl. function (eV^2 ps) units*/
                     cmplx DN(DE+wqlp-wql,-NU);
-                    ft = IU * nql * (1.+nqlp) * (eiwt * EXP(-NU*time[tx]) - 1.) / DN
+                    ft = 0.;
+                    ft = IU * nql * (1.+nqlp) * (eiwt * exp(-NU*time[tx]) - 1.) / DN;
                     for (dx=0; dx<3; dx++) {
                         iFx = 3*NAT*iqlp+3*ia+dx;
                         acf_int[idx] += wq * wqp[iqlp] * Alq * Alq * Alqp[iqlp] * Alqp[iqlp] * ft * Fjax_lqlqp[iFx] * conj(Fjax_lqlqp[iFx]);

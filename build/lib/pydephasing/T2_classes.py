@@ -14,24 +14,24 @@ class T2i_class(object):
         self.T2s_atr = None
         self.T2s_phr = None
         self.T2s_wql = None
-    def generate_instance(self):
+    def generate_instance(self, nat, nconf=None):
         if not p.deph and not p.relax:
             if p.dyndec:
                 return T2i_inhom_dd()
             else:
                 return T2i_inhom()
         else:
-            return T2i_ofT().generate_instance()
+            return T2i_ofT().generate_instance(nat, nconf)
 # T2i abstract
 class T2i_ofT(T2i_class):
     def __init__(self):
         super(T2i_ofT, self).__init__()
-    def generate_instance(self):
+    def generate_instance(self, nat, nconf=None):
         calc_type2 = parser.parse_args().ct2
         if calc_type2 == "homo":
-            return T2i_homo_ofT ()
+            return T2i_homo_ofT (nat)
         elif calc_type2 == "inhomo" or calc_type2 == "full":
-            return T2i_inhom_ofT ()
+            return T2i_inhom_ofT (nat, nconf)
         else:
             if mpi.rank == mpi.root:
                 log.error("\t ct2 PARAMETER NOT RECOGNIZED ...")
@@ -167,7 +167,7 @@ class Delta_class(object):
         self.Delt_atr = None
         self.Delt_phr = None
         self.Delt_wql = None
-    def generate_instance(self):
+    def generate_instance(self, nat, nconf=None):
         if not p.deph and not p.relax:
             if p.dyndec:
                 return Delta_inhom_dd()
@@ -175,7 +175,7 @@ class Delta_class(object):
                 return Delta_inhom()
         else:
             if p.time_resolved:
-                return Delta_ofT().generate_instance()
+                return Delta_ofT().generate_instance(nat, nconf)
             else:
                 return None
     def get_Delt(self):
@@ -184,12 +184,12 @@ class Delta_class(object):
 class Delta_ofT(Delta_class):
     def __init__(self):
         super(Delta_ofT, self).__init__()
-    def generate_instance(self):
+    def generate_instance(self, nat, nconf=None):
         calc_type2 = parser.parse_args().ct2
         if calc_type2 == "homo":
-            return Delta_homo_ofT()
+            return Delta_homo_ofT(nat)
         elif calc_type2 == "inhomo" or calc_type2 == "full":
-            return Delta_inhom_ofT()
+            return Delta_inhom_ofT(nat, nconf)
         else:
             if mpi.rank == mpi.root:
                 log.error("\t WRONG calc_type2 VALUE")
@@ -302,7 +302,7 @@ class tauc_class(object):
         self.tauc_atr = None
         self.tauc_phr = None
         self.tauc_wql = None
-    def generate_instance(self):
+    def generate_instance(self, nat, nconf=None):
         if not p.deph and not p.relax:
             if p.dyndec:
                 return tauc_inhom_dd()
@@ -310,7 +310,7 @@ class tauc_class(object):
                 return tauc_inhom()
         else:
             if p.time_resolved:
-                return tauc_ofT().generate_instance()
+                return tauc_ofT().generate_instance(nat, nconf)
             else:
                 return None
     def get_tauc(self):
@@ -318,12 +318,12 @@ class tauc_class(object):
 class tauc_ofT(tauc_class):
     def __init__(self):
         super(tauc_ofT, self).__init__()
-    def generate_instance(self):
+    def generate_instance(self, nat, nconf=None):
         calc_type2 = parser.parse_args().ct2
         if calc_type2 == "homo":
-            return tauc_homo_ofT()
+            return tauc_homo_ofT(nat)
         elif calc_type2 == "inhomo" or calc_type2 == "full":
-            return tauc_inhom_ofT()
+            return tauc_inhom_ofT(nat, nconf)
         else:
             if mpi.rank == mpi.root:
                 log.error("\t WRONG calc_type2 VALUE")
@@ -439,7 +439,7 @@ class lw_class(object):
         self.lw_atr= None
         self.lw_phr= None
         self.lw_wql= None
-    def generate_instance(self):
+    def generate_instance(self, nat, nconf=None):
         if not p.deph and not p.relax:
             if p.dyndec:
                 return lw_inhom_dd()
@@ -447,7 +447,7 @@ class lw_class(object):
                 return lw_inhom()
         else:
             if p.time_resolved:
-                return lw_ofT().generate_instance()
+                return lw_ofT().generate_instance(nat, nconf)
             else:
                 return None
     def get_lw(self):
@@ -456,12 +456,12 @@ class lw_ofT(lw_class):
     # lw in eV units
     def __init__(self):
         super(lw_ofT, self).__init__()
-    def generate_instance(self):
+    def generate_instance(self, nat, nconf=None):
         calc_type2 = parser.parse_args().ct2
         if calc_type2 == "homo":
-            return lw_homo_ofT()
+            return lw_homo_ofT(nat)
         elif calc_type2 == "inhomo" or calc_type2 == "full":
-            return lw_inhom_ofT()
+            return lw_inhom_ofT(nat, nconf)
         else:
             log.error("\t WRONG calc_type2 VALUE")
     def get_lw_atr(self):

@@ -17,8 +17,9 @@ const double TOLER, double ETA, cmplx *acfw) {
     int iwx = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int iqlpx= blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal variables */
-
-
+    int iqlp0, n, ii, iqlp;
+    double Eql, x, nql, Eqlp, nqlp;
+    double LTZ, fw;
     /* check iwx */
     if (iwx < SIZE) {
         iqlp0 = qlp_init[iqlpx];
@@ -58,14 +59,14 @@ double *Alqp, cmplx *Fjax_lqlqp, double T, double MINFREQ, double THZTOEV, doubl
     int iwx = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.x * blockDim.y;
     int ax = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
     /* internal vars. */
-
-
-
+    double wql, Eql, x, wqlp, Eqlp;
+    double nql, nqlp;
+    double LTZ, fw;
+    int dx, iFx, iqlp;
     /* tx < SIZE : PROCEED */
-    if (tx < SIZE && ax < NA_SIZE) {
+    if (iwx < SIZE && ax < NA_SIZE) {
         int ia = at_lst[ax];
         if (wuq > MINFREQ) {
-            wql = 2.*PI*wuq;
             /* ph. occup. */
             Eql = wuq * THZTOEV;
             x = Eql / (KB * T);
@@ -73,7 +74,6 @@ double *Alqp, cmplx *Fjax_lqlqp, double T, double MINFREQ, double THZTOEV, doubl
             /* iterate over (q',l')*/
             for (iqlp=0; iqlp<NMODES; iqlp++) {
                 if (wuqp[iqlp] > MINFREQ) {
-                    wqlp = 2.*PI*wuqp[iqlp];
                     Eqlp = wuqp[iqlp] * THZTOEV;
                     /* ph. occup. number */
                     x = Eqlp / (KB * T);
