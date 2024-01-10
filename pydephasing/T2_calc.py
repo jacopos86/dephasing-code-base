@@ -109,6 +109,26 @@ class T2_eval_freq_homo_class(T2_eval_class_freq_res):
         self.lw_obj.set_lw(iT, T2_inv)
         return acf_ofw
     def atr_parameter_eval_driver(self, acf_obj, ia, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf_w
+        acf_ofw[:] = np.real(acf_obj.acf_atr[:,ia,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        self.T2_obj.set_T2_atr(ia, iT, T2_inv)
+        self.lw_obj.set_lw_atr(ia, iT, T2_inv)
+        return acf_ofw
+    # ph. res. version
+    def phr_parameter_eval_driver(self, acf_obj, iph, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf_ofw
+        acf_ofw[:] = np.real(acf_obj.acf_phr[:,iph,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store data
+        self.T2_obj.set_T2_phr(iph, iT, T2_inv)
+        self.lw_obj.set_lw_phr(iph, iT, T2_inv)
+        return acf_ofw
+    def wql_parameter_eval_driver(self, acf_obj, iwql, iT):
         pass
 # ----------------------------------------------------
 # subclass of the frequency calculation model
