@@ -1,7 +1,7 @@
 from pydephasing.auto_correlation_spph_mod import GPU_acf_sp_ph, CPU_acf_sp_ph
 from pydephasing.global_params import GPU_ACTIVE
 from pydephasing.input_parameters import p
-from pydephasing.restart import restart_calculation
+from pydephasing.restart import restart_calculation, save_data
 from pydephasing.T2_calc_handler import set_T2_calc_handler
 import os
 import numpy as np
@@ -84,6 +84,17 @@ class acf_sp_ph_inhom(GPU_acf_sp_ph if GPU_ACTIVE else CPU_acf_sp_ph):
                 T2_calc_handler.set_up_param_objects(T2i_obj, lw_obj)
         return ic0, T2_calc_handler
     #
+    # save data
+    def save_data(self, ic, T2_calc_handler):
+        acf_data = [self.acf_avg]
+        if p.at_resolved:
+            acf_data.append(self.acf_atr_avg)
+        if p.ph_resolved:
+            acf_data.append(self.acf_wql_avg)
+            if p.nphr > 0:
+                acf_data.append(self.acf_phr_avg)
+        save_data(ic, T2_calc_handler, acf_data)
+    #
     # method : update acf_avg
     def update_avg_acf(self):
         self.acf_avg += self.acf
@@ -95,3 +106,13 @@ class acf_sp_ph_inhom(GPU_acf_sp_ph if GPU_ACTIVE else CPU_acf_sp_ph):
             self.acf_wql_avg += self.acf_wql
             if p.nphr > 0:
                 self.acf_phr_avg += self.acf_phr
+    def compute_avg_acf(self):
+        self.acf_avg = self.acf_avg / p.nconf
+        # at. resolved
+        if p.at_resolved:
+            self.acf_atr_avg = self.acf_atr_avg / p.nconf
+        # ph. resolved
+        if p.ph_resolved:
+            self.acf_wql_avg = self.acf_wql_avg / p.nconf
+            if p.nphr > 0:
+                self.acf_phr_avg = self.acf_phr_avg / p.nconf

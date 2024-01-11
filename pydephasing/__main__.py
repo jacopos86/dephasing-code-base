@@ -5,7 +5,6 @@ from pydephasing.compute_zfs_dephas import compute_homo_dephas
 from pydephasing.compute_exc_dephas import compute_homo_exc_dephas
 from pydephasing.compute_hfi_dephas import compute_hfi_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
-from pydephasing.T2_classes import print_decoher_data
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.timer import timer
@@ -130,12 +129,12 @@ elif calc_type1 == "spin":
         # read input file
         p.read_yml_data(yml_file)
         # compute auto correl. function first
-        data = compute_homo_dephas()
+        T2_calc_handler = compute_homo_dephas()
         # finalize calculation
         if mpi.rank == mpi.root:
             log.info("-----------                   PRINT DATA ON FILES         --------------")
             # write T2 yaml files
-            print_decoher_data(data)
+            T2_calc_handler.print_decoherence_times()
         mpi.comm.Barrier()
         # homo spin branch -> END
     # --------------------------------------------------------------
@@ -171,14 +170,14 @@ elif calc_type1 == "spin":
         # read input file
         p.read_yml_data(yml_file)
         # compute auto correl. function first
-        data = compute_full_dephas()
+        T2_calc_handler = compute_full_dephas()
         # finalize calculation
         if mpi.rank == mpi.root:
             log.info("\n")
             log.info("\t" + p.sep)
             log.info("\t PRINT DATA ON FILES")
             # write T2 yaml files
-            print_decoher_data(data)
+            T2_calc_handler.print_decoherence_times()
             log.info("\t" + p.sep)
             log.info("\n")
         mpi.comm.Barrier()

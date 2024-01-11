@@ -446,10 +446,7 @@ class lw_class(object):
             else:
                 return lw_inhom()
         else:
-            if p.time_resolved:
-                return lw_ofT().generate_instance(nat, nconf)
-            else:
-                return None
+            return lw_ofT().generate_instance(nat, nconf)
     def get_lw(self):
         return self.lw_eV
 class lw_ofT(lw_class):

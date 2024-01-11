@@ -65,7 +65,7 @@ class acf_ph(object):
                 self.Delta_w0= np.zeros(p.ntmp)
                 self.Delta_w0= self.compute_acf_V1_w0(wq, wu, ql_list, A_lq, F_lq)
         if mpi.rank == mpi.root:
-            print(self.Delta_2)
+            print(self.Delta_w0)
         #plt.plot(p.w_grid[:], self.acf_sp[:,0].real)
         #plt.show()
     #
@@ -308,27 +308,6 @@ class acf_ph(object):
                 lw_obj.set_lw(iT, T2_inv)
         return ft
     #
-    def extract_dephas_data_phr(self, T2_obj, Delt_obj, tauc_obj, iph, iT, lw_obj=None):
-        # Delta^2
-        D2 = self.acf_phr[0,iph,iT].real
-        Ct = np.zeros(p.nt2)
-        if np.abs(D2) == 0.:
-            pass
-        else:
-            for t in range(p.nt2):
-                Ct[t] = self.acf_phr[t,iph,iT].real / D2
-        # extract T2 time
-        T2 = T2_eval()
-        tau_c, T2_inv, ft = T2.extract_T2(p.time2, Ct, D2)
-        # store data in objects
-        if tau_c is not None and T2_inv is not None:
-            T2_obj.set_T2_phr(iph, iT, T2_inv)
-            tauc_obj.set_tauc_phr(iph, iT, tau_c)
-            Delt_obj.set_Delt_phr(iph, iT, D2)
-            if lw_obj is not None:
-                lw_obj.set_lw_phr(iph, iT, T2_inv)
-        return ft
-    #
     def extract_dephas_data_wql(self, T2_obj, Delt_obj, tauc_obj, iwb, iT, lw_obj=None):
         # Delta^2
         D2 = self.acf_wql[0,iwb,iT].real
@@ -399,36 +378,6 @@ class acf_ph(object):
             if log.level <= logging.INFO:
                 namef = self.write_dir + "/acf-data-atr-iT" + str(iT+1) + ".yml"
                 print_acf_dict(p.time2, Ct, ft_atr, namef)
-        # ph. resolved
-        if ft_phr is not None and p.ph_resolved:
-            Ct = np.zeros((p.nt2,p.nphr))
-            # run over iph
-            for iph in range(p.nphr):
-                D2 = self.acf_phr[0,iph,iT].real
-                if np.abs(D2) == 0.:
-                    pass
-                else:
-                    for t in range(p.nt2):
-                        Ct[t,iph] = self.acf_phr[t,iph,iT].real / D2
-            # write data on file
-            if log.level <= logging.INFO:
-                namef = self.write_dir + "/acf-data-phr-iT" + str(iT+1) + ".yml"
-                print_acf_dict(p.time2, Ct, ft_phr, namef)
-        # wql data
-        if ft_wql is not None and p.ph_resolved:
-            Ct = np.zeros((p.nt2,p.nwbn))
-            # run over iph
-            for iwb in range(p.nwbn):
-                D2 = self.acf_wql[0,iwb,iT].real
-                if np.abs(D2) == 0.:
-                    pass
-                else:
-                    for t in range(p.nt2):
-                        Ct[t,iwb] = self.acf_wql[t,iwb,iT].real / D2
-            # write data on file
-            if log.level <= logging.INFO:
-                namef = self.write_dir + "/acf-data-wql-iT" + str(iT+1) + ".yml"
-                print_acf_dict(p.time2, Ct, ft_wql, namef)
     #
     def print_autocorrel_data_spinconf(self, ft, ft_atr, ft_wql, ft_phr, ic, iT):
         # Delta^2

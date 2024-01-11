@@ -12,12 +12,9 @@ from pydephasing.atomic_list_struct import atoms
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.auto_correl_inhom_driver import acf_sp_ph_inhom
 from pydephasing.nuclear_spin_config import nuclear_spins_config
-from pydephasing.restart import restart_calculation
-from pydephasing.T2_calc_handler import set_T2_calc_handler
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 import logging
-import os
 import sys
 # function
 def compute_full_dephas():
@@ -190,5 +187,18 @@ def compute_full_dephas():
         #
         # extract T2 inv
         T2_calc_handler.extract_physical_quantities(acf, ic, nat)
-        print(T2_calc_handler.T2_obj.T2_sec)
-        sys.exit()
+        if mpi.rank == mpi.root:
+            log.info("\n\n")
+            log.info("\t " + p.sep)
+            log.warning("\t ic: " + str(ic+1) + " -> COMPLETED")
+            log.info("\t " + p.sep)
+            log.info("\n\n")
+        # save temp. data
+        if mpi.rank == mpi.root:
+            acf.save_data(ic, T2_calc_handler)
+        # wait
+        mpi.comm.Barrier()
+    #
+    #  complete calculation -> final average acf
+    acf.compute_avg_acf()
+        
