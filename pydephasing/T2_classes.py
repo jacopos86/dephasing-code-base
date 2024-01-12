@@ -299,9 +299,13 @@ class tauc_class(object):
     # tauc is in ps
     def __init__(self):
         self.tauc_ps = None
+        self.tauc_avg= None
         self.tauc_atr = None
+        self.tauc_atr_avg = None
         self.tauc_phr = None
+        self.tauc_phr_avg = None
         self.tauc_wql = None
+        self.tauc_wql_avg = None
     def generate_instance(self, nat, nconf=None):
         if not p.deph and not p.relax:
             if p.dyndec:
@@ -372,13 +376,17 @@ class tauc_homo_ofT(tauc_ofT):
 class tauc_inhom_ofT(tauc_ofT):
     # tauc in ps
     def __init__(self, nat, nconf):
-        self.tauc_ps = np.zeros((nconf+1,p.ntmp))
+        self.tauc_ps = np.zeros((nconf,p.ntmp))
+        self.tauc_avg= np.zeros(p.ntmp)
         if p.at_resolved:
-            self.tauc_atr = np.zeros((nat,nconf+1,p.ntmp))
+            self.tauc_atr = np.zeros((nat,nconf,p.ntmp))
+            self.tauc_atr_avg = np.zeros((nat,p.ntmp))
         if p.ph_resolved:
             if p.nphr > 0:
-                self.tauc_phr = np.zeros((p.nphr,nconf+1,p.ntmp))
+                self.tauc_phr = np.zeros((p.nphr,nconf,p.ntmp))
+                self.tauc_phr_avg = np.zeros((p.nphr,p.ntmp))
             self.tauc_wql = np.zeros((p.nwbn,nconf+1,p.ntmp))
+            self.tauc_wql_avg = np.zeros((p.nwbn,p.ntmp))
     def set_tauc(self, ic, iT, tau_c):
         self.tauc_ps[ic,iT] = tau_c
         # ps units
@@ -391,6 +399,14 @@ class tauc_inhom_ofT(tauc_ofT):
     def set_tauc_wql(self, iwb, ic, iT, tau_c):
         self.tauc_wql[iwb,ic,iT] = tau_c
         # ps units
+    def get_tauc_avg(self):
+        return self.tauc_avg
+    def get_tauc_atr_avg(self):
+        return self.tauc_atr_avg
+    def get_tauc_phr_avg(self):
+        return self.tauc_phr_avg
+    def get_tauc_wql_avg(self):
+        return self.tauc_wql_avg
     def collect_atr_from_other_proc(self, ic, iT):
         tauc_atr_full = mpi.collect_array(self.tauc_atr[:,ic,iT])
         self.tauc_atr[:,ic,iT] = 0.
@@ -436,9 +452,13 @@ class lw_class(object):
     # lw in eV in all classes
     def __init__(self):
         self.lw_eV = None
+        self.lw_avg= None
         self.lw_atr= None
+        self.lw_atr_avg = None
         self.lw_phr= None
+        self.lw_phr_avg = None
         self.lw_wql= None
+        self.lw_wql_avg = None
     def generate_instance(self, nat, nconf=None):
         if not p.deph and not p.relax:
             if p.dyndec:
@@ -501,25 +521,41 @@ class lw_homo_ofT(lw_ofT):
 class lw_inhom_ofT(lw_ofT):
     def __init__(self, nat, nconf):
         super(lw_inhom_ofT, self).__init__()
-        self.lw_eV = np.zeros((nconf+1,p.ntmp))
+        self.lw_eV = np.zeros((nconf,p.ntmp))
+        self.lw_avg= np.zeros(p.ntmp)
         if p.at_resolved:
-            self.lw_atr = np.zeros((nat,nconf+1,p.ntmp))
+            self.lw_atr = np.zeros((nat,nconf,p.ntmp))
+            self.lw_atr_avg = np.zeros((nat,p.ntmp))
         if p.ph_resolved:
             if p.nphr > 0:
-                self.lw_phr = np.zeros((p.nphr,nconf+1,p.ntmp))
-            self.lw_wql = np.zeros((p.nwbn,nconf+1,p.ntmp))
+                self.lw_phr = np.zeros((p.nphr,nconf,p.ntmp))
+                self.lw_phr_avg = np.zeros((p.nphr,p.ntmp))
+            self.lw_wql = np.zeros((p.nwbn,nconf,p.ntmp))
+            self.lw_wql_avg = np.zeros((p.nwbn,p.ntmp))
     def set_lw(self, ic, iT, T2i):
         self.lw_eV[ic,iT] = 2.*np.pi*hbar*T2i
+    def set_lw_avg(self, iT, T2i):
+        self.lw_avg[iT] = 2.*np.pi*hbar*T2i
     def set_lw_atr(self, ia, ic, iT, T2i):
         self.lw_atr[ia,ic,iT] = 2.*np.pi*hbar*T2i
+    def set_lw_atr_avg(self, ia, iT, T2i):
+        self.lw_atr_avg[ia,iT] = 2.*np.pi*hbar*T2i
     def set_lw_phr(self, iph, ic, iT, T2i):
         self.lw_phr[iph,ic,iT] = 2.*np.pi*hbar*T2i
+    def set_lw_phr_avg(self, iph, iT, T2i):
+        self.lw_phr_avg[iph,iT] = 2.*np.pi*hbar*T2i
     def set_lw_wql(self, iwb, ic, iT, T2i):
         self.lw_wql[iwb,ic,iT] = 2.*np.pi*hbar*T2i
+    def set_lw_wql_avg(self, iwb, iT, T2i):
+        self.lw_wql_avg[iwb,iT] = 2.*np.pi*hbar*T2i
     def collect_atr_from_other_proc(self, ic, iT):
         lw_atr_full = mpi.collect_array(self.lw_atr[:,ic,iT])
         self.lw_atr[:,ic,iT] = 0.
         self.lw_atr[:,ic,iT] = lw_atr_full[:]
+    def collect_avg_atr_from_other_proc(self, iT):
+        lw_atr_full = mpi.collect_array(self.lw_atr_avg[:,iT])
+        self.lw_atr_avg[:,iT] = 0.
+        self.lw_atr_avg[:,iT] = lw_atr_full[:]
     def collect_phr_from_other_proc(self, ic, iT):
         if p.nphr > 0:
             lw_phr_full = mpi.collect_array(self.lw_phr[:,ic,iT])
@@ -529,6 +565,15 @@ class lw_inhom_ofT(lw_ofT):
         lw_wql_full = mpi.collect_array(self.lw_wql[:,ic,iT])
         self.lw_wql[:,ic,iT] = 0.
         self.lw_wql[:,ic,iT] = lw_wql_full[:]
+    def collect_avg_phr_from_other_proc(self, iT):
+        if p.nphr > 0:
+            lw_phr_full = mpi.collect_array(self.lw_phr_avg[:,iT])
+            self.lw_phr_avg[:,iT] = 0.
+            self.lw_phr_avg[:,iT] = lw_phr_full[:]
+        # wql
+        lw_wql_full = mpi.collect_array(self.lw_wql_avg[:,iT])
+        self.lw_wql_avg[:,iT] = 0.
+        self.lw_wql_avg[:,iT] = lw_wql_full[:]
 class lw_inhom_dd(lw_class):
     # lw is in eV
     def __init__(self, nconf):
@@ -683,31 +728,5 @@ def print_decoher_data_phr(data):
     deph_dict['temperature'] = p.temperatures
     # write yaml file
     namef = "T2-phr-data.yml"
-    with open(p.write_dir+'/'+namef, 'w') as out_file:
-        yaml.dump(deph_dict, out_file)
-#
-# at res. data
-#
-def print_decoher_data_atr(data):
-    T2_obj   = data['T2']
-    lw_obj   = data['lw']
-    if p.time_resolved:
-        Delt_obj = data['Delt']
-        tauc_obj = data['tau_c']
-        # print data on dict
-        deph_dict = {'T2' : None, 'Delt' : None, 'tau_c' : None, 'lw_eV' : None, 'temperature' : None}
-        deph_dict['T2']   = T2_obj.get_T2_atr_sec()
-        deph_dict['Delt'] = Delt_obj.get_Delt_atr()
-        deph_dict['tau_c']= tauc_obj.get_tauc_atr()
-        deph_dict['lw_eV']= lw_obj.get_lw_atr()
-        deph_dict['temperature'] = p.temperatures
-    elif p.w_resolved:
-        # print data on dict
-        deph_dict = {'T2' : None, 'lw_eV' : None, 'temperature' : None}
-        deph_dict['T2']   = T2_obj.get_T2_atr_sec()
-        deph_dict['lw_eV']= lw_obj.get_lw_atr()
-        deph_dict['temperature'] = p.temperatures
-    # write yaml file
-    namef = "T2-atr_data.yml"
     with open(p.write_dir+'/'+namef, 'w') as out_file:
         yaml.dump(deph_dict, out_file)
