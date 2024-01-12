@@ -426,7 +426,43 @@ class T2_eval_class_time_res(ABC):
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
     def print_T2_phr_data(self):
-        pass
+        T2_dict = {'T2_sec' : None, 'tauc_ps' : None, 'Delt_eV' : None, 'lw_eV' : None, 'T_K' : None, 'wql' : None}
+        T2_dict['T2_sec'] = self.T2_obj.get_T2_wql_sec()
+        T2_dict['tauc_ps']= self.tauc_obj.get_tauc_wql()
+        T2_dict['Delt_eV']= self.Delt_obj.get_Delt_wql()
+        T2_dict['lw_eV']  = self.lw_obj.get_lw_wql()
+        T2_dict['T_K'] = p.temperatures
+        T2_dict['wql'] = p.wql_grid
+        # write yaml file
+        namef = p.write_dir + "/T2-wql-data.yml"
+        with open(namef, 'w') as out_file:
+            yaml.dump(T2_dict, out_file)
+        # nphr > 0
+        if p.nphr > 0:
+            T2_dict = {'T2_sec' : None, 'tauc_ps' : None, 'Delt_eV' : None, 'lw_eV' : None, 'T_K' : None, 'wql' : None}
+            # extract ph. mode energies
+            u, wu, nq, qpts, wq, mesh = extract_ph_data()
+            assert mesh[0]*mesh[1]*mesh[2] == nq
+            assert len(qpts) == nq
+            assert len(u) == nq
+            wql = np.zeros(len(wu[0]))
+            for iq in range(nq):
+                wuq = wu[iq]
+                wql[:] += wq[iq] * wuq[:]
+            w_ph = np.zeros(p.nphr)
+            for iph in range(p.nphr):
+                ilq = p.phm_list[iph]
+                w_ph= wql[ilq]
+            T2_dict['wql'] = w_ph
+            T2_dict['T2_sec'] = self.T2_obj.get_T2_phr_sec()
+            T2_dict['tauc_ps']= self.tauc_obj.get_tauc_phr()
+            T2_dict['Delt_eV']= self.Delt_obj.get_Delt_phr()
+            T2_dict['lw_eV'] = self.lw_obj.get_lw_phr()
+            T2_dict['T_K'] = p.temperatures
+            # write yaml data
+            namef = p.write_dir + "/T2-phr-data.yml"
+            with open(namef, 'w') as out_file:
+                yaml.dump(T2_dict, out_file)
 '''
 # --------------------------------------------------------------
 #  time resolved calculation -> concrete class implementation
