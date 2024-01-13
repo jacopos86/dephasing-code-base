@@ -11,9 +11,13 @@ class T2i_class(object):
     # T2i is in ps^-1
     def __init__(self):
         self.T2_sec = None
+        self.T2s_avg = None
         self.T2s_atr = None
+        self.T2s_atr_avg = None
         self.T2s_phr = None
+        self.T2s_phr_avg = None
         self.T2s_wql = None
+        self.T2s_wql_avg = None
     def generate_instance(self, nat, nconf=None):
         if not p.deph and not p.relax:
             if p.dyndec:
@@ -86,30 +90,46 @@ class T2i_homo_ofT(T2i_ofT):
 class T2i_inhom_ofT(T2i_ofT):
     def __init__(self, nat, nconf):
         super(T2i_inhom_ofT, self).__init__()
-        self.T2_sec = np.zeros((nconf+1,p.ntmp))
+        self.T2_sec = np.zeros((nconf,p.ntmp))
+        self.T2s_avg= np.zeros(p.ntmp)
         if p.at_resolved:
-            self.T2s_atr = np.zeros((nat,nconf+1,p.ntmp))
+            self.T2s_atr = np.zeros((nat,nconf,p.ntmp))
+            self.T2s_atr_avg = np.zeros((nat,p.ntmp))
         if p.ph_resolved:
             if p.nphr > 0:
-                self.T2s_phr = np.zeros((p.nphr,nconf+1,p.ntmp))
-            self.T2s_wql = np.zeros((p.nwbn,nconf+1,p.ntmp))
+                self.T2s_phr = np.zeros((p.nphr,nconf,p.ntmp))
+                self.T2s_phr_avg = np.zeros((p.nphr,p.ntmp))
+            self.T2s_wql = np.zeros((p.nwbn,nconf,p.ntmp))
+            self.T2s_wql_avg = np.zeros((p.nwbn,p.ntmp))
     # compute deph/relax time
     def set_T2_sec(self, ic, iT, T2i):
         self.T2_sec[ic,iT] = 1./T2i * 1.E-12
         # sec
+    def set_T2_avg(self, iT, T2i):
+        self.T2s_avg[iT] = 1./T2i * 1.E-12
     def set_T2_atr(self, ia, ic, iT, T2i):
         self.T2s_atr[ia,ic,iT] = 1./T2i * 1.E-12
         # sec
+    def set_T2_atr_avg(self, ia, iT, T2i):
+        self.T2s_atr_avg[ia,iT] = 1./T2i * 1.E-12
     def set_T2_phr(self, iph, ic, iT, T2i):
         self.T2s_phr[iph,ic,iT] = 1./T2i * 1.E-12
         # sec
+    def set_T2_phr_avg(self, iph, iT, T2i):
+        self.T2s_phr_avg[iph,iT] = 1./T2i * 1.E-12
     def set_T2_wql(self, iwb, ic, iT, T2i):
         self.T2s_wql[iwb,ic,iT] = 1./T2i * 1.E-12
         # sec
+    def set_T2_wql_avg(self, iwb, iT, T2i):
+        self.T2s_wql_avg[iwb,iT] = 1./T2i * 1.E-12
     def collect_atr_from_other_proc(self, ic, iT):
         T2s_atr_full = mpi.collect_array(self.T2s_atr[:,ic,iT])
         self.T2s_atr[:,ic,iT] = 0.
         self.T2s_atr[:,ic,iT] = T2s_atr_full[:]
+    def collect_avg_atr_from_other_proc(self, iT):
+        T2s_atr_full = mpi.collect_array(self.T2s_atr_avg[:,iT])
+        self.T2s_atr_avg[:,iT] = 0.
+        self.T2s_atr_avg[:,iT] = T2s_atr_full[:]
     def collect_phr_from_other_proc(self, ic, iT):
         if p.nphr > 0:
             T2s_phr_full = mpi.collect_array(self.T2s_phr[:,ic,iT])
@@ -119,6 +139,23 @@ class T2i_inhom_ofT(T2i_ofT):
         T2s_wql_full = mpi.collect_array(self.T2s_wql[:,ic,iT])
         self.T2s_wql[:,ic,iT] = 0.
         self.T2s_wql[:,ic,iT] = T2s_wql_full[:]
+    def collect_avg_phr_from_other_proc(self, iT):
+        if p.nphr > 0:
+            T2s_phr_full = mpi.collect_array(self.T2s_phr_avg[:,iT])
+            self.T2s_phr_avg[:,iT] = 0.
+            self.T2s_phr_avg[:,iT] = T2s_phr_full[:]
+        # wql
+        T2s_wql_full = mpi.collect_array(self.T2s_wql_avg[:,iT])
+        self.T2s_wql_avg[:,iT] = 0.
+        self.T2s_wql_avg[:,iT] = T2s_wql_full[:]
+    def get_T2_avg(self):
+        return self.T2s_avg
+    def get_T2_atr_avg(self):
+        return self.T2s_atr_avg
+    def get_T2_phr_avg(self):
+        return self.T2s_phr_avg
+    def get_T2_wql_avg(self):
+        return self.T2s_wql_avg
 #
 # -> T2i dd class
 class T2i_inhom_dd(T2i_class):
@@ -164,9 +201,13 @@ class Delta_class(object):
     # acf(t=0) -> only time resolved calcuations
     def __init__(self):
         self.Delt = None
+        self.Delt_avg = None
         self.Delt_atr = None
+        self.Delt_atr_avg = None
         self.Delt_phr = None
+        self.Delt_phr_avg = None
         self.Delt_wql = None
+        self.Delt_wql_avg = None
     def generate_instance(self, nat, nconf=None):
         if not p.deph and not p.relax:
             if p.dyndec:
@@ -234,26 +275,42 @@ class Delta_homo_ofT(Delta_ofT):
 class Delta_inhom_ofT(Delta_ofT):
     def __init__(self, nat, nconf):
         super(Delta_inhom_ofT, self).__init__()
-        self.Delt = np.zeros((nconf+1,p.ntmp))
+        self.Delt = np.zeros((nconf,p.ntmp))
+        self.Delt_avg = np.zeros(p.ntmp)
         if p.at_resolved:
-            self.Delt_atr = np.zeros((nat,nconf+1,p.ntmp))
+            self.Delt_atr = np.zeros((nat,nconf,p.ntmp))
+            self.Delt_atr_avg = np.zeros((nat,p.ntmp))
         if p.ph_resolved:
             if p.nphr > 0:
-                self.Delt_phr = np.zeros((p.nphr,nconf+1,p.ntmp))
-            self.Delt_wql = np.zeros((p.nwbn,nconf+1,p.ntmp))
+                self.Delt_phr = np.zeros((p.nphr,nconf,p.ntmp))
+                self.Delt_phr_avg = np.zeros((p.nphr,p.ntmp))
+            self.Delt_wql = np.zeros((p.nwbn,nconf,p.ntmp))
+            self.Delt_wql_avg = np.zeros((p.nwbn,p.ntmp))
     def set_Delt(self, ic, iT, D2):
         self.Delt[ic,iT] = np.sqrt(D2)
         # eV units
+    def set_Delt_avg(self, iT, D2):
+        self.Delt_avg[iT] = np.sqrt(D2)
     def set_Delt_atr(self, ia, ic, iT, D2):
         self.Delt_atr[ia,ic,iT] = np.sqrt(D2)
+    def set_Delt_atr_avg(self, ia, iT, D2):
+        self.Delt_atr_avg[ia,iT] = np.sqrt(D2)
     def set_Delt_phr(self, iph, ic, iT, D2):
         self.Delt_phr[iph,ic,iT] = np.sqrt(D2)
+    def set_Delt_phr_avg(self, iph, iT, D2):
+        self.Delt_phr_avg[iph,iT] = np.sqrt(D2)
     def set_Delt_wql(self, iwb, ic, iT, D2):
         self.Delt_wql[iwb,ic,iT] = np.sqrt(D2)
+    def set_Delt_wql_avg(self, iwb, iT, D2):
+        self.Delt_wql_avg[iwb,iT] = np.sqrt(D2)
     def collect_atr_from_other_proc(self, ic, iT):
         Delt_atr_full = mpi.collect_array(self.Delt_atr[:,ic,iT])
         self.Delt_atr[:,ic,iT] = 0.
         self.Delt_atr[:,ic,iT] = Delt_atr_full[:]
+    def collect_avg_atr_from_other_proc(self, iT):
+        Delt_atr_full = mpi.collect_array(self.Delt_atr_avg[:,iT])
+        self.Delt_atr_avg[:,iT] = 0.
+        self.Delt_atr_avg[:,iT] = Delt_atr_full[:]
     def collect_phr_from_other_proc(self, ic, iT):
         if p.nphr > 0:
             Delt_phr_full = mpi.collect_array(self.Delt_phr[:,ic,iT])
@@ -263,6 +320,23 @@ class Delta_inhom_ofT(Delta_ofT):
         Delt_wql_full = mpi.collect_array(self.Delt_wql[:,ic,iT])
         self.Delt_wql[:,ic,iT] = 0.
         self.Delt_wql[:,ic,iT] = Delt_wql_full[:]
+    def collect_avg_phr_from_other_proc(self, iT):
+        if p.nphr > 0:
+            Delt_phr_full = mpi.collect_array(self.Delt_phr_avg[:,iT])
+            self.Delt_phr_avg[:,iT] = 0.
+            self.Delt_phr_avg[:,iT] = Delt_phr_full[:]
+        # wql
+        Delt_wql_full = mpi.collect_array(self.Delt_wql_avg[:,iT])
+        self.Delt_wql_avg[:,iT] = 0.
+        self.Delt_wql_avg[:,iT] = Delt_wql_full[:]
+    def get_Delt_avg(self):
+        return self.Delt_avg
+    def get_Delt_atr_avg(self):
+        return self.Delt_atr_avg
+    def get_Delt_phr_avg(self):
+        return self.Delt_phr_avg
+    def get_Delt_wql_avg(self):
+        return self.Delt_wql_avg
 class Delta_inhom_dd(Delta_class):
     # Delta is in eV
     def __init__(self, nconf):
@@ -390,27 +464,31 @@ class tauc_inhom_ofT(tauc_ofT):
     def set_tauc(self, ic, iT, tau_c):
         self.tauc_ps[ic,iT] = tau_c
         # ps units
+    def set_tauc_avg(self, iT, tau_c):
+        self.tauc_avg[iT] = tau_c
     def set_tauc_atr(self, ia, ic, iT, tau_c):
         self.tauc_atr[ia,ic,iT] = tau_c
         # ps units
+    def set_tauc_atr_avg(self, ia, iT, tau_c):
+        self.tauc_atr_avg[ia,iT] = tau_c
     def set_tauc_phr(self, iph, ic, iT, tau_c):
         self.tauc_phr[iph,ic,iT] = tau_c
         # ps units
+    def set_tauc_phr_avg(self, iph, iT, tau_c):
+        self.tauc_phr[iph,iT] = tau_c
     def set_tauc_wql(self, iwb, ic, iT, tau_c):
         self.tauc_wql[iwb,ic,iT] = tau_c
         # ps units
-    def get_tauc_avg(self):
-        return self.tauc_avg
-    def get_tauc_atr_avg(self):
-        return self.tauc_atr_avg
-    def get_tauc_phr_avg(self):
-        return self.tauc_phr_avg
-    def get_tauc_wql_avg(self):
-        return self.tauc_wql_avg
+    def set_tauc_wql(self, iwb, iT, tau_c):
+        self.tauc_wql[iwb,iT] = tau_c
     def collect_atr_from_other_proc(self, ic, iT):
         tauc_atr_full = mpi.collect_array(self.tauc_atr[:,ic,iT])
         self.tauc_atr[:,ic,iT] = 0.
         self.tauc_atr[:,ic,iT] = tauc_atr_full[:]
+    def collect_avg_atr_from_other_proc(self, iT):
+        tauc_atr_full = mpi.collect_array(self.tauc_atr_avg[:,iT])
+        self.tauc_atr_avg[:,iT] = 0.
+        self.tauc_atr_avg[:,iT] = tauc_atr_full[:]
     def collect_phr_from_other_proc(self, ic, iT):
         if p.nphr > 0:
             tauc_phr_full = mpi.collect_array(self.tauc_phr[:,ic,iT])
@@ -420,6 +498,23 @@ class tauc_inhom_ofT(tauc_ofT):
         tauc_wql_full = mpi.collect_array(self.tauc_wql[:,ic,iT])
         self.tauc_wql[:,ic,iT] = 0.
         self.tauc_wql[:,ic,iT] = tauc_wql_full[:]
+    def collect_avg_phr_from_other_proc(self, iT):
+        if p.nphr > 0:
+            tauc_phr_full = mpi.collect_array(self.tauc_phr_avg[:,iT])
+            self.tauc_phr_avg[:,iT] = 0.
+            self.tauc_phr_avg[:,iT] = tauc_phr_full[:]
+        # wql
+        tauc_wql_full = mpi.collect_array(self.tauc_wql_avg[:,iT])
+        self.tauc_wql_avg[:,iT] = 0.
+        self.tauc_wql_avg[:,iT] = tauc_wql_full[:]
+    def get_tauc_avg(self):
+        return self.tauc_avg
+    def get_tauc_atr_avg(self):
+        return self.tauc_atr_avg
+    def get_tauc_phr_avg(self):
+        return self.tauc_phr_avg
+    def get_tauc_wql_avg(self):
+        return self.tauc_wql_avg
 class tauc_inhom_dd(tauc_class):
     # tauc is in ps
     def __init__(self, nconf):
@@ -574,6 +669,14 @@ class lw_inhom_ofT(lw_ofT):
         lw_wql_full = mpi.collect_array(self.lw_wql_avg[:,iT])
         self.lw_wql_avg[:,iT] = 0.
         self.lw_wql_avg[:,iT] = lw_wql_full[:]
+    def get_lw_avg(self):
+        return self.lw_avg
+    def get_lw_atr_avg(self):
+        return self.lw_atr_avg
+    def get_lw_phr_avg(self):
+        return self.lw_phr_avg
+    def get_lw_wql_avg(self):
+        return self.lw_wql_avg
 class lw_inhom_dd(lw_class):
     # lw is in eV
     def __init__(self, nconf):
