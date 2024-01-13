@@ -300,6 +300,69 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
                 # collect to single proc.
                 self.T2_obj.collect_phr_from_other_proc(ic, iT)
                 self.lw_obj.collect_phr_from_other_proc(ic, iT)
+    # extract avg. phys. quant.
+    def extract_avg_physical_quantities(self, acf_obj, nat):
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # compute Cw
+            Cw = self.avg_parameter_eval_driver(acf_obj, iT)
+            # write data on file
+            namef = p.write_dir + "/acf-avg-data-iT" + str(iT) + ".yml"
+            self.print_autocorrel_data(namef, p.w_grid, Cw)
+            #
+            # at. resolved
+            if p.at_resolved:
+                # local atom list
+                atr_list = mpi.split_list(range(nat))
+                Cw_atr = np.zeros((p.nwg,nat))
+                # run over atoms
+                for ia in atr_list:
+                    # compute T2 times
+                    Ca_w = self.avg_atr_parameter_eval_driver(acf_obj, ia, iT)
+                    if Ca_w is not None:
+                        Cw_atr[:,ia] = Ca_w[:]
+                Cw_atr = mpi.collect_array(Cw_atr)
+                # collect to single proc.
+                self.T2_obj.collect_avg_atr_from_other_proc(iT)
+                self.lw_obj.collect_avg_atr_from_other_proc(iT)
+                # write data on file
+                namef = p.write_dir + "/acf-avg-data-atr-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.w_grid, Cw_atr)
+            #
+            # ph. resolved
+            if p.ph_resolved:
+                # local ph. list
+                local_wql_lst = mpi.split_list(np.arange(0, p.nwbn, 1))
+                Cw_wql = np.zeros((p.nwg,p.nwbn))
+                # run over modes
+                for iwb in local_wql_lst:
+                    # compute T2 times
+                    Cw_w = self.avg_wql_parameter_eval_driver(acf_obj, iwb, iT)
+                    if Cw_w is not None:
+                        Cw_wql[:,iwb] = Cw_w[:]
+                Cw_wql = mpi.collect_array(Cw_wql)
+                # write data on file
+                namef = p.write_dir + "/acf-avg-data-wql-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.w_grid, Cw_wql)
+                # check nphr > 0
+                if p.nphr > 0:
+                    # local list
+                    local_ph_lst = mpi.split_list(p.phm_list)
+                    # run over modes
+                    Cw_phr = np.zeros((p.nwg,p.nphr))
+                    for im in local_ph_lst:
+                        iph = p.phm_list.index(im)
+                        # compute T2 times
+                        Cp_w = self.avg_phr_parameter_eval_driver(acf_obj, iph, iT)
+                        if Cp_w is not None:
+                            Cw_phr[:,iph] = Cp_w[:]
+                    Cw_phr = mpi.collect_array(Cw_phr)
+                    # write data on file
+                    namef = p.write_dir + "/acf-avg-data-phr-iT" + str(iT) + ".yml"
+                    self.print_autocorrel_data(namef, p.w_grid, Cw_phr)
+                # collect to single proc.
+                self.T2_obj.collect_avg_phr_from_other_proc(iT)
+                self.lw_obj.collect_avg_phr_from_other_proc(iT)
     # compute parameters
     def parameter_eval_driver(self, acf_obj, ic, iT):
         acf_ofw = np.zeros(p.nwg)
@@ -310,6 +373,16 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         # store data
         self.T2_obj.set_T2_sec(ic, iT, T2_inv)
         self.lw_obj.set_lw(ic, iT, T2_inv)
+        return acf_ofw
+    def avg_parameter_eval_driver(self, acf_obj, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf(w)
+        acf_ofw[:] = np.real(acf_obj.acf_avg[:,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store data
+        self.T2_obj.set_T2_avg(iT, T2_inv)
+        self.lw_obj.set_lw_avg(iT, T2_inv)
         return acf_ofw
     # atom resolved version
     def atr_parameter_eval_driver(self, acf_obj, ia, ic, iT):
@@ -322,6 +395,16 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
         return acf_ofw
+    def avg_atr_parameter_eval_driver(self, acf_obj, ia, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf(w) data
+        acf_ofw[:] = np.real(acf_obj.acf_atr_avg[:,ia,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store T2 data
+        self.T2_obj.set_T2_atr_avg(ia, iT, T2_inv)
+        self.lw_obj.set_lw_atr_avg(ia, iT, T2_inv)
+        return acf_ofw
     # ph. resolved
     def phr_parameter_eval_driver(self, acf_obj, iph, ic, iT):
         acf_ofw = np.zeros(p.nwg)
@@ -333,6 +416,16 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
         return acf_ofw
+    def avg_phr_parameter_eval_driver(self, acf_obj, iph, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf(w) data
+        acf_ofw[:] = np.real(acf_obj.acf_phr_avg[:,iph,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store data
+        self.T2_obj.set_T2_phr_avg(iph, iT, T2_inv)
+        self.lw_obj.set_lw_phr_avg(iph, iT, T2_inv)
+        return acf_ofw
     def wql_parameter_eval_driver(self, acf_obj, iwql, ic, iT):
         acf_ofw = np.zeros(p.nwg)
         # store acf_w data
@@ -342,6 +435,16 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         # store data
         self.T2_obj.set_T2_wql(iwql, ic, iT, T2_inv)
         self.lw_obj.set_lw_wql(iwql, ic, iT, T2_inv)
+        return acf_ofw
+    def avg_wql_parameter_eval_driver(self, acf_obj, iwql, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf(w)
+        acf_ofw[:] = np.real(acf_obj.acf_wql_avg[:,iwql,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store data
+        self.T2_obj.set_T2_wql_avg(iwql, iT, T2_inv)
+        self.lw_obj.set_lw_wql_avg(iwql, iT, T2_inv)
         return acf_ofw
 # ----------------------------------------------------
 #   abstract T2_eval_class -> time resolved
@@ -426,7 +529,43 @@ class T2_eval_class_time_res(ABC):
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
     def print_T2_phr_data(self):
-        pass
+        T2_dict = {'T2_sec' : None, 'tauc_ps' : None, 'Delt_eV' : None, 'lw_eV' : None, 'T_K' : None, 'wql' : None}
+        T2_dict['T2_sec'] = self.T2_obj.get_T2_wql_sec()
+        T2_dict['tauc_ps']= self.tauc_obj.get_tauc_wql()
+        T2_dict['Delt_eV']= self.Delt_obj.get_Delt_wql()
+        T2_dict['lw_eV']  = self.lw_obj.get_lw_wql()
+        T2_dict['T_K'] = p.temperatures
+        T2_dict['wql'] = p.wql_grid
+        # write yaml file
+        namef = p.write_dir + "/T2-wql-data.yml"
+        with open(namef, 'w') as out_file:
+            yaml.dump(T2_dict, out_file)
+        # nphr > 0
+        if p.nphr > 0:
+            T2_dict = {'T2_sec' : None, 'tauc_ps' : None, 'Delt_eV' : None, 'lw_eV' : None, 'T_K' : None, 'wql' : None}
+            # extract ph. mode energies
+            u, wu, nq, qpts, wq, mesh = extract_ph_data()
+            assert mesh[0]*mesh[1]*mesh[2] == nq
+            assert len(qpts) == nq
+            assert len(u) == nq
+            wql = np.zeros(len(wu[0]))
+            for iq in range(nq):
+                wuq = wu[iq]
+                wql[:] += wq[iq] * wuq[:]
+            w_ph = np.zeros(p.nphr)
+            for iph in range(p.nphr):
+                ilq = p.phm_list[iph]
+                w_ph= wql[ilq]
+            T2_dict['wql'] = w_ph
+            T2_dict['T2_sec'] = self.T2_obj.get_T2_phr_sec()
+            T2_dict['tauc_ps']= self.tauc_obj.get_tauc_phr()
+            T2_dict['Delt_eV']= self.Delt_obj.get_Delt_phr()
+            T2_dict['lw_eV'] = self.lw_obj.get_lw_phr()
+            T2_dict['T_K'] = p.temperatures
+            # write yaml data
+            namef = p.write_dir + "/T2-phr-data.yml"
+            with open(namef, 'w') as out_file:
+                yaml.dump(T2_dict, out_file)
 '''
 # --------------------------------------------------------------
 #  time resolved calculation -> concrete class implementation

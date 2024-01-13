@@ -300,6 +300,69 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
                 # collect to single proc.
                 self.T2_obj.collect_phr_from_other_proc(ic, iT)
                 self.lw_obj.collect_phr_from_other_proc(ic, iT)
+    # extract avg. phys. quant.
+    def extract_avg_physical_quantities(self, acf_obj, nat):
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # compute Cw
+            Cw = self.avg_parameter_eval_driver(acf_obj, iT)
+            # write data on file
+            namef = p.write_dir + "/acf-avg-data-iT" + str(iT) + ".yml"
+            self.print_autocorrel_data(namef, p.w_grid, Cw)
+            #
+            # at. resolved
+            if p.at_resolved:
+                # local atom list
+                atr_list = mpi.split_list(range(nat))
+                Cw_atr = np.zeros((p.nwg,nat))
+                # run over atoms
+                for ia in atr_list:
+                    # compute T2 times
+                    Ca_w = self.avg_atr_parameter_eval_driver(acf_obj, ia, iT)
+                    if Ca_w is not None:
+                        Cw_atr[:,ia] = Ca_w[:]
+                Cw_atr = mpi.collect_array(Cw_atr)
+                # collect to single proc.
+                self.T2_obj.collect_avg_atr_from_other_proc(iT)
+                self.lw_obj.collect_avg_atr_from_other_proc(iT)
+                # write data on file
+                namef = p.write_dir + "/acf-avg-data-atr-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.w_grid, Cw_atr)
+            #
+            # ph. resolved
+            if p.ph_resolved:
+                # local ph. list
+                local_wql_lst = mpi.split_list(np.arange(0, p.nwbn, 1))
+                Cw_wql = np.zeros((p.nwg,p.nwbn))
+                # run over modes
+                for iwb in local_wql_lst:
+                    # compute T2 times
+                    Cw_w = self.avg_wql_parameter_eval_driver(acf_obj, iwb, iT)
+                    if Cw_w is not None:
+                        Cw_wql[:,iwb] = Cw_w[:]
+                Cw_wql = mpi.collect_array(Cw_wql)
+                # write data on file
+                namef = p.write_dir + "/acf-avg-data-wql-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.w_grid, Cw_wql)
+                # check nphr > 0
+                if p.nphr > 0:
+                    # local list
+                    local_ph_lst = mpi.split_list(p.phm_list)
+                    # run over modes
+                    Cw_phr = np.zeros((p.nwg,p.nphr))
+                    for im in local_ph_lst:
+                        iph = p.phm_list.index(im)
+                        # compute T2 times
+                        Cp_w = self.avg_phr_parameter_eval_driver(acf_obj, iph, iT)
+                        if Cp_w is not None:
+                            Cw_phr[:,iph] = Cp_w[:]
+                    Cw_phr = mpi.collect_array(Cw_phr)
+                    # write data on file
+                    namef = p.write_dir + "/acf-avg-data-phr-iT" + str(iT) + ".yml"
+                    self.print_autocorrel_data(namef, p.w_grid, Cw_phr)
+                # collect to single proc.
+                self.T2_obj.collect_avg_phr_from_other_proc(iT)
+                self.lw_obj.collect_avg_phr_from_other_proc(iT)
     # compute parameters
     def parameter_eval_driver(self, acf_obj, ic, iT):
         acf_ofw = np.zeros(p.nwg)
@@ -310,6 +373,16 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         # store data
         self.T2_obj.set_T2_sec(ic, iT, T2_inv)
         self.lw_obj.set_lw(ic, iT, T2_inv)
+        return acf_ofw
+    def avg_parameter_eval_driver(self, acf_obj, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf(w)
+        acf_ofw[:] = np.real(acf_obj.acf_avg[:,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store data
+        self.T2_obj.set_T2_avg(iT, T2_inv)
+        self.lw_obj.set_lw_avg(iT, T2_inv)
         return acf_ofw
     # atom resolved version
     def atr_parameter_eval_driver(self, acf_obj, ia, ic, iT):
@@ -322,6 +395,16 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
         return acf_ofw
+    def avg_atr_parameter_eval_driver(self, acf_obj, ia, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf(w) data
+        acf_ofw[:] = np.real(acf_obj.acf_atr_avg[:,ia,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store T2 data
+        self.T2_obj.set_T2_atr_avg(ia, iT, T2_inv)
+        self.lw_obj.set_lw_atr_avg(ia, iT, T2_inv)
+        return acf_ofw
     # ph. resolved
     def phr_parameter_eval_driver(self, acf_obj, iph, ic, iT):
         acf_ofw = np.zeros(p.nwg)
@@ -333,6 +416,16 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
         return acf_ofw
+    def avg_phr_parameter_eval_driver(self, acf_obj, iph, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf(w) data
+        acf_ofw[:] = np.real(acf_obj.acf_phr_avg[:,iph,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store data
+        self.T2_obj.set_T2_phr_avg(iph, iT, T2_inv)
+        self.lw_obj.set_lw_phr_avg(iph, iT, T2_inv)
+        return acf_ofw
     def wql_parameter_eval_driver(self, acf_obj, iwql, ic, iT):
         acf_ofw = np.zeros(p.nwg)
         # store acf_w data
@@ -342,6 +435,16 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         # store data
         self.T2_obj.set_T2_wql(iwql, ic, iT, T2_inv)
         self.lw_obj.set_lw_wql(iwql, ic, iT, T2_inv)
+        return acf_ofw
+    def avg_wql_parameter_eval_driver(self, acf_obj, iwql, iT):
+        acf_ofw = np.zeros(p.nwg)
+        # store acf(w)
+        acf_ofw[:] = np.real(acf_obj.acf_wql_avg[:,iwql,iT])
+        # compute T2_inv
+        T2_inv = self.evaluate_T2(acf_ofw)
+        # store data
+        self.T2_obj.set_T2_wql_avg(iwql, iT, T2_inv)
+        self.lw_obj.set_lw_wql_avg(iwql, iT, T2_inv)
         return acf_ofw
 # ----------------------------------------------------
 #   abstract T2_eval_class -> time resolved
@@ -823,6 +926,97 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
                 self.Delt_obj.collect_phr_from_other_proc(ic, iT)
                 self.tauc_obj.collect_phr_from_other_proc(ic, iT)
                 self.lw_obj.collect_phr_from_other_proc(ic, iT)
+    # extract avg. phys. quant.
+    def extract_avg_physical_quantities(self, acf_obj, nat):
+        # run over temperatures
+        for iT in range(p.ntmp):
+            # Ct, ft, acf_integ_oft
+            Ct, ft, acf_integ_oft = self.avg_parameter_eval_driver(acf_obj, iT)
+            # write data on file
+            namef = p.write_dir + "/acf-avg-data-iT" + str(iT) + ".yml"
+            self.print_autocorrel_data(namef, p.time, ft, Ct, acf_integ_oft)
+            #
+            # at. resolved
+            if p.at_resolved:
+                # local atom list
+                atr_list = mpi.split_list(range(nat))
+                ft_atr = np.zeros((p.nt2,nat))
+                Ct_atr = np.zeros((p.nt2,nat))
+                integ_atr = np.zeros((p.nt2,nat))
+                # run over atoms
+                for ia in atr_list:
+                    # compute T2_times
+                    Ca_t, fa_t, acf_integ_a_oft = self.avg_atr_parameter_eval_driver(acf_obj, ia, iT)
+                    if fa_t is not None:
+                        ft_atr[:,ia] = fa_t[:]
+                    if Ca_t is not None:
+                        Ct_atr[:,ia] = Ca_t[:]
+                    if acf_integ_a_oft is not None:
+                        integ_atr[:,ia] = acf_integ_a_oft[:]
+                ft_atr = mpi.collect_array(ft_atr)
+                Ct_atr = mpi.collect_array(Ct_atr)
+                integ_atr = mpi.collect_array(integ_atr)
+                # collect to single proc.
+                self.T2_obj.collect_avg_atr_from_other_proc(iT)
+                self.Delt_obj.collect_avg_atr_from_other_proc(iT)
+                self.tauc_obj.collect_avg_atr_from_other_proc(iT)
+                self.lw_obj.collect_avg_atr_from_other_proc(iT)
+                # write data on file
+                namef = p.write_dir + "/acf-avg-data-atr-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_atr, Ct_atr, integ_atr)
+            #
+            # ph. resolved
+            if p.ph_resolved:
+                # local wql grid list
+                local_wql_lst = mpi.split_list(np.arange(0, p.nwbn, 1))
+                ft_wql = np.zeros((p.nt2,p.nwbn))
+                Ct_wql = np.zeros((p.nt2,p.nwbn))
+                integ_wql = np.zeros((p.nt2,p.nwbn))
+                # run over modes
+                for iwb in local_wql_lst:
+                    # compute T2 times
+                    Cw_t, fw_t, acf_integ_w_oft = self.avg_wql_parameter_eval_driver(acf_obj, iwb, iT)
+                    if fw_t is not None:
+                        ft_wql[:,iwb] = fw_t[:]
+                    if Cw_t is not None:
+                        Ct_wql[:,iwb] = Cw_t[:]
+                    if acf_integ_w_oft is not None:
+                        integ_wql[:,iwb] = acf_integ_w_oft[:]
+                ft_wql = mpi.collect_array(ft_wql)
+                Ct_wql = mpi.collect_array(Ct_wql)
+                integ_wql = mpi.collect_array(integ_wql)
+                # write data on file
+                namef = p.write_dir + "/acf-avg-data-wql-iT" + str(iT) + ".yml"
+                self.print_autocorrel_data(namef, p.time2, ft_wql, Ct_wql, integ_wql)
+                # check if nphr > 0
+                if p.nphr > 0:
+                    # local modes list
+                    local_ph_lst = mpi.split_list(p.phm_list)
+                    # run modes
+                    ft_phr = np.zeros((p.nt2,p.nphr))
+                    Ct_phr = np.zeros((p.nt2,p.nphr))
+                    integ_phr = np.zeros((p.nt2,p.nphr))
+                    for im in local_ph_lst:
+                        iph = p.phm_list.index(im)
+                        # compute T2 times
+                        Cp_t, fp_t, acf_integ_p_oft = self.avg_phr_parameter_eval_driver(acf_obj, iph, iT)
+                        if fp_t is not None:
+                            ft_phr[:,iph] = fp_t[:]
+                        if Cp_t is not None:
+                            Ct_phr[:,iph] = Cp_t[:]
+                        if acf_integ_p_oft is not None:
+                            integ_phr[:,iph] = acf_integ_p_oft[:]
+                    ft_phr = mpi.collect_array(ft_phr)
+                    Ct_phr = mpi.collect_array(Ct_phr)
+                    integ_phr = mpi.collect_array(integ_phr)
+                    # write data on file
+                    namef = p.write_dir + "/acf-avg-data-phr-iT" + str(iT) + ".yml"
+                    self.print_autocorrel_data(namef, p.time2, ft_phr, Ct_phr, integ_phr)
+                # collect data to single proc.
+                self.T2_obj.collect_avg_phr_from_other_proc(iT)
+                self.Delt_obj.collect_avg_phr_from_other_proc(iT)
+                self.tauc_obj.collect_avg_phr_from_other_proc(iT)
+                self.lw_obj.collect_avg_phr_from_other_proc(iT)
     #
     # parameters evaluation
     def parameter_eval_driver(self, acf_obj, ic, iT):
@@ -840,6 +1034,21 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.T2_obj.set_T2_sec(ic, iT, T2_inv)
         self.lw_obj.set_lw(ic, iT, T2_inv)
         return Ct, ft, acf_integ_oft
+    def avg_parameter_eval_driver(self, acf_obj, iT):
+        acf_oft = np.zeros(p.nt)
+        acf_integ_oft = np.zeros(p.nt)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_avg[:,0,iT])
+        # parametrize acf(t)
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time, acf_oft)
+        self.Delt_obj.set_Delt_avg(iT, D2)
+        self.tauc_obj.set_tauc_avg(iT, tauc_ps)
+        # compute T2_inv
+        acf_integ_oft[:] = np.real(acf_obj.acf_avg[:,1,iT])
+        T2_inv = self.evaluate_T2(acf_integ_oft)
+        self.T2_obj.set_T2_avg(iT, T2_inv)
+        self.lw_obj.set_lw_avg(iT, T2_inv)
+        return Ct, ft, acf_integ_oft
     # atom resolved version
     def atr_parameter_eval_driver(self, acf_obj, ia, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -855,6 +1064,21 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_atr(ia, ic, iT, T2_inv)
         self.lw_obj.set_lw_atr(ia, ic, iT, T2_inv)
+        return Ct, ft, acf_integ_oft
+    def avg_atr_parameter_eval_driver(self, acf_obj, ia, iT):
+        acf_oft = np.zeros(p.nt2)
+        acf_integ_oft = np.zeros(p.nt2)
+        # store acf(t)
+        acf_oft[:] = np.real(acf_obj.acf_atr_avg[:,0,ia,iT])
+        # parametrize acf(t)
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_atr_avg(ia, iT, D2)
+        self.tauc_obj.set_tauc_atr_avg(ia, iT, tauc_ps)
+        # compute T2_inv
+        acf_integ_oft[:] = np.real(acf_obj.acf_atr_avg[:,1,ia,iT])
+        T2_inv = self.evaluate_T2(acf_integ_oft)
+        self.T2_obj.set_T2_atr_avg(ia, iT, T2_inv)
+        self.lw_obj.set_lw_atr_avg(ia, iT, T2_inv)
         return Ct, ft, acf_integ_oft
     # ph. resolved version
     def phr_parameter_eval_driver(self, acf_obj, iph, ic, iT):
@@ -872,6 +1096,21 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
         return Ct, ft, acf_integ_oft
+    def avg_phr_parameter_eval_driver(self, acf_obj, iph, iT):
+        acf_oft = np.zeros(p.nt2)
+        acf_integ_oft = np.zeros(p.nt2)
+        # store acf(t)
+        acf_oft[:] = np.real(acf_obj.acf_phr_avg[:,0,iph,iT])
+        # parametrize acf(t)
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_phr_avg(iph, iT, D2)
+        self.tauc_obj.set_tauc_phr_avg(iph, iT, tauc_ps)
+        # compute T2_inv
+        acf_integ_oft[:] = np.real(acf_obj.acf_phr_avg[:,1,iph,iT])
+        T2_inv = self.evaluate_T2(acf_integ_oft)
+        self.T2_obj.set_T2_phr_avg(iph, iT, T2_inv)
+        self.lw_obj.set_lw_phr_avg(iph, iT, T2_inv)
+        return Ct, ft, acf_integ_oft
     # wql resolved version
     def wql_parameter_eval_driver(self, acf_obj, iwql, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -887,6 +1126,21 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         T2_inv = self.evaluate_T2(acf_integ_oft)
         self.T2_obj.set_T2_wql(iwql, ic, iT, T2_inv)
         self.lw_obj.set_lw_wql(iwql, ic, iT, T2_inv)
+        return Ct, ft, acf_integ_oft
+    def avg_wql_parameter_eval_driver(self, acf_obj, iwql, iT):
+        acf_oft = np.zeros(p.nt2)
+        acf_integ_oft = np.zeros(p.nt2)
+        # store acf(t)
+        acf_oft[:] = np.real(acf_obj.acf_wql_avg[:,0,iwql,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_wql_avg(iwql, iT, D2)
+        self.tauc_obj.set_tauc_wql_avg(iwql, iT, tauc_ps)
+        # compute T2_inv
+        acf_integ_oft[:] = np.real(acf_obj.acf_wql_avg[:,1,iwql,iT])
+        T2_inv = self.evaluate_T2(acf_integ_oft)
+        self.T2_obj.set_T2_wql_avg(iwql, iT, T2_inv)
+        self.lw_obj.set_lw_wql_avg(iwql, iT, T2_inv)
         return Ct, ft, acf_integ_oft
 # -------------------------------------------------------------
 # subclass -> template for pure fitting calculation

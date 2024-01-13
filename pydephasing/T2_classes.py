@@ -475,12 +475,12 @@ class tauc_inhom_ofT(tauc_ofT):
         self.tauc_phr[iph,ic,iT] = tau_c
         # ps units
     def set_tauc_phr_avg(self, iph, iT, tau_c):
-        self.tauc_phr[iph,iT] = tau_c
+        self.tauc_phr_avg[iph,iT] = tau_c
     def set_tauc_wql(self, iwb, ic, iT, tau_c):
         self.tauc_wql[iwb,ic,iT] = tau_c
         # ps units
-    def set_tauc_wql(self, iwb, iT, tau_c):
-        self.tauc_wql[iwb,iT] = tau_c
+    def set_tauc_wql_avg(self, iwb, iT, tau_c):
+        self.tauc_wql_avg[iwb,iT] = tau_c
     def collect_atr_from_other_proc(self, ic, iT):
         tauc_atr_full = mpi.collect_array(self.tauc_atr[:,ic,iT])
         self.tauc_atr[:,ic,iT] = 0.
