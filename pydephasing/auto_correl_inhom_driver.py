@@ -95,6 +95,16 @@ class acf_sp_ph_inhom(GPU_acf_sp_ph if GPU_ACTIVE else CPU_acf_sp_ph):
                 acf_data.append(self.acf_phr_avg)
         save_data(ic, T2_calc_handler, acf_data)
     #
+    # reset arrays
+    def reset_acf(self):
+        self.acf[:,:] = 0.
+        if p.at_resolved:
+            self.acf_atr = 0.
+        if p.ph_resolved:
+            self.acf_wql = 0.
+            if p.nphr > 0:
+                self.acf_phr = 0. 
+    #
     # method : update acf_avg
     def update_avg_acf(self):
         self.acf_avg += self.acf

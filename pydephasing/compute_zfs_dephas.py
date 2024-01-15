@@ -144,12 +144,6 @@ def compute_homo_dephas():
     # test acf -> check t=0 / w=0
     if log.level <= logging.INFO:
         acf.auto_correl_test()
-    #import matplotlib.pyplot as plt
-    #if mpi.rank == mpi.root and p.w_resolved:
-    #    plt.plot(p.w_grid, acf.acf[:,0])
-    #    plt.savefig('./examples/NV-diamond/F_1_REL_ofw.png')
-    #print('OK')
-    #sys.exit()
     #
     # print average atom displ
     if log.level <= logging.DEBUG:

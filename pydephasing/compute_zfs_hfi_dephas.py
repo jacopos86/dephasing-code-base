@@ -137,7 +137,6 @@ def compute_full_dephas():
     # set up ACF over (q,l) list 
     acf = acf_sp_ph_inhom()
     acf.allocate_acf_arrays(nat)
-    print(" -- OK HERE -- ")
     #
     # restart calculation
     restart_file = p.write_dir + "/restart_calculation.yml"
@@ -196,9 +195,21 @@ def compute_full_dephas():
         # save temp. data
         if mpi.rank == mpi.root:
             acf.save_data(ic, T2_calc_handler)
+        # re-set arrays
+        acf.reset_acf()
         # wait
         mpi.comm.Barrier()
     #
     #  complete calculation -> final average acf
     acf.compute_avg_acf()
-        
+    #
+    # extract T2_inv
+    T2_calc_handler.extract_avg_physical_quantities(acf, nat)
+    if mpi.rank == mpi.root:
+        log.info("\n\n")
+        log.info("\t " + p.sep)
+        log.warning("\t average calculation -> COMPLETED")
+        log.info("\t " + p.sep)
+        log.info("\n\n")
+    mpi.comm.Barrier()
+    return T2_calc_handler
