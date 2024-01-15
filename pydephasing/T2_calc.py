@@ -1547,6 +1547,18 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
                         Cp_t, fp_t = self.avg_phr_parameter_eval_driver(acf_obj, iph, iT)
                         if fp_t is not None:
                             ft_phr[:,iph] = fp_t[:]
+                        if Cp_t is not None:
+                            Ct_phr[:,iph] = Cp_t[:]
+                    ft_phr = mpi.collect_array(ft_phr)
+                    Ct_phr = mpi.collect_array(Ct_phr)
+                    # write data on file
+                    namef = p.write_dir + "/acf-avg-data-phr-iT" + str(iT) + ".yml"
+                    self.print_autocorrel_data(namef, p.time2, ft_phr, Ct_phr)
+                # collect data -> root
+                self.T2_obj.collect_avg_phr_from_other_proc(iT)
+                self.Delt_obj.collect_avg_phr_from_other_proc(iT)
+                self.tauc_obj.collect_avg_phr_from_other_proc(iT)
+                self.lw_obj.collect_avg_phr_from_other_proc(iT)
     #
     #  parameters evaluation
     def parameter_eval_driver(self, acf_obj, ic, iT):
@@ -1637,6 +1649,22 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.T2_obj.set_T2_phr(iph, ic, iT, T2_inv)
         self.lw_obj.set_lw_phr(iph, ic, iT, T2_inv)
         return Ct, ft
+    def avg_phr_parameter_eval_driver(self, acf_obj, iph, iT):
+        acf_oft = np.zeros(p.nt2)
+        # store acf_oft
+        acf_oft[:] = np.real(acf_obj.acf_phr_avg[:,iph,iT])
+        # parametrize acf
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_phr_avg(iph, iT, D2)
+        self.tauc_obj.set_tauc_phr_avg(iph, iT, tauc_ps)
+        # compute T2_inv
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time2, ft])
+        self.T2_obj.set_T2_phr_avg(iph, iT, T2_inv)
+        self.lw_obj.set_lw_phr_avg(iph, iT, T2_inv)
+        return Ct, ft
     # wql resolved version
     def wql_parameter_eval_driver(self, acf_obj, iwql, ic, iT):
         acf_oft = np.zeros(p.nt2)
@@ -1654,6 +1682,22 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         # store data
         self.T2_obj.set_T2_wql(iwql, ic, iT, T2_inv)
         self.lw_obj.set_lw_wql(iwql, ic, iT, T2_inv)
+        return Ct, ft
+    def avg_wql_parameter_eval_driver(self, acf_obj, iwql, iT):
+        acf_oft = np.zeros(p.nt2)
+        # store data
+        acf_oft[:] = np.real(acf_obj.acf_wql_avg[:,iwql,iT])
+        # parametrize acf_oft
+        D2, tauc_ps, Ct, ft = self.parametrize_acf(p.time2, acf_oft)
+        self.Delt_obj.set_Delt_wql_avg(iwql, iT, D2)
+        self.tauc_obj.set_tauc_wql_avg(iwql, iT, tauc_ps)
+        # compute T2_inv
+        if p.FIT_MODEL == "Ex":
+            T2_inv = self.evaluate_T2([D2, tauc_ps])
+        elif p.FIT_MODEL == "ExS":
+            T2_inv = self.evaluate_T2([D2, p.time2, ft])
+        self.T2_obj.set_T2_wql_avg(iwql, iT, T2_inv)
+        self.lw_obj.set_lw_wql_avg(iwql, iT, T2_inv)
         return Ct, ft
 # -------------------------------------------------------------
 # subclass of the fitting model
