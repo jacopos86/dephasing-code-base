@@ -15,7 +15,6 @@ from pydephasing.nuclear_spin_config import nuclear_spins_config
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 import logging
-import sys
 # function
 def compute_full_dephas():
     # main driver code for the calculation of full dephasing time
@@ -196,7 +195,7 @@ def compute_full_dephas():
         if mpi.rank == mpi.root:
             acf.save_data(ic, T2_calc_handler)
         # re-set arrays
-        acf.reset_acf()
+        acf.allocate_acf_arrays(nat)
         # wait
         mpi.comm.Barrier()
     #

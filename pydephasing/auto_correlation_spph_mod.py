@@ -56,7 +56,7 @@ class acf_sp_ph(acf_ph):
                         self.acf_phr_sp = np.zeros((p.nt2, 2, p.nphr, p.ntmp), dtype=np.complex128)
                     self.acf_wql_sp = np.zeros((p.nt2, 2, p.nwbn, p.ntmp), dtype=np.complex128)
                 if p.at_resolved:
-                    self.acf_atr_sp = np.zeros((p.nt2, 2, nat, p.ntmp))
+                    self.acf_atr_sp = np.zeros((p.nt2, 2, nat, p.ntmp), dtype=np.complex128)
         elif p.w_resolved:
             self.acf_sp = np.zeros((p.nwg, p.ntmp), dtype=np.complex128)
             if p.ph_resolved:
