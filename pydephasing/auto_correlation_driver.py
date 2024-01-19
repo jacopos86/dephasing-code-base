@@ -6,7 +6,6 @@
 import numpy as np
 import logging
 from pydephasing.phys_constants import eps
-from pydephasing.T2_calc import T2_eval
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.input_parameters import p
@@ -14,7 +13,6 @@ from pydephasing.extract_ph_data import set_ql_list_red_qgrid, set_iqlp_list
 from tqdm import tqdm
 from pydephasing.ph_resolved_quant import compute_ph_amplitude_q, transf_1st_order_force_phr, phr_force_2nd_order
 import matplotlib.pyplot as plt
-import sys
 #
 # spin-exc-ph dephasing class -> homogeneous
 class acf_ph(object):
@@ -119,10 +117,6 @@ class acf_ph(object):
                     self.Delta_w0 += self.compute_acf_V2_w0(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)
             if mpi.rank == mpi.root:
                 print(self.Delta_2)
-            #plt.plot(p.w_grid, self.acf_sp[:,0].real)
-            #plt.plot(p.w_grid[:], self.acf_sp[:,0].real)
-            #plt.show()
-            #sys.exit()
             # iterate (q,l)
             iql += 1
     #
@@ -285,99 +279,7 @@ class acf_ph(object):
         for iT in range(p.ntmp):
             for ipl in range(npl):
                 self.acfdd[:,ipl,iT] = mpi.collect_time_array(self.acfdd_sp[:,ipl,iT])
-    # extract dephasing parameters
-    # from acf
-    def extract_dephas_data(self, T2_obj, Delt_obj, tauc_obj, iT, lw_obj=None):
-        # Delta^2 -> (eV^2)
-        D2 = self.acf[0,iT].real
-        Ct = np.zeros(p.nt)
-        if np.abs(D2) == 0.:
-            pass
-        else:
-            for t in range(p.nt):
-                Ct[t] = self.acf[t,iT].real / D2
-        # extract T2 time
-        T2 = T2_eval()
-        tau_c, T2_inv, ft = T2.extract_T2(p.time, Ct, D2)
-        # store data in objects
-        if tau_c is not None and T2_inv is not None:
-            T2_obj.set_T2(iT, T2_inv)
-            tauc_obj.set_tauc(iT, tau_c)
-            Delt_obj.set_Delt(iT, D2)
-            if lw_obj is not None:
-                lw_obj.set_lw(iT, T2_inv)
-        return ft
     #
-    def extract_dephas_data_wql(self, T2_obj, Delt_obj, tauc_obj, iwb, iT, lw_obj=None):
-        # Delta^2
-        D2 = self.acf_wql[0,iwb,iT].real
-        Ct = np.zeros(p.nt2)
-        if np.abs(D2) == 0.:
-            pass
-        else:
-            for t in range(p.nt2):
-                Ct[t] = self.acf_wql[t,iwb,iT].real / D2
-        # extract T2 time
-        T2 = T2_eval()
-        tau_c, T2_inv, ft = T2.extract_T2(p.time2, Ct, D2)
-        # store data into objects
-        if tau_c is not None and T2_inv is not None:
-            T2_obj.set_T2_wql(iwb, iT, T2_inv)
-            tauc_obj.set_tauc_wql(iwb, iT, tau_c)
-            Delt_obj.set_Delt_wql(iwb, iT, D2)
-            if lw_obj is not None:
-                lw_obj.set_lw_wql(iwb, iT, T2_inv)
-        return ft
-    def extract_dephas_data_atr(self, T2_obj, Delt_obj, tauc_obj, ia, iT, lw_obj=None):
-        # Delta^2
-        D2 = self.acf_atr[0,ia,iT].real
-        Ct = np.zeros(p.nt2)
-        if np.abs(D2) == 0.:
-            pass
-        else:
-            for t in range(p.nt2):
-                Ct[t] = self.acf_atr[t,ia,iT].real / D2
-        # extract T2 time
-        T2 = T2_eval()
-        tau_c, T2_inv, ft = T2.extract_T2(p.time2, Ct, D2)
-        # store data
-        if tau_c is not None and T2_inv is not None:
-            T2_obj.set_T2_atr(ia, iT, T2_inv)
-            tauc_obj.set_tauc_atr(ia, iT, tau_c)
-            Delt_obj.set_Delt_atr(ia, iT, D2)
-            if lw_obj is not None:
-                lw_obj.set_lw_atr(ia, iT, T2_inv)
-        return ft
-    # print acf data
-    def print_autocorrel_data(self, ft, ft_atr, ft_wql, ft_phr, iT):
-        # Delta^2
-        D2 = self.acf[0,iT].real
-        Ct = np.zeros(p.nt)
-        if np.abs(D2) == 0.:
-            pass
-        else:
-            for t in range(p.nt):
-                Ct[t] = self.acf[t,iT].real / D2
-        # write data on file
-        if log.level <= logging.INFO:
-            namef = self.write_dir + "/acf-data-iT" + str(iT+1) + ".yml"
-            print_acf_dict(p.time, Ct, ft, namef)
-        # at. resolved
-        if ft_atr is not None and p.at_resolved:
-            nat = self.acf_atr.shape[1]
-            Ct = np.zeros((p.nt2,nat))
-            # run over ia
-            for ia in range(nat):
-                D2 = self.acf_atr[0,ia,iT].real
-                if np.abs(D2) == 0.:
-                    pass
-                else:
-                    for t in range(p.nt2):
-                        Ct[t,ia] = self.acf_atr[t,ia,iT].real / D2
-            # write data on file
-            if log.level <= logging.INFO:
-                namef = self.write_dir + "/acf-data-atr-iT" + str(iT+1) + ".yml"
-                print_acf_dict(p.time2, Ct, ft_atr, namef)
     #
     def print_autocorrel_data_spinconf(self, ft, ft_atr, ft_wql, ft_phr, ic, iT):
         # Delta^2
