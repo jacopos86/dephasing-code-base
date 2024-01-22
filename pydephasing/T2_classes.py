@@ -667,6 +667,8 @@ class lw_inhom_stat(lw_class):
     def set_lw_avg(self, T2i):
         self.lw_avg = 2.*np.pi*hbar*T2i
         # eV units
+    def get_lw(self):
+        return self.lw_eV
     def collect_from_other_proc(self):
         lw_full = mpi.collect_array(self.lw_eV)
         self.lw_eV[:] = 0.
