@@ -10,7 +10,6 @@ from pydephasing.energy_fluct_mod import spin_level_static_fluctuations
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.hf_stat_struct import perturbation_HFI_stat
-from pydephasing.T2_classes import T2i_inhom, Delta_inhom, tauc_inhom
 #
 def compute_hfi_stat_dephas():
     # input_params -> input parameters object
@@ -32,6 +31,10 @@ def compute_hfi_stat_dephas():
     HFI0 = perturbation_HFI_stat(p.work_dir, p.grad_info, p.fc_core)
     # set HFI and ZFS
     HFI0.set_gs_struct()
+    # nat
+    nat = HFI0.struct_0.nat
+    if mpi.rank == mpi.root:
+        log.info("n. atoms= " + str(nat))
     # set spin hamiltonian
     Hss = spin_hamiltonian()
     # set time spinor evol.
@@ -48,16 +51,6 @@ def compute_hfi_stat_dephas():
     # normalization
     p.qs1[:] = p.qs1[:] / np.sqrt(np.dot(p.qs1.conjugate(), p.qs1))
     p.qs2[:] = p.qs2[:] / np.sqrt(np.dot(p.qs2.conjugate(), p.qs2))
-    # set average fluct. energy
-    deltaE_aver_oft = np.zeros(p.nt2)
-    # nat
-    nat = HFI0.struct_0.nat
-    if mpi.rank == mpi.root:
-        log.info("n. atoms= " + str(nat))
-    # data objects
-    T2_obj = T2i_inhom(p.nconf)
-    Delt_obj = Delta_inhom(p.nconf)
-    tauc_obj = tauc_inhom(p.nconf)
     #
     # set up nuclear spins
     #

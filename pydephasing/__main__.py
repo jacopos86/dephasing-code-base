@@ -88,14 +88,20 @@ if calc_type1 == "energy":
         mpi.comm.Barrier()
         # energy branch -> END
 elif calc_type1 == "spin":
-    if mpi.rank == mpi.root:
-        log.info("\t " + p.sep)
-        log.info("\n")
-        log.info("\t SPIN - PHONON CALCULATION")
-        log.info("\n")
     # prepare spin dephasing calculation
     calc_type2 = parser.parse_args().ct2
     deph_type = parser.parse_args().typ
+    if mpi.rank == mpi.root:
+        if deph_type == "stat" or deph_type == "statdd":
+            log.info("\t " + p.sep)
+            log.info("\n")
+            log.info("\t SPIN - STATIC CALCULATION")
+            log.info("\n")
+        else:
+            log.info("\t " + p.sep)
+            log.info("\n")
+            log.info("\t SPIN - PHONON CALCULATION")
+            log.info("\n")
     # --------------------------------------------------------------
     # 
     #    SIMPLE HOMOGENEOUS CALC. (ZFS ONLY)
@@ -189,7 +195,7 @@ elif calc_type1 == "spin":
     # --------------------------------------------------------------
     elif calc_type2 == "inhomo":
         # check calc type
-        if deph_type != "stat" or deph_type != "statdd":
+        if deph_type != "stat" and deph_type != "statdd":
             # read file
             p.read_yml_data(yml_file)
             if deph_type == "deph":

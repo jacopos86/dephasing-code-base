@@ -8,7 +8,8 @@ import scipy
 from scipy import integrate
 import yaml
 import logging
-from pydephasing.T2_classes import T2i_class, Delta_class, tauc_class, lw_class
+from pydephasing.T2_classes import T2i_class, Delta_class, tauc_class, lw_class, \
+    T2i_inhom_stat_dyndec, lw_inhom_stat_dyndec, T2i_inhom_stat, lw_inhom_stat
 from pydephasing.phys_constants import hbar
 from pydephasing.log import log
 from pydephasing.input_parameters import p
@@ -1706,6 +1707,9 @@ class T2_eval_static_class():
     def __init__(self):
         self.T2_obj = None
         self.lw_obj = None
+    def set_up_param_objects_from_scratch(self, nconf):
+        self.T2_obj = T2i_inhom_stat(nconf)
+        self.lw_obj = lw_inhom_stat(nconf)
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None}
         T2_dict['T2_musec'] = self.T2_obj.get_T2_musec()

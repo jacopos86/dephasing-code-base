@@ -8,7 +8,8 @@ import scipy
 from scipy import integrate
 import yaml
 import logging
-from pydephasing.T2_classes import T2i_class, Delta_class, tauc_class, lw_class
+from pydephasing.T2_classes import T2i_class, Delta_class, tauc_class, lw_class, \
+    T2i_inhom_stat_dyndec, lw_inhom_stat_dyndec, T2i_inhom_stat, lw_inhom_stat
 from pydephasing.phys_constants import hbar
 from pydephasing.log import log
 from pydephasing.input_parameters import p
@@ -1700,29 +1701,23 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.lw_obj.set_lw_wql_avg(iwql, iT, T2_inv)
         return Ct, ft
 # -------------------------------------------------------------
-# subclass of the fitting model
-# to be used for static calculation -> different fitting
+# subclass of the static model
 # -------------------------------------------------------------
-class T2_eval_fit_model_stat_class(T2_eval_fit_model_class):
+class T2_eval_static_class():
     def __init__(self):
-        super(T2_eval_fit_model_stat_class, self).__init__()
-    def parameter_eval_driver(self, acf_obj):
-        # store acf_oft
-        acf_oft = acf_obj.acf
-        # parametrize acf_oft
-        D2, tauc_mus, Ct, ft = self.parametrize_acf(p.time, acf_oft)
-        self.Delt_obj.set_Delt(ic, iT, D2)
-        self.tauc_obj.set_tauc(ic, tauc_mus)
-        # convert to psec
-        tauc_ps = tauc_mus * 1.E+6
-        # compute T2_inv
-        T2_inv = self.evaluate_T2(D2, tauc_ps)
-        self.T2_obj.set_T2_psec(ic, T2_inv)
-        # lw obj.
-        self.lw_obj.set_lw(ic, T2_inv)
-        return Ct, ft
-    def evaluate_T2(self, D2, tauc_ps):
-        pass
+        self.T2_obj = None
+        self.lw_obj = None
+    def set_up_param_objects_from_scratch(self, nconf):
+        self.T2_obj = T2i_inhom_stat(nconf)
+        self.lw_obj = lw_inhom_stat(nconf)
+    def print_T2_times_data(self):
+        T2_dict = {'T2_musec' : None, 'lw_eV' : None}
+        T2_dict['T2_musec'] = self.T2_obj.get_T2_musec()
+        T2_dict['lw_eV'] = self.lw_obj.get_lw()
+        # write yaml file
+        namef = p.write_dir + "/T2-data.yml"
+        with open(namef, 'w') as out_file:
+            yaml.dump(T2_dict, out_file)
 #
 # generate initial parameters function
 def generate_initial_params(r, D2, tau_c):
