@@ -45,12 +45,8 @@ def compute_hfi_stat_dephas():
     if mpi.rank == mpi.root:
         Hss.write_spin_vector_on_file(p.write_dir)
     mpi.comm.Barrier()
-    # quantum spin states
-    p.qs1 = np.array([1.+0j,0j,0j])
-    p.qs2 = np.array([0j,1.+0j,0j])
-    # normalization
-    p.qs1[:] = p.qs1[:] / np.sqrt(np.dot(p.qs1.conjugate(), p.qs1))
-    p.qs2[:] = p.qs2[:] / np.sqrt(np.dot(p.qs2.conjugate(), p.qs2))
+    # set spin eigenstates
+    Hss.set_zfs_levels(HFI0.struct_0, p.B0)
     #
     # set up nuclear spins
     #
