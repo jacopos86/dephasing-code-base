@@ -366,7 +366,7 @@ class data_input():
         if 'nspins' in data:
             self.nsp = int(data['nspins'])
         if 'B0' in data:
-            self.B0 = np.array(data['B0'])
+            self.B0 = data['B0']
             # Gauss units
         # fermi contact term
         if 'core' in data:

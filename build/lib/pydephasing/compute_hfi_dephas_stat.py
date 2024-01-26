@@ -10,6 +10,7 @@ from pydephasing.energy_fluct_mod import spin_level_static_fluctuations
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.hf_stat_struct import perturbation_HFI_stat
+from pydephasing.T2_calc_handler import set_T2_calc_handler
 #
 def compute_hfi_stat_dephas():
     # input_params -> input parameters object
@@ -35,18 +36,29 @@ def compute_hfi_stat_dephas():
     nat = HFI0.struct_0.nat
     if mpi.rank == mpi.root:
         log.info("n. atoms= " + str(nat))
+    # align the applied B field
+    # to the spin quantization axis
+    Bfield = np.array([0., 0., p.B0])
+    if mpi.rank == mpi.root:
+        log.info("applied B field : " + str(Bfield))
     # set spin hamiltonian
     Hss = spin_hamiltonian()
     # set time spinor evol.
     Hss.set_time(p.dt, p.T)
     # set up the spin vector evolution
-    Hss.compute_spin_vector_evol(HFI0.struct_0, p.psi0, p.B0)
+    Hss.compute_spin_vector_evol(HFI0.struct_0, p.psi0, Bfield)
     # write data on file
     if mpi.rank == mpi.root:
         Hss.write_spin_vector_on_file(p.write_dir)
     mpi.comm.Barrier()
     # set spin eigenstates
-    Hss.set_zfs_levels(HFI0.struct_0, p.B0)
+    Hss.set_zfs_levels(HFI0.struct_0, Bfield)
+    # set up the calculation
+    #     handler
+    T2_calc_handler = set_T2_calc_handler()
+    print(T2_calc_handler.T2_obj)
+    import sys
+    sys.exit()
     #
     # set up nuclear spins
     #
@@ -60,10 +72,9 @@ def compute_hfi_stat_dephas():
         config.set_nuclear_spins(nat, ic)
         # compute dynamical evolution
         config.set_nuclear_spin_evol(Hss, HFI0.struct_0)
-        # set temporal fluctuations
-        config.set_nuclear_spin_time_fluct()
         # write data on file
-        config.write_It_on_file(p.write_dir, ic)
+        if log.level <= logging.INFO:
+            config.write_It_on_file(p.write_dir, ic)
         # compute eff. forces 
         # for each spin
         HFI0.compute_stat_force_HFS(Hss, config)

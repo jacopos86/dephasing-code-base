@@ -1718,6 +1718,13 @@ class T2_eval_static_class():
         namef = p.write_dir + "/T2-data.yml"
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
+# -------------------------------------------------------------
+# subclass of the dynamical dec. model
+# -------------------------------------------------------------
+class T2_eval_dyndec_class():
+    def __init__(self):
+        self.T2_obj = None
+        self.lw_obj = None
 #
 # generate initial parameters function
 def generate_initial_params(r, D2, tau_c):
