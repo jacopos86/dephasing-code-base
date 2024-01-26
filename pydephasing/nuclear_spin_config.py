@@ -30,7 +30,7 @@ class nuclear_spins_config:
 		# micro sec units
 	# set nuclear configuration method
 	def set_nuclear_spins(self, nat, ic):
-		# assume nuclear spin oriented along mag. field direction
+		# assume nuclear spin random initial orientation
 		v = self.B0 / norm_realv(self.B0)
 		# set spin list
 		Ilist = []
@@ -90,19 +90,6 @@ class nuclear_spins_config:
 			I0 = self.nuclear_spins[isp]['I']
 			It = ODE_solver(I0, Ft, dt)
 			self.nuclear_spins[isp]['It'] = It
-	# set nuclear spin time fluct.
-	def set_nuclear_spin_time_fluct(self):
-		# time steps
-		nt = len(self.time)
-		# run over different active spins
-		# in the config.
-		for isp in range(self.nsp):
-			It = self.nuclear_spins[isp]['It']
-			dIt = np.zeros((3,nt))
-			dIt[0,:] = It[0,:] - It[0,0]
-			dIt[1,:] = It[1,:] - It[1,0]
-			dIt[2,:] = It[2,:] - It[2,0]
-			self.nuclear_spins[isp]['dIt'] = dIt
 	# write I(t) on ext. file
 	def write_It_on_file(self, out_dir, ic):
 		# write file name

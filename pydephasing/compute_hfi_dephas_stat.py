@@ -47,6 +47,9 @@ def compute_hfi_stat_dephas():
     mpi.comm.Barrier()
     # set spin eigenstates
     Hss.set_zfs_levels(HFI0.struct_0, p.B0)
+    # set up the calculation
+    #     handler
+    
     #
     # set up nuclear spins
     #
@@ -60,10 +63,9 @@ def compute_hfi_stat_dephas():
         config.set_nuclear_spins(nat, ic)
         # compute dynamical evolution
         config.set_nuclear_spin_evol(Hss, HFI0.struct_0)
-        # set temporal fluctuations
-        config.set_nuclear_spin_time_fluct()
         # write data on file
-        config.write_It_on_file(p.write_dir, ic)
+        if log.level <= logging.INFO:
+            config.write_It_on_file(p.write_dir, ic)
         # compute eff. forces 
         # for each spin
         HFI0.compute_stat_force_HFS(Hss, config)
