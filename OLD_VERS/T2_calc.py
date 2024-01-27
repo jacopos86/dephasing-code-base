@@ -14,7 +14,7 @@ from pydephasing.phys_constants import hbar
 from pydephasing.log import log
 from pydephasing.input_parameters import p
 from pydephasing.mpi import mpi
-from pydephasing.extract_ph_data import extract_wuq_data
+from pydephasing.extract_ph_data import extract_ph_data
 from abc import ABC, abstractmethod
 import warnings
 warnings.filterwarnings("ignore")
@@ -102,7 +102,10 @@ class T2_eval_class_freq_res:
         if p.nphr > 0:
             T2_dict = {'T2_sec' : None, 'lw_eV' : None, 'T_K' : None, 'wql' : None}
             # extract ph. mode energies
-            wu, nq, wq = extract_wuq_data()
+            u, wu, nq, qpts, wq, mesh = extract_ph_data()
+            assert mesh[0]*mesh[1]*mesh[2] == nq
+            assert len(qpts) == nq
+            assert len(u) == nq
             wql = np.zeros(len(wu[0]))
             for iq in range(nq):
                 wuq = wu[iq]
@@ -444,37 +447,6 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         self.T2_obj.set_T2_wql_avg(iwql, iT, T2_inv)
         self.lw_obj.set_lw_wql_avg(iwql, iT, T2_inv)
         return acf_ofw
-    # print decoherence times
-    #
-    def print_decoherence_times(self):
-        # override method in base class
-        super(T2_eval_class_freq_res, self).print_decoherence_times()
-        # print avg data
-        self.print_T2_avg_data()
-        # at. resolved
-        if p.at_resolved:
-            self.print_T2_atr_avg_data()
-        # ph. resolved
-        if p.ph_resolved:
-            self.print_T2_phr_avg_data()
-    def print_T2_avg_data(self):
-        T2_dict = {'T2_sec' : None, 'lw_eV' : None, 'T_K' : None}
-        T2_dict['T2_sec'] = self.T2_obj.get_T2_avg()
-        T2_dict['lw_eV'] = self.lw_obj.get_lw_avg()
-        T2_dict['T_K'] = p.temperatures
-        # write yaml data file
-        namef = p.write_dir + "/T2-avg-data.yml"
-        with open(namef, 'w') as out_file:
-            yaml.dump(T2_dict, out_file)
-    def print_T2_atr_avg_data(self):
-        T2_dict = {'T2_sec' : None, 'lw_eV' : None, 'T_K' : None}
-        T2_dict['T2_sec'] = self.T2_obj.get_T2_atr_avg()
-        T2_dict['lw_eV'] = self.lw_obj.get_lw_atr_avg()
-        T2_dict['T_K'] = p.temperatures
-        # write yaml data on file
-        namef = p.write_dir + "/T2-atr-avg-data.yml"
-        with open(namef, 'w') as out_file:
-            yaml.dump(T2_dict, out_file)
 # ----------------------------------------------------
 #   abstract T2_eval_class -> time resolved
 # ----------------------------------------------------
@@ -1765,6 +1737,25 @@ class T2_eval_dyndec_class():
         namef = p.write_dir + "/T2-data.yml"
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
+#
+# generate initial parameters function
+def generate_initial_params(r, D2, tau_c):
+    #
+    p0 = []
+    if r < 1.:
+        a = 1.
+        b = 0.
+    else:
+        a = 0.
+        b = 1.
+    p0.append(a)
+    p0.append(b)
+    c0 = D2 / hbar**2 * tau_c    # ps^-1
+    p0.append(c0)
+    s0 = hbar / np.sqrt(D2)      # ps
+    p0.append(s0)
+    #
+    return p0
 #
 # class T2_eval definition
 #
