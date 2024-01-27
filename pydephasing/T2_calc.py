@@ -110,7 +110,8 @@ class T2_eval_class_freq_res:
             w_ph = np.zeros(p.nphr)
             for iph in range(p.nphr):
                 ilq = p.phm_list[iph]
-                w_ph= wql[ilq]
+                w_ph[iph]= wql[ilq]
+            # write dictionary
             T2_dict['wql'] = w_ph
             T2_dict['T2_sec'] = self.T2_obj.get_T2_phr_sec()
             T2_dict['lw_eV']  = self.lw_obj.get_lw_phr()
@@ -475,6 +476,38 @@ class T2_eval_freq_inhom_class(T2_eval_class_freq_res):
         namef = p.write_dir + "/T2-atr-avg-data.yml"
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
+    def print_T2_phr_avg_data(self):
+        T2_dict = {'T2_sec' : None, 'lw_eV' : None, 'T_K' : None, 'wql' : None}
+        T2_dict['T2_sec'] = self.T2_obj.get_T2_wql_avg()
+        T2_dict['lw_eV'] = self.lw_obj.get_lw_wql_avg()
+        T2_dict['T_K'] = p.temperatures
+        T2_dict['wql'] = p.wql_grid
+        # write yaml data on file
+        namef = p.write_dir + "/T2-wql-avg-data.yml"
+        with open(namef, 'w') as out_file:
+            yaml.dump(T2_dict, out_file)
+        # check if nphr > 0
+        if p.nphr > 0:
+            T2_dict = {'T2_sec' : None, 'lw_eV' : None, 'T_K' : None, 'wql' : None}
+            # extract ph. energies
+            wu, nq, wq = extract_wuq_data()
+            wql = np.zeros(len(wu[0]))
+            for iq in range(nq):
+                wuq = wu[iq]
+                wql[:] += wq[iq] * wuq[:]
+            w_ph = np.zeros(p.nphr)
+            for iph in range(p.nphr):
+                ilq = p.phm_list[iph]
+                w_ph[iph]= wql[ilq]
+            # write dictionary
+            T2_dict['wql'] = w_ph
+            T2_dict['T2_sec'] = self.T2_obj.get_T2_phr_avg()
+            T2_dict['lw_eV'] = self.lw_obj.get_lw_phr_avg()
+            T2_dict['T_K'] = p.temperatures
+            # write yaml data file
+            namef = p.write_dir + "/T2-phr-avg-data.yml"
+            with open(namef, 'w') as out_file:
+                yaml.dump(T2_dict, out_file)
 # ----------------------------------------------------
 #   abstract T2_eval_class -> time resolved
 # ----------------------------------------------------
@@ -573,10 +606,7 @@ class T2_eval_class_time_res(ABC):
         if p.nphr > 0:
             T2_dict = {'T2_sec' : None, 'tauc_ps' : None, 'Delt_eV' : None, 'lw_eV' : None, 'T_K' : None, 'wql' : None}
             # extract ph. mode energies
-            u, wu, nq, qpts, wq, mesh = extract_ph_data()
-            assert mesh[0]*mesh[1]*mesh[2] == nq
-            assert len(qpts) == nq
-            assert len(u) == nq
+            wu, nq, wq = extract_wuq_data()
             wql = np.zeros(len(wu[0]))
             for iq in range(nq):
                 wuq = wu[iq]
@@ -584,7 +614,8 @@ class T2_eval_class_time_res(ABC):
             w_ph = np.zeros(p.nphr)
             for iph in range(p.nphr):
                 ilq = p.phm_list[iph]
-                w_ph= wql[ilq]
+                w_ph[iph]= wql[ilq]
+            # write dictionary
             T2_dict['wql'] = w_ph
             T2_dict['T2_sec'] = self.T2_obj.get_T2_phr_sec()
             T2_dict['tauc_ps']= self.tauc_obj.get_tauc_phr()
@@ -1171,6 +1202,19 @@ class T2_eval_from_integ_inhom_class(T2_eval_from_integ_class):
         self.T2_obj.set_T2_wql_avg(iwql, iT, T2_inv)
         self.lw_obj.set_lw_wql_avg(iwql, iT, T2_inv)
         return Ct, ft, acf_integ_oft
+    #
+    # print decoherence times
+    def print_decoherence_times(self):
+        # override method in base class
+        super(T2_eval_class_time_res, self).print_decoherence_times()
+        # print avg. data
+        self.print_T2_avg_data()
+        # at. resolved
+        if p.at_resolved:
+            self.print_T2_atr_avg_data()
+        # ph. resolved
+        if p.ph_resolved:
+            self.print_T2_phr_avg_data()
 # -------------------------------------------------------------
 # subclass -> template for pure fitting calculation
 # this is also abstract -> real class we must specifiy

@@ -651,6 +651,8 @@ class lw_inhom_stat_dyndec(lw_class):
     def set_lw_avg(self, ipl, T2i):
         self.lw_avg[ipl] = 2.*np.pi*hbar*T2i
         # eV units
+    def get_lw_avg(self):
+        return self.lw_avg
     def collect_from_other_proc(self, ic):
         lw_full = mpi.collect_array(self.lw_eV[:,ic])
         self.lw_eV[:,ic] = 0.
@@ -667,8 +669,8 @@ class lw_inhom_stat(lw_class):
     def set_lw_avg(self, T2i):
         self.lw_avg = 2.*np.pi*hbar*T2i
         # eV units
-    def get_lw(self):
-        return self.lw_eV
+    def get_lw_avg(self):
+        return self.lw_avg
     def collect_from_other_proc(self):
         lw_full = mpi.collect_array(self.lw_eV)
         self.lw_eV[:] = 0.

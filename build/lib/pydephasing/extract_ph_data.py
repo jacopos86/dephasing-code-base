@@ -185,3 +185,21 @@ def extract_ph_data():
         check_weights(qpts, wq, nq)
     # return data
     return eigenv, freq, nq, qpts, wq, mesh
+#
+# extract only wu(q)
+def extract_wuq_data():
+    # open file
+    with h5py.File(p.hd5_eigen_file, 'r') as f:
+        # dict. keys
+        # get frequencies
+        f_key = list(f.keys())[1]
+        freq = list(f[f_key])
+        # n. q pts.
+        nq = len(freq)
+        # weights
+        wq_key = list(f.keys())[4]
+        wq = list(f[wq_key])
+        wq = np.array(wq, dtype=float)
+        r = sum(wq)
+        wq[:] = wq[:] / r
+    return freq, nq, wq
