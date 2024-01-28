@@ -1840,12 +1840,26 @@ class T2_eval_static_class():
     def set_up_param_objects_from_scratch(self, nconf):
         self.T2_obj = T2i_inhom_stat(nconf)
         self.lw_obj = lw_inhom_stat(nconf)
+    # print data methods
+    def print_decoherence_times(self):
+        # T2 times data
+        self.print_T2_times_data()
+        # print avg T2 times
+        self.print_T2_avg_times_data()
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None}
         T2_dict['T2_musec'] = self.T2_obj.get_T2_musec()
         T2_dict['lw_eV'] = self.lw_obj.get_lw()
         # write yaml file
         namef = p.write_dir + "/T2-data.yml"
+        with open(namef, 'w') as out_file:
+            yaml.dump(T2_dict, out_file)
+    def print_T2_avg_times_data(self):
+        T2_dict = {'T2_musec' : None, 'lw_eV' : None}
+        T2_dict['T2_musec'] = self.T2_obj.get_T2mus_avg()
+        T2_dict['lw_eV'] = self.lw_obj.get_lw_avg()
+        # write yaml data file
+        namef = p.write_dir + "/T2-avg-data.yml"
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
 # -------------------------------------------------------------
@@ -1858,6 +1872,12 @@ class T2_eval_dyndec_class():
     def set_up_param_objects_from_scratch(self, nconf):
         self.T2_obj = T2i_inhom_stat_dyndec(nconf)
         self.lw_obj = lw_inhom_stat_dyndec(nconf)
+    # print data methods
+    def print_decoherence_times(self):
+        # T2 times data
+        self.print_T2_times_data()
+        # print avg T2 times
+        self.print_T2_avg_times_data()
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None, 'n_pulses' : None}
         T2_dict['T2_musec'] = self.T2_obj.get_T2_musec()
@@ -1865,6 +1885,15 @@ class T2_eval_dyndec_class():
         T2_dict['n_pulses'] = p.n_pulses
         # write yaml file
         namef = p.write_dir + "/T2-data.yml"
+        with open(namef, 'w') as out_file:
+            yaml.dump(T2_dict, out_file)
+    def print_T2_avg_times_data(self):
+        T2_dict = {'T2_musec' : None, 'lw_eV' : None, 'n_pulses' : None}
+        T2_dict['T2_musec'] = self.T2_obj.get_T2mus_avg()
+        T2_dict['lw_eV'] = self.lw_obj.get_lw_avg()
+        T2_dict['n_pulses'] = p.n_pulses
+        # write yaml data file
+        namef = p.write_dir + "/T2-avg-data.yml"
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
 #
