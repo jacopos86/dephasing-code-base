@@ -31,6 +31,9 @@ def ExpSin(x, c, w, phi):
 # fit gaussian+lorentzian decay
 def Explg(x, a, b, c, sig):
     return a * np.exp(-c * x) + b * np.exp(-x**2 / 2 / sig**2)
+# sin fit -> static calc.
+def Sin(x, A, w, phi):
+    return A*np.sin(w * x + phi)
 #
 #   class T2_eval_class -> freq. resolved
 class T2_eval_class_freq_res:
@@ -1831,21 +1834,44 @@ class T2_eval_fit_model_dyn_inhom_class(T2_eval_fit_model_dyn_class):
         self.lw_obj.set_lw_wql_avg(iwql, iT, T2_inv)
         return Ct, ft
 # -------------------------------------------------------------
-# subclass of the static model
+# base class of the static model
 # -------------------------------------------------------------
-class T2_eval_static_class():
+class T2_eval_static_base_class(ABC):
     def __init__(self):
         self.T2_obj = None
         self.lw_obj = None
-    def set_up_param_objects_from_scratch(self, nconf):
-        self.T2_obj = T2i_inhom_stat(nconf)
-        self.lw_obj = lw_inhom_stat(nconf)
+    def set_nuclear_spin_taylor_exp(self, config):
+        # run over each nuclear
+        # spin vector
+        for isp in range(config.nsp):
+            It = config.nuclear_spins[isp]['It']
+            import matplotlib.pyplot as plt
+            plt.plot(config.time, It[0,:])
+            plt.plot(config.time, It[1,:])
+            plt.plot(config.time, It[2,:])
+            res = scipy.optimize.curve_fit(Sin, config.time, It[0,:], [1.,1.,1.], maxfev=p.maxiter)
+            param = res[0]
+            # fitting function
+            ft = Sin(config.time, param[0], param[1], param[2])
+            plt.plot(config.time, ft)
+            plt.show()
+            import sys
+            sys.exit()
     # print data methods
     def print_decoherence_times(self):
         # T2 times data
         self.print_T2_times_data()
         # print avg T2 times
         self.print_T2_avg_times_data()
+# -------------------------------------------------------------
+# pure static subclass
+# -------------------------------------------------------------
+class T2_eval_static_class(T2_eval_static_base_class):
+    def __init__(self):
+        super(T2_eval_static_class, self).__init__()    
+    def set_up_param_objects_from_scratch(self, nconf):
+        self.T2_obj = T2i_inhom_stat(nconf)
+        self.lw_obj = lw_inhom_stat(nconf)
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None}
         T2_dict['T2_musec'] = self.T2_obj.get_T2_musec()
@@ -1863,21 +1889,15 @@ class T2_eval_static_class():
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
 # -------------------------------------------------------------
-# subclass of the dynamical dec. model
+# dynamical dec. model subclass
 # -------------------------------------------------------------
-class T2_eval_dyndec_class():
+class T2_eval_dyndec_class(T2_eval_static_base_class):
     def __init__(self):
-        self.T2_obj = None
-        self.lw_obj = None
+        super(T2_eval_dyndec_class, self).__init__()
     def set_up_param_objects_from_scratch(self, nconf):
         self.T2_obj = T2i_inhom_stat_dyndec(nconf)
         self.lw_obj = lw_inhom_stat_dyndec(nconf)
     # print data methods
-    def print_decoherence_times(self):
-        # T2 times data
-        self.print_T2_times_data()
-        # print avg T2 times
-        self.print_T2_avg_times_data()
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None, 'n_pulses' : None}
         T2_dict['T2_musec'] = self.T2_obj.get_T2_musec()
@@ -1926,52 +1946,6 @@ class T2_eval:
     #
     # T2 calculation methods
     #
-    # 1)  compute T2
-    # input : t, Ct, D2
-    # output: tauc, T2_inv, [exp. fit]
-    def extract_T2_Exp(self, t, Ct, D2):
-        # t : time array
-        # Ct : acf
-        # D2 : Delta^2
-        #
-        # fit over exp. function
-        p0 = 1    # start with values near those we expect
-        res = scipy.optimize.curve_fit(Exp, t, Ct, p0, maxfev=self.maxiter)
-        p = res[0]
-        # p = 1/tau_c (ps^-1)
-        tau_c = 1./p[0]
-        # ps units
-        r = np.sqrt(D2) / hbar * tau_c
-        # check r size
-        # see Mukamel book
-        if r < 1.E-4:
-            T2_inv = D2 / hbar ** 2 * tau_c
-            # ps^-1
-        elif r > 1.E4:
-            T2_inv = np.sqrt(D2) / hbar
-            # ps^-1
-        else:
-            N = self.N
-            T = self.T
-            x = np.linspace(0.0, N*T, N, endpoint=False)
-            y = exp_gt(x, D2, tau_c)
-            try:
-                init_param = generate_initial_params(r, D2, tau_c)
-                res = scipy.optimize.curve_fit(Explg, x, y, init_param, maxfev=self.maxiter, xtol=1.E-3, ftol=1.E-3)
-                p3 = res[0]
-                # gauss vs lorentzian
-                if p3[0] > p3[1]:
-                    # T2 -> lorentzian (psec)
-                    T2_inv = p3[2]
-                else:
-                    T2_inv = 1./p3[3]
-                    # ps^-1 units
-            except RuntimeError:
-                # set T2_inv1 to None
-                log.warning("T2_inv is None")
-                T2_inv = None
-        #
-        return tau_c, T2_inv, Exp(t, p)
     #
     # function 2 -> compute T2
     #

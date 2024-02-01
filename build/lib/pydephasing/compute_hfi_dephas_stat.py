@@ -57,21 +57,20 @@ def compute_hfi_stat_dephas():
     #     handler
     T2_calc_handler = set_T2_calc_handler()
     print(T2_calc_handler.T2_obj)
-    import sys
-    sys.exit()
     #
     # set up nuclear spins
     #
     for ic in calc_loc_list:
         log.info("compute It - conf: " + str(ic+1))
         # set up spin config.
-        config = nuclear_spins_config(p.nsp, p.B0)
+        config = nuclear_spins_config(p.nsp, Bfield)
         # set up time in (mu sec)
         config.set_time(p.dt_mus, p.T_mus)
         # set initial spins
         config.set_nuclear_spins(nat, ic)
         # compute dynamical evolution
         config.set_nuclear_spin_evol(Hss, HFI0.struct_0)
+        T2_calc_handler.set_nuclear_spin_taylor_exp(config)
         # write data on file
         if log.level <= logging.INFO:
             config.write_It_on_file(p.write_dir, ic)

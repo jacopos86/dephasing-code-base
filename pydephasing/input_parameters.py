@@ -368,6 +368,8 @@ class data_input():
         if 'B0' in data:
             self.B0 = data['B0']
             # Gauss units
+        if 'random_orientation' in data:
+            self.rnd_orientation = data['random_orientation']
         # fermi contact term
         if 'core' in data:
             if data['core'] == False:

@@ -36,6 +36,7 @@ pydephasing/restart.py
 pydephasing/set_structs.py
 pydephasing/spin_hamiltonian.py
 pydephasing/spin_ph_inter.py
+pydephasing/taylor_series.py
 pydephasing/timer.py
 pydephasing/utility_functions.py
 pydephasing.egg-info/PKG-INFO

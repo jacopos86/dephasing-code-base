@@ -10,10 +10,14 @@ from scipy import integrate
 import yaml
 from pydephasing.utility_functions import set_cross_prod_matrix, norm_realv, ODE_solver
 from pydephasing.phys_constants import gamma_n
+from pydephasing.mpi import mpi
+from pydephasing.log import log
+from pydephasing.input_parameters import p
+import matplotlib.pyplot as plt
 import random
+import logging
 #
-class nuclear_spins_config:
-	#
+class nuclear_spins_config():
 	def __init__(self, nsp, B0):
 		self.nsp = nsp
 		self.B0 = np.array(B0)
@@ -28,23 +32,64 @@ class nuclear_spins_config:
 		nt = int(T / (dt/2.))
 		self.time_dense = np.linspace(0., T, nt)
 		# micro sec units
+	def set_orientation(self):
+		# theta angles
+		th = np.random.normal(0., 1., self.nsp)
+		m = max(np.abs(np.min(th)), np.max(th))
+		th[:] = th[:] * np.pi / m
+		if log.level <= logging.DEBUG:
+			count, bins, ignored = plt.hist(th, 30, density=True)
+			#plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ), linewidth=2, color='r')
+			plt.show()
+		# phi angles
+		phi = np.random.normal(0., 1., self.nsp)
+		m = max(np.abs(np.min(phi)), np.max(phi))
+		phi[:] = phi[:] * 2.*np.pi / m
+		if log.level <= logging.DEBUG:
+			count, bins, ignored = plt.hist(th, 30, density=True)
+			#plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ), linewidth=2, color='r')
+			plt.show()
+		# directions array
+		Iv = np.zeros((3, self.nsp))
+		for isp in range(self.nsp):
+			cth = np.cos(th[isp])
+			sth = np.sin(th[isp])
+			cphi= np.cos(phi[isp])
+			sphi= np.sin(phi[isp])
+			# spin vector
+			Iv[0,isp] = sth * cphi
+			Iv[1,isp] = sth * sphi
+			Iv[0,isp] = cth
+		return Iv
 	# set nuclear configuration method
 	def set_nuclear_spins(self, nat, ic):
-		# assume nuclear spin random initial orientation
-		v = self.B0 / norm_realv(self.B0)
+		# set distribution of orientations
+		if p.rnd_orientation:
+			Iv = self.set_orientation()
+		else:
+			# assume nuclear spin random initial orientation
+			v = self.B0 / norm_realv(self.B0)
+			Iv = np.zeros((3,self.nsp))
+			isp = 0
+			while isp < self.nsp:
+				Iv[:,isp] = v[:]
+				isp += 1
 		# set spin list
 		Ilist = []
-		for isp in range(self.nsp):
+		isp = 0
+		while isp < self.nsp:
 			# set spin vector
 			I = np.zeros(3)
 			# compute components
 			# in cart. coordinates
-			I[:] = 0.5 * v[:]
+			I[:] = 0.5 * Iv[:,isp]
 			Ilist.append(I)
+			isp += 1
 		# set atom's site
 		random.seed(ic)
 		sites = random.sample(range(1, nat+1), self.nsp)
-		print(sites)
+		if mpi.rank == mpi.root:
+			log.info("nuclear spin sites : " + str(sites))
 		# define dictionary
 		keys = ['site', 'I']
 		for isp in range(self.nsp):
