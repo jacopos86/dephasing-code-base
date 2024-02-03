@@ -32,8 +32,8 @@ def ExpSin(x, c, w, phi):
 def Explg(x, a, b, c, sig):
     return a * np.exp(-c * x) + b * np.exp(-x**2 / 2 / sig**2)
 # sin fit -> static calc.
-def Sin(x, A, w, phi):
-    return A*np.sin(w * x + phi)
+def Sin(x, A, w, phi, B):
+    return A*np.sin(w * x + phi)+B
 #
 #   class T2_eval_class -> freq. resolved
 class T2_eval_class_freq_res:
@@ -1846,14 +1846,32 @@ class T2_eval_static_base_class(ABC):
         for isp in range(config.nsp):
             It = config.nuclear_spins[isp]['It']
             import matplotlib.pyplot as plt
-            plt.plot(config.time, It[0,:])
-            plt.plot(config.time, It[1,:])
-            plt.plot(config.time, It[2,:])
-            res = scipy.optimize.curve_fit(Sin, config.time, It[0,:], [1.,1.,1.], maxfev=p.maxiter)
-            param = res[0]
+            plt.plot(config.time, It[0,:], linewidth=1)
+            #plt.plot(config.time, It[1,:])
+            #plt.plot(config.time, It[2,:])
+            #from scipy.optimize import leastsq
+            #res = leastsq(Sin, config.time, It[0,:], [1.,1.,1.,1.], maxfev=p.maxiter)
+            #param = res[0]
             # fitting function
-            ft = Sin(config.time, param[0], param[1], param[2])
-            plt.plot(config.time, ft)
+            #ft = Sin(config.time, param[0], param[1], param[2], param[3])
+            #plt.plot(config.time, ft)
+            #plt.show()
+            from tensorflow import keras
+            # Create the model 
+            model = keras.Sequential()
+            model.add(keras.layers.Dense(units = 1, activation = 'linear', input_shape=[1]))
+            model.add(keras.layers.Dense(units = 64, activation = 'relu'))
+            model.add(keras.layers.Dense(units = 64, activation = 'relu'))
+            model.add(keras.layers.Dense(units = 1, activation = 'linear'))
+            model.compile(loss='mse', optimizer="adam")
+            # Display the model
+            model.summary()
+            model.fit(config.time, It[0,:], epochs=100, verbose=1)
+            # Compute the output 
+            y_predicted = model.predict(config.time)
+            # Display the result
+            plt.plot(config.time, y_predicted, '--', 'r', linewidth=1)
+            plt.grid()
             plt.show()
             import sys
             sys.exit()
