@@ -61,6 +61,18 @@ class nuclear_spins_config():
 			Iv[1,isp] = sth * sphi
 			Iv[0,isp] = cth
 		return Iv
+	# set electron spin magnetization vector
+	def set_electron_magnet_vector(self, Hss):
+		Mt = Hss.Mt
+		# ps units
+		t = Hss.time
+		T = t[-1]
+		# compute <Mt> -> spin magnetization
+		rx = integrate.simpson(Mt[0,:], t) / T
+		ry = integrate.simpson(Mt[1,:], t) / T
+		rz = integrate.simpson(Mt[2,:], t) / T
+		M = np.array([rx, ry, rz])
+		return M
 	# set nuclear configuration method
 	def set_nuclear_spins(self, nat, ic):
 		# set distribution of orientations
@@ -101,15 +113,7 @@ class nuclear_spins_config():
 		# B : applied magnetic field (Gauss)
 		# spin_hamilt : spin Hamiltonian object
 		# unprt_struct : unperturbed atomic structure
-		Mt = Hss.Mt
-		# ps units
-		t = Hss.time
-		T = t[-1]
-		# compute <Mt> -> spin magnetization
-		rx = integrate.simpson(Mt[0,:], t) / T
-		ry = integrate.simpson(Mt[1,:], t) / T
-		rz = integrate.simpson(Mt[2,:], t) / T
-		M = np.array([rx, ry, rz])
+		M = self.set_electron_magnet_vector(Hss)
 		# n. time steps integ.
 		nt = len(self.time_dense)
 		# time interv. (micro sec)
@@ -135,6 +139,38 @@ class nuclear_spins_config():
 			I0 = self.nuclear_spins[isp]['I']
 			It = ODE_solver(I0, Ft, dt)
 			self.nuclear_spins[isp]['It'] = It
+	# compute nuclear spin derivatives at t=0
+	def compute_nuclear_spin_derivatives(self, Hss, unprt_struct, n):
+		# dIa/dt = gamma_n B X Ia + (A_hf(a) M(t)) X Ia
+		# dt^(2)Ia = gamma_n B X dIa/dt + (A_hf(a) M(t)) X dIa/dt
+		# ...
+		# dt^(n)Ia = gamma_n B X dt^(n-1)Ia + (A_hf(a) M(t)) X d^(n-1)Ia
+		# set electronic magnetization
+		M = self.set_electron_magnet_vector(Hss)
+		# set [B] antisymmetric matrix
+		Btilde = set_cross_prod_matrix(self.B0)
+		# iterate over spins
+		for isp in range(self.nsp):
+			# order 0 spin vector
+			self.nuclear_spins[isp]['dIt'] = np.zeros((3,n+1))
+			I0 = self.nuclear_spins[isp]['I0']
+			self.nuclear_spins[isp]['dIt'][:,0] = I0[:]
+			# hyperfine interaction
+			A = np.zeros((3,3))
+			site = self.nuclear_spins[isp]['site']
+			A[:,:] = 2.*np.pi*unprt_struct.Ahfi[site-1,:,:]
+			AM = np.matmul(A, M)
+			AM_tilde = set_cross_prod_matrix(AM)
+			# generator : F
+			F = np.zeros((3,3))
+			F[:,:] = gamma_n * Btilde[:,:]
+			F[:,:]+= AM_tilde[:,:]
+			# iterate over nth order derivatives
+			for i in range(1, n+1):
+				dI0 = self.nuclear_spins[isp]['dIt'][:,i-1]
+				# compute dI
+				dI = np.matmul(F, dI0)
+				self.nuclear_spins[isp]['dIt'][:,i] = dI[:]
 	# write I(t) on ext. file
 	def write_It_on_file(self, out_dir, ic):
 		# write file name

@@ -15,6 +15,7 @@ from pydephasing.log import log
 from pydephasing.input_parameters import p
 from pydephasing.mpi import mpi
 from pydephasing.extract_ph_data import extract_wuq_data
+from pydephasing.taylor_series import TaylorSeries
 from abc import ABC, abstractmethod
 import warnings
 warnings.filterwarnings("ignore")
@@ -1841,40 +1842,22 @@ class T2_eval_static_base_class(ABC):
         self.T2_obj = None
         self.lw_obj = None
     def set_nuclear_spin_taylor_exp(self, config):
+        # compute nuclear spin derivatives
+        # order = 1, ..., n=p.order_der
+        config.compute_nuclear_spin_derivatives(p.order_der)
         # run over each nuclear
         # spin vector
         for isp in range(config.nsp):
             It = config.nuclear_spins[isp]['It']
-            import matplotlib.pyplot as plt
-            plt.plot(config.time, It[0,:], linewidth=1)
-            #plt.plot(config.time, It[1,:])
-            #plt.plot(config.time, It[2,:])
-            #from scipy.optimize import leastsq
-            #res = leastsq(Sin, config.time, It[0,:], [1.,1.,1.,1.], maxfev=p.maxiter)
-            #param = res[0]
-            # fitting function
-            #ft = Sin(config.time, param[0], param[1], param[2], param[3])
-            #plt.plot(config.time, ft)
-            #plt.show()
-            from tensorflow import keras
-            # Create the model 
-            model = keras.Sequential()
-            model.add(keras.layers.Dense(units = 1, activation = 'linear', input_shape=[1]))
-            model.add(keras.layers.Dense(units = 64, activation = 'relu'))
-            model.add(keras.layers.Dense(units = 64, activation = 'relu'))
-            model.add(keras.layers.Dense(units = 1, activation = 'linear'))
-            model.compile(loss='mse', optimizer="adam")
-            # Display the model
-            model.summary()
-            model.fit(config.time, It[0,:], epochs=100, verbose=1)
-            # Compute the output 
-            y_predicted = model.predict(config.time)
-            # Display the result
-            plt.plot(config.time, y_predicted, '--', 'r', linewidth=1)
-            plt.grid()
-            plt.show()
-            import sys
-            sys.exit()
+            x = config.time
+            # run over x,y,z components
+            for idx in range(3):
+                fx = It[idx,:]
+                ts = TaylorSeries(x, fx, 7)
+                ts.compute_taylor_exp()
+                ts.display_result(x)
+                import sys
+                sys.exit()
     # print data methods
     def print_decoherence_times(self):
         # T2 times data
