@@ -239,7 +239,7 @@ elif calc_type1 == "spin":
             if deph_type == "statdd":
                 p.dyndec = True
             # read file
-            p.read_inhomo_stat(yml_file)
+            p.read_yml_data(yml_file)
             # static HFI calculation
             if mpi.rank == 0:
                 log.info("\t T2* CALCULATION -> STARTING")
@@ -271,7 +271,7 @@ elif calc_type1 == "init":
     # read data file
     order = parser.parse_args().o
     # read data
-    p.read_yml_data_pre(yml_file)
+    p.read_yml_data(yml_file)
     if mpi.rank == mpi.root:
         log.info("\n")
         log.info("\t " + p.sep)

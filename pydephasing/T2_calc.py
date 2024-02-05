@@ -1844,7 +1844,9 @@ class T2_eval_static_base_class(ABC):
     def set_nuclear_spin_taylor_exp(self, config):
         # compute nuclear spin derivatives
         # order = 1, ..., n=p.order_der
-        config.compute_nuclear_spin_derivatives(p.order_der)
+        if mpi.rank == mpi.root:
+            log.info("\t order Taylor expansion : " + str(p.order_exp))
+        config.compute_nuclear_spin_derivatives(p.order_exp)
         # run over each nuclear
         # spin vector
         for isp in range(config.nsp):

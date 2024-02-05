@@ -1,4 +1,3 @@
-from tensorflow import keras
 import matplotlib.pyplot as plt
 from scipy.misc import derivative
 import math

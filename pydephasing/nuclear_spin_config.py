@@ -38,16 +38,18 @@ class nuclear_spins_config():
 		m = max(np.abs(np.min(th)), np.max(th))
 		th[:] = th[:] * np.pi / m
 		if log.level <= logging.DEBUG:
-			count, bins, ignored = plt.hist(th, 30, density=True)
+			#count, bins, ignored = plt.hist(th, 30, density=True)
 			#plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ), linewidth=2, color='r')
+			plt.hist(th, 30, density=True)
 			plt.show()
 		# phi angles
 		phi = np.random.normal(0., 1., self.nsp)
 		m = max(np.abs(np.min(phi)), np.max(phi))
 		phi[:] = phi[:] * 2.*np.pi / m
 		if log.level <= logging.DEBUG:
-			count, bins, ignored = plt.hist(th, 30, density=True)
+			#count, bins, ignored = plt.hist(th, 30, density=True)
 			#plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ), linewidth=2, color='r')
+			plt.hist(th, 30, density=True)
 			plt.show()
 		# directions array
 		Iv = np.zeros((3, self.nsp))
@@ -66,6 +68,9 @@ class nuclear_spins_config():
 		Mt = Hss.Mt
 		# ps units
 		t = Hss.time
+		if log.level <= logging.DEBUG:
+			plt.plot(t, Mt)
+			plt.show()
 		T = t[-1]
 		# compute <Mt> -> spin magnetization
 		rx = integrate.simpson(Mt[0,:], t) / T

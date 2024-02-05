@@ -79,7 +79,7 @@ class colored_log_class:
         self.log.setLevel(LOG_LEVEL)
         self.log.addHandler(stream)
         self.level = self.log.getEffectiveLevel()
-        self.msg_len_min = 50
+        self.msg_len_min = 58
     @staticmethod
     def __get_call():
         stack = inspect.stack()

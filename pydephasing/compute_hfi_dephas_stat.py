@@ -23,24 +23,28 @@ def compute_hfi_stat_dephas():
     calc_loc_list = mpi.split_list(calc_list)
     # print calc. data
     if mpi.rank == 0:
-        log.info("n. config: " + str(p.nconf))
-        log.info("n. spins: " + str(p.nsp))
+        log.info("\t " + p.sep)
+        log.info("\n")
+        log.info("\t n. config: " + str(p.nconf))
+        log.info("\t n. spins: " + str(p.nsp))
     mpi.comm.Barrier()
     # unpert. structure (HFI+ZFS)
     if mpi.rank == mpi.root:
-        log.info("HF fc core: " + str(p.fc_core))
+        log.info("\t HF fc core: " + str(p.fc_core))
     HFI0 = perturbation_HFI_stat(p.work_dir, p.grad_info, p.fc_core)
     # set HFI and ZFS
     HFI0.set_gs_struct()
     # nat
     nat = HFI0.struct_0.nat
     if mpi.rank == mpi.root:
-        log.info("n. atoms= " + str(nat))
+        log.info("\t n. atoms= " + str(nat))
     # align the applied B field
     # to the spin quantization axis
     Bfield = np.array([0., 0., p.B0])
     if mpi.rank == mpi.root:
-        log.info("applied B field : " + str(Bfield))
+        log.info("\t applied B field : " + str(Bfield))
+        log.info("\n")
+        log.info("\t " + p.sep)
     # set spin hamiltonian
     Hss = spin_hamiltonian()
     # set time spinor evol.
@@ -56,12 +60,14 @@ def compute_hfi_stat_dephas():
     # set up the calculation
     #     handler
     T2_calc_handler = set_T2_calc_handler()
-    print(T2_calc_handler.T2_obj)
     #
     # set up nuclear spins
     #
     for ic in calc_loc_list:
-        log.info("compute It - conf: " + str(ic+1))
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+        log.info("\t compute It - conf: " + str(ic+1))
         # set up spin config.
         config = nuclear_spins_config(p.nsp, Bfield)
         # set up time in (mu sec)
