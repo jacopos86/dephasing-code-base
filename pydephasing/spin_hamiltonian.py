@@ -124,6 +124,9 @@ class spin_hamiltonian:
 			#
 			vz = np.dot(self.Sz, self.tripl_psit[:,i])
 			self.Mt[2,i] = np.dot(self.tripl_psit[:,i].conjugate(), vz).real
+		import matplotlib.pyplot as plt
+		plt.plot(self.time, self.Mt[2,:].real)
+		plt.show()
 	# compute spin vector
 	def compute_spin_vector_evol(self, struct0, psi0, B):
 		# initial state : psi0
@@ -137,11 +140,12 @@ class spin_hamiltonian:
 		# 2) set Ht in eV units
 		# run over time steps
 		for i in range(nt):
-			Ht[:,:,i] = Ht[:,:,i] + hbar * self.SDS[:,:]
+			#Ht[:,:,i] = Ht[:,:,i] + hbar * self.SDS[:,:]
 			# eV
 			# add B field
 			Ht[:,:,i] = Ht[:,:,i] + gamma_e * hbar * (B[0] * self.Sx[:,:] + B[1] * self.Sy[:,:] + B[2] * self.Sz[:,:])
 		dt = self.time[1]-self.time[0]
+		print(Ht[:,:,0], B, gamma_e)
 		# ps units
 		# triplet wave function evolution
 		self.tripl_psit = triplet_evolution(Ht, psi0, dt)
