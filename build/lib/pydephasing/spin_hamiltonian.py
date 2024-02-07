@@ -11,6 +11,9 @@ import yaml
 from pydephasing.utility_functions import delta
 from pydephasing.phys_constants import hbar, gamma_e, eps
 from pydephasing.utility_functions import triplet_evolution
+from pydephasing.log import log
+import logging
+import matplotlib.pyplot as plt
 #
 class spin_hamiltonian:
 	#
@@ -124,9 +127,14 @@ class spin_hamiltonian:
 			#
 			vz = np.dot(self.Sz, self.tripl_psit[:,i])
 			self.Mt[2,i] = np.dot(self.tripl_psit[:,i].conjugate(), vz).real
-		import matplotlib.pyplot as plt
-		plt.plot(self.time, self.Mt[2,:].real)
-		plt.show()
+		# plot spin magnetization
+		if log.level <= logging.DEBUG:
+			plt.ylim([-1.5, 1.5])
+			plt.plot(self.time, self.Mt[0,:].real, label="X")
+			plt.plot(self.time, self.Mt[1,:].real, label="Y")
+			plt.plot(self.time, self.Mt[2,:].real, label="Z")
+			plt.legend()
+			plt.show()
 	# compute spin vector
 	def compute_spin_vector_evol(self, struct0, psi0, B):
 		# initial state : psi0
@@ -140,12 +148,11 @@ class spin_hamiltonian:
 		# 2) set Ht in eV units
 		# run over time steps
 		for i in range(nt):
-			#Ht[:,:,i] = Ht[:,:,i] + hbar * self.SDS[:,:]
+			Ht[:,:,i] = Ht[:,:,i] + hbar * self.SDS[:,:]
 			# eV
 			# add B field
 			Ht[:,:,i] = Ht[:,:,i] + gamma_e * hbar * (B[0] * self.Sx[:,:] + B[1] * self.Sy[:,:] + B[2] * self.Sz[:,:])
 		dt = self.time[1]-self.time[0]
-		print(Ht[:,:,0], B, gamma_e)
 		# ps units
 		# triplet wave function evolution
 		self.tripl_psit = triplet_evolution(Ht, psi0, dt)

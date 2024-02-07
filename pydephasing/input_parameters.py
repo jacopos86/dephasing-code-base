@@ -33,12 +33,9 @@ class data_input(ABC):
         self.dyndec = False
         #######################################
         # physical common parameters
-        self.index_qs0 = None
-        self.index_qs1 = None
-        # index of states |0> and |1> in the 
-        # spin eigenvectors matrix
         # time
         self.T  = 0.0
+        self.dt = 0.0
         ######################################
         # hyperfine parameters
         # n. spins list
@@ -169,6 +166,10 @@ class dynamical_data_input(data_input):
         self.frac_kept_atoms = 1.
         ####################################
         # physical parameters : deph - relax
+        self.index_qs0 = None
+        self.index_qs1 = None
+        # index of states |0> and |1> in the 
+        # spin eigenvectors matrix
         # n. temperatures
         self.ntmp = 0
         # time ph / at resolved
@@ -428,8 +429,8 @@ class static_data_input(data_input):
         self.n_pulses = 0
         # order taylor exp.
         self.order_exp = 7
-        # initial triplet wfc
-        self.psi0 = np.array([0.+0*1j,0.+0*1j,1.+0*1j])
+        # initial triplet wfc (spin 1 along z)
+        self.psi0 = np.array([1.+0*1j,0.+0*1j,0.+0*1j])
     #
     # read yml data file
     def read_yml_data(self, input_file):
@@ -451,8 +452,6 @@ class static_data_input(data_input):
             self.T_mus = float(data['T_nuc'])
         if 'dt_nuc' in data:
             self.dt_mus = float(data['dt_nuc'])
-        # set time arrays
-        self.set_time_arrays()
         # static magnetic field
         # magnitude -> aligned along spin quant. axis
         if 'B0' in data:
@@ -469,15 +468,7 @@ class static_data_input(data_input):
         self.psi0 = self.psi0 / nrm
         # dynamical decoupling -> number of pulses
         if 'npulses' in data:
-            self.n_pulses = data['npulses']        
-    #
-    # time arrays
-    def set_time_arrays(self):
-        self.nt = int(self.T / self.dt)
-        self.time = np.linspace(0., self.T, self.nt)
-        # nuclear spin evolution (musec)
-        self.nt2 = int(self.T_mus / self.dt_mus)
-        self.time2 = np.linspace(0., self.T_mus, self.nt2)
+            self.n_pulses = data['npulses']
         
 class preproc_data_input():
     # initialization

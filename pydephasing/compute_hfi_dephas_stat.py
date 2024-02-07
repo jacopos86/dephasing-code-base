@@ -55,11 +55,10 @@ def compute_hfi_stat_dephas():
     if mpi.rank == mpi.root:
         Hss.write_spin_vector_on_file(p.write_dir)
     mpi.comm.Barrier()
-    # set spin eigenstates
-    Hss.set_zfs_levels(HFI0.struct_0, Bfield)
     # set up the calculation
     #     handler
     T2_calc_handler = set_T2_calc_handler()
+    T2_calc_handler.set_up_param_objects_from_scratch(p.nconf)
     #
     # set up nuclear spins
     #
@@ -76,7 +75,9 @@ def compute_hfi_stat_dephas():
         config.set_nuclear_spins(nat, ic)
         # compute dynamical evolution
         config.set_nuclear_spin_evol(Hss, HFI0.struct_0)
-        T2_calc_handler.set_nuclear_spin_taylor_exp(config)
+        T2_calc_handler.set_nuclear_spin_taylor_exp(ic, config, Hss, HFI0.struct_0)
+        import sys
+        sys.exit()
         # write data on file
         if log.level <= logging.INFO:
             config.write_It_on_file(p.write_dir, ic)

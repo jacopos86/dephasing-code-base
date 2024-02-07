@@ -1841,25 +1841,35 @@ class T2_eval_static_base_class(ABC):
     def __init__(self):
         self.T2_obj = None
         self.lw_obj = None
-    def set_nuclear_spin_taylor_exp(self, config):
+        self.exp_coeff = None
+    def init_exp_coeff(self, nconf):
+        # set exp. coeff. array
+        self.exp_coeff = np.zeros((p.order_exp+1, 3, p.nsp, nconf))
+    def set_nuclear_spin_taylor_exp(self, ic, config, Hss, unprt_struct):
         # compute nuclear spin derivatives
         # order = 1, ..., n=p.order_der
         if mpi.rank == mpi.root:
             log.info("\t order Taylor expansion : " + str(p.order_exp))
-        config.compute_nuclear_spin_derivatives(p.order_exp)
+        config.compute_nuclear_spin_derivatives(Hss, unprt_struct, p.order_exp)
+        t = config.time
         # run over each nuclear
         # spin vector
         for isp in range(config.nsp):
+            # nuclear spin derivatives
+            dIt = config.nuclear_spins[isp]['dIt']
             It = config.nuclear_spins[isp]['It']
-            x = config.time
             # run over x,y,z components
             for idx in range(3):
-                fx = It[idx,:]
-                ts = TaylorSeries(x, fx, 7)
-                ts.compute_taylor_exp()
-                ts.display_result(x)
-                import sys
-                sys.exit()
+                # compute Taylor series
+                dft = dIt[idx,:]
+                ft = It[idx,:]
+                ts = TaylorSeries(t, ft, dft, p.order_exp)
+                ts.compute_taylor_exp_coeff()
+                if log.level <= logging.DEBUG:
+                    ts.set_taylor_exp()
+                    ts.display_result()
+                # collect exp. coefficients
+                self.exp_coeff[:,idx,isp,ic] = ts.get_exp_coeff()
     # print data methods
     def print_decoherence_times(self):
         # T2 times data
@@ -1875,6 +1885,7 @@ class T2_eval_static_class(T2_eval_static_base_class):
     def set_up_param_objects_from_scratch(self, nconf):
         self.T2_obj = T2i_inhom_stat(nconf)
         self.lw_obj = lw_inhom_stat(nconf)
+        self.init_exp_coeff(nconf)
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None}
         T2_dict['T2_musec'] = self.T2_obj.get_T2_musec()
@@ -1897,9 +1908,12 @@ class T2_eval_static_class(T2_eval_static_base_class):
 class T2_eval_dyndec_class(T2_eval_static_base_class):
     def __init__(self):
         super(T2_eval_dyndec_class, self).__init__()
+        self.exp_coeff_pls = None
     def set_up_param_objects_from_scratch(self, nconf):
         self.T2_obj = T2i_inhom_stat_dyndec(nconf)
         self.lw_obj = lw_inhom_stat_dyndec(nconf)
+        self.init_exp_coeff(nconf)
+        self.exp_coeff_pls = np.zeros((p.n_pulses, p.order_exp+1, 3, p.nsp, nconf))
     # print data methods
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None, 'n_pulses' : None}
