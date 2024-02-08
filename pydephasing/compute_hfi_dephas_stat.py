@@ -75,7 +75,9 @@ def compute_hfi_stat_dephas():
         config.set_nuclear_spins(nat, ic)
         # compute dynamical evolution
         config.set_nuclear_spin_evol(Hss, HFI0.struct_0)
-        T2_calc_handler.set_nuclear_spin_taylor_exp(ic, config, Hss, HFI0.struct_0)
+        # compute dephas. matrix
+        # D^~(u)
+        T2_calc_handler.compute_dephas_matr(ic, config, Hss, HFI0.struct_0)
         import sys
         sys.exit()
         # write data on file

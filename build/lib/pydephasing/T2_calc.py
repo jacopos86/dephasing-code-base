@@ -1842,6 +1842,7 @@ class T2_eval_static_base_class(ABC):
         self.T2_obj = None
         self.lw_obj = None
         self.exp_coeff = None
+        self.Dtilde = None
     def init_exp_coeff(self, nconf):
         # set exp. coeff. array
         self.exp_coeff = np.zeros((p.order_exp+1, 3, p.nsp, nconf))
@@ -1870,6 +1871,9 @@ class T2_eval_static_base_class(ABC):
                     ts.display_result()
                 # collect exp. coefficients
                 self.exp_coeff[:,idx,isp,ic] = ts.get_exp_coeff()
+    # compute Dtilde
+    def compute_Dtilde_matr(self, coeff):
+        pass
     # print data methods
     def print_decoherence_times(self):
         # T2 times data
@@ -1886,6 +1890,13 @@ class T2_eval_static_class(T2_eval_static_base_class):
         self.T2_obj = T2i_inhom_stat(nconf)
         self.lw_obj = lw_inhom_stat(nconf)
         self.init_exp_coeff(nconf)
+    # set dephas. matrix
+    def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
+        # first compute d^(n)I/dt^(n) (t=0)
+        self.set_nuclear_spin_taylor_exp(ic, config, Hss, unprt_struct)
+        # compute dephasing matrix
+        self.compute_Dtilde_matr(self.exp_coeff)
+    # print out data on files 
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None}
         T2_dict['T2_musec'] = self.T2_obj.get_T2_musec()
@@ -1908,10 +1919,40 @@ class T2_eval_static_class(T2_eval_static_base_class):
 class T2_eval_dyndec_class(T2_eval_static_base_class):
     def __init__(self):
         super(T2_eval_dyndec_class, self).__init__()
+        self.exp_coeff_pls = None
+        self.npl = len(p.n_pulses)
     def set_up_param_objects_from_scratch(self, nconf):
         self.T2_obj = T2i_inhom_stat_dyndec(nconf)
         self.lw_obj = lw_inhom_stat_dyndec(nconf)
         self.init_exp_coeff(nconf)
+        self.exp_coeff_pls = np.zeros((self.npl, p.order_exp+1, 3, p.nsp, nconf))
+    def set_exp_coeff_n_pulses(self, ic):
+        for n_p in p.n_pulses:
+            ip = p.n_pulses.index(n_p)
+            # run over each coeff.
+            for n in range(p.order_exp+1):
+                A_np = 0.
+                A_np = 2. + (-1) ** (n_p) * (2.*n_p) ** (n+1)
+                for j in range(1, n_p):
+                    A_np += 2 * (-1) ** j * (2*j+1) ** (n+1)
+                for isp in range(p.nsp):
+                    for idx in range(3):
+                        c_n = self.exp_coeff[n,idx,isp,ic]
+                        c_np = c_n / n_p / (2.*n_p) ** (n+1) * A_np
+                        self.exp_coeff_pls[ip,n,idx,isp,ic] = c_np
+        if mpi.rank == mpi.root:
+            log.info("\t EXPANSION COEFFICIENTS COMPUTED")
+            log.info("\n")
+            log.info("\t " + p.sep)
+    # set dephas. matrix
+    def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
+        # first compute d^(n)I/dt^(n) (t=0)
+        self.set_nuclear_spin_taylor_exp(ic, config, Hss, unprt_struct)
+        # correct coeff. according to 
+        # numb. pulses
+        self.set_exp_coeff_n_pulses(ic)
+        # compute dephasing matrix
+        self.compute_Dtilde_matr(self.exp_coeff_pls)
     # print data methods
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None, 'n_pulses' : None}
