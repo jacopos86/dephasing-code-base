@@ -1871,9 +1871,6 @@ class T2_eval_static_base_class(ABC):
                     ts.display_result()
                 # collect exp. coefficients
                 self.exp_coeff[:,idx,isp,ic] = ts.get_exp_coeff()
-    # compute Dtilde
-    def compute_Dtilde_matr(self, coeff):
-        pass
     # print data methods
     def print_decoherence_times(self):
         # T2 times data
@@ -1890,12 +1887,32 @@ class T2_eval_static_class(T2_eval_static_base_class):
         self.T2_obj = T2i_inhom_stat(nconf)
         self.lw_obj = lw_inhom_stat(nconf)
         self.init_exp_coeff(nconf)
+        self.Dtilde = np.zeros((2*p.order_exp+1,nconf))
+    # compute D tilde matrix
+    def compute_Dtilde_matr(self, ic, config, Hss, unprt_struct):
+        # hyperfine matrix (MHz)
+        Ahf = 2.*np.pi*unprt_struct.Ahfi
+        # fill matrix
+        for n in range(p.order_exp+1):
+            for n2 in range(p.order_exp+1):
+                u = n + n2
+                for k in range(p.nsp):
+                    s1 = config.nuclear_spins[k]['site']
+                    for k2 in range(p.nsp):
+                        s2 = config.nuclear_spins[k2]['site']
+                        for x in range(3):
+                            for y in range(3):
+                                c_kn = self.exp_coeff[n,x,k,ic]
+                                c_knp= self.exp_coeff[n2,y,k2,ic]
+                                self.Dtilde[u] += Ahf[s1-1,2,x] * Ahf[s2-1,2,y] * c_kn * c_knp / (u+2) / (n2+1)
+        M = config.set_electron_magnet_vector(Hss)
+        self.Dtilde = self.Dtilde * 2. * M[2] ** 2
     # set dephas. matrix
     def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
         # first compute d^(n)I/dt^(n) (t=0)
         self.set_nuclear_spin_taylor_exp(ic, config, Hss, unprt_struct)
         # compute dephasing matrix
-        self.compute_Dtilde_matr(self.exp_coeff)
+        self.compute_Dtilde_matr(ic, config, Hss, unprt_struct)
     # print out data on files 
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None}
