@@ -1961,6 +1961,23 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
             log.info("\t EXPANSION COEFFICIENTS COMPUTED")
             log.info("\n")
             log.info("\t " + p.sep)
+    # compute D tilde matrix
+    def compute_Dtilde_matr(self, ic, config, Hss, unprt_struct):
+        # hyperfine matrix (MHz)
+        Ahf = 2.*np.pi*unprt_struct.Ahfi
+        # compute D(u) matrix coefficients
+        for n in range(p.order_exp+1):
+            for n2 in range(p.order_exp+1):
+                u = n + n2
+                for k in range(p.nsp):
+                    s1 = config.nuclear_spins[k]['site']
+                    for k2 in range(p.nsp):
+                        s2 = config.nuclear_spins[k2]['site']
+                        for x in range(3):
+                            for y in range(3):
+                                for ip in range(len(p.n_pulses)):
+                                    c_kn = self.exp_coeff_pls[ip,n,x,k,ic]
+                                    c_knp= self.exp_coeff_pls[ip,n2,y,k2,ic]
     # set dephas. matrix
     def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
         # first compute d^(n)I/dt^(n) (t=0)
@@ -1969,7 +1986,7 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         # numb. pulses
         self.set_exp_coeff_n_pulses(ic)
         # compute dephasing matrix
-        self.compute_Dtilde_matr(self.exp_coeff_pls)
+        self.compute_Dtilde_matr(ic, config, Hss, unprt_struct)
     # print data methods
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None, 'n_pulses' : None}
