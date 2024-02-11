@@ -78,6 +78,7 @@ def compute_hfi_stat_dephas():
         # compute dephas. matrix
         # D^~(u)
         T2_calc_handler.compute_dephas_matr(ic, config, Hss, HFI0.struct_0)
+        T2_calc_handler.evaluate_T2(ic)
         import sys
         sys.exit()
         # write data on file

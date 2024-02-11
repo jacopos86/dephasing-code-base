@@ -166,51 +166,43 @@ class T2i_inhom_stat_dyndec(T2i_class):
     def __init__(self, nconf):
         super(T2i_inhom_stat_dyndec, self).__init__()
         npl = len(p.n_pulses)
-        self.T2_psec = np.zeros((npl,nconf))
-        self.T2ps_avg= np.zeros(npl)
-    def get_T2_psec(self):
-        return self.T2_psec
+        self.T2_musec = np.zeros((npl,nconf))
+        self.T2mus_avg= np.zeros(npl)
     def get_T2_musec(self):
-        return self.T2_psec * 1.E-6
-    def set_T2_psec(self, ipl, ic, T2i):
-        self.T2_psec[ipl,ic] = 1./T2i
-        # psec units
-    def get_T2ps_avg(self):
-        return self.T2ps_avg
+        return self.T2_musec
+    def set_T2_musec(self, ipl, ic, T2i):
+        self.T2_musec[ipl,ic] = 1./T2i
+        # musec units
     def get_T2mus_avg(self):
-        return self.T2ps_avg * 1.E-6
-    def set_T2ps_avg(self, ipl, T2i):
-        self.T2ps_avg[ipl] = 1./T2i
-        # psec units
+        return self.T2mus_avg
+    def set_T2mus_avg(self, ipl, T2i):
+        self.T2mus_avg[ipl] = 1./T2i
+        # musec units
     def collect_from_other_proc(self, ipl):
-        T2s_full = mpi.collect_array(self.T2_sec[ipl,:])
-        self.T2_sec[ipl,:] = 0.
-        self.T2_sec[ipl,:] = T2s_full[:]
+        T2_full = mpi.collect_array(self.T2_musec[ipl,:])
+        self.T2_musec[ipl,:] = 0.
+        self.T2_musec[ipl,:] = T2_full[:]
 # T2 inverse class
 class T2i_inhom_stat(T2i_class):
     # T2i is in ps^-1
     def __init__(self, nconf):
         super(T2i_inhom_stat, self).__init__()
-        self.T2_psec = np.zeros(nconf)
-        self.T2ps_avg= 0.
-    def get_T2_psec(self):
-        return self.T2_psec
+        self.T2_musec = np.zeros(nconf)
+        self.T2mus_avg= 0.
     def get_T2_musec(self):
-        return self.T2_psec * 1.E-6
-    def set_T2_psec(self, ic, T2i):
+        return self.T2_musec
+    def set_T2_musec(self, ic, T2i):
         self.T2_psec[ic] = 1./T2i
-        # psec units
-    def get_T2ps_avg(self):
-        return self.T2ps_avg
+        # musec units
     def get_T2mus_avg(self):
-        return self.T2ps_avg * 1.E-6
-    def set_T2ps_avg(self, T2i):
-        self.T2ps_avg = 1./T2i
-        # psec units
+        return self.T2mus_avg
+    def set_T2mus_avg(self, T2i):
+        self.T2mus_avg = 1./T2i
+        # musec units
     def collect_from_other_proc(self):
-        T2ps_full = mpi.collect_array(self.T2_psec)
-        self.T2_psec[:] = 0.
-        self.T2_psec[:] = T2ps_full[:]
+        T2_full = mpi.collect_array(self.T2_musec)
+        self.T2_musec[:] = 0.
+        self.T2_musec[:] = T2_full[:]
 # --------------------------------------------------
 #
 #       Delta class

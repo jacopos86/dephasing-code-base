@@ -1992,6 +1992,19 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         self.set_exp_coeff_n_pulses(ic)
         # compute dephasing matrix
         self.compute_Dtilde_matr(ic, config, Hss, unprt_struct)
+    # evaluate T2^*
+    def evaluate_T2(self, ic):
+        for ip in range(self.npl):
+            T2i = 0.
+            for u in range(2*p.order_exp+1):
+                T2i += self.Dtilde[ip,u,ic] ** (1./(u+2))
+                # MHz units
+                print(u, T2i, self.Dtilde[ip,u,ic])
+            import sys
+            sys.exit()
+            # set T2i object
+            self.T2_obj.set_T2_musec(ip, ic, T2i)
+        print(self.T2_obj.get_T2_musec())
     # print data methods
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None, 'n_pulses' : None}

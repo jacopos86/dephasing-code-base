@@ -1904,9 +1904,9 @@ class T2_eval_static_class(T2_eval_static_base_class):
                             for y in range(3):
                                 c_kn = self.exp_coeff[n,x,k,ic]
                                 c_knp= self.exp_coeff[n2,y,k2,ic]
-                                self.Dtilde[u] += Ahf[s1-1,2,x] * Ahf[s2-1,2,y] * c_kn * c_knp / (u+2) / (n2+1)
+                                self.Dtilde[u,ic] += Ahf[s1-1,2,x] * Ahf[s2-1,2,y] * c_kn * c_knp / (u+2) / (n2+1)
         M = config.set_electron_magnet_vector(Hss)
-        self.Dtilde = self.Dtilde * 2. * M[2] ** 2
+        self.Dtilde[:,ic] = self.Dtilde[:,ic] * 2. * M[2] ** 2
     # set dephas. matrix
     def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
         # first compute d^(n)I/dt^(n) (t=0)
@@ -1943,6 +1943,7 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         self.lw_obj = lw_inhom_stat_dyndec(nconf)
         self.init_exp_coeff(nconf)
         self.exp_coeff_pls = np.zeros((self.npl, p.order_exp+1, 3, p.nsp, nconf))
+        self.Dtilde = np.zeros((self.npl,2*p.order_exp+1,nconf))
     def set_exp_coeff_n_pulses(self, ic):
         for n_p in p.n_pulses:
             ip = p.n_pulses.index(n_p)
@@ -1975,9 +1976,13 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
                         s2 = config.nuclear_spins[k2]['site']
                         for x in range(3):
                             for y in range(3):
-                                for ip in range(len(p.n_pulses)):
+                                for ip in range(self.npl):
                                     c_kn = self.exp_coeff_pls[ip,n,x,k,ic]
                                     c_knp= self.exp_coeff_pls[ip,n2,y,k2,ic]
+                                    self.Dtilde[ip,u,ic] += Ahf[s1-1,2,x] * Ahf[s2-1,2,y] * c_kn * c_knp / (u+2) / (n2+1)
+        # set spin magnetization
+        M = config.set_electron_magnet_vector(Hss)
+        self.Dtilde[:,:,ic] = self.Dtilde[:,:,ic] * 2. * M[2] ** 2
     # set dephas. matrix
     def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
         # first compute d^(n)I/dt^(n) (t=0)
@@ -1987,6 +1992,19 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         self.set_exp_coeff_n_pulses(ic)
         # compute dephasing matrix
         self.compute_Dtilde_matr(ic, config, Hss, unprt_struct)
+    # evaluate T2^*
+    def evaluate_T2(self, ic):
+        for ip in range(self.npl):
+            T2i = 0.
+            for u in range(2*p.order_exp+1):
+                T2i += self.Dtilde[ip,u,ic] ** (1./(u+2))
+                # MHz units
+                print(u, T2i, self.Dtilde[ip,u,ic])
+            import sys
+            sys.exit()
+            # set T2i object
+            self.T2_obj.set_T2_musec(ip, ic, T2i)
+        print(self.T2_obj.get_T2_musec())
     # print data methods
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None, 'n_pulses' : None}
