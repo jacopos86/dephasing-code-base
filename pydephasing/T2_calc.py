@@ -1913,6 +1913,17 @@ class T2_eval_static_class(T2_eval_static_base_class):
         self.set_nuclear_spin_taylor_exp(ic, config, Hss, unprt_struct)
         # compute dephasing matrix
         self.compute_Dtilde_matr(ic, config, Hss, unprt_struct)
+    #
+    # evaluate T2^*
+    def evaluate_T2(self, ic):
+        T2i = 0.
+        for u in range(2*p.order_exp+1):
+            exp = 1./(u+2)
+            T2i += self.Dtilde[u,ic] ** exp
+            # MHz units
+            print(u, T2i, self.Dtilde[u,ic])
+        # set T2i object
+        self.T2_obj.set_T2_musec(ic, T2i)
     # print out data on files 
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None}
@@ -1997,7 +2008,8 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         for ip in range(self.npl):
             T2i = 0.
             for u in range(2*p.order_exp+1):
-                T2i += self.Dtilde[ip,u,ic] ** (1./(u+2))
+                exp = 1./(u+2)
+                T2i += self.Dtilde[ip,u,ic] ** exp
                 # MHz units
                 print(u, T2i, self.Dtilde[ip,u,ic])
             import sys
