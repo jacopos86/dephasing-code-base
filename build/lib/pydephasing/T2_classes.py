@@ -192,7 +192,7 @@ class T2i_inhom_stat(T2i_class):
     def get_T2_musec(self):
         return self.T2_musec
     def set_T2_musec(self, ic, T2i):
-        self.T2_psec[ic] = 1./T2i
+        self.T2_musec[ic] = 1./T2i
         # musec units
     def get_T2mus_avg(self):
         return self.T2mus_avg
@@ -638,17 +638,21 @@ class lw_inhom_stat_dyndec(lw_class):
         self.lw_eV = np.zeros((npl,nconf))
         self.lw_avg= np.zeros(npl)
     def set_lw(self, ipl, ic, T2i):
-        self.lw_eV[ipl,ic] = 2.*np.pi*hbar*T2i
+        # T2i (MHz) -> THz
+        T2i_THz = T2i * 1.E-6
+        self.lw_eV[ipl,ic] = 2.*np.pi*hbar*T2i_THz
         # eV units
     def set_lw_avg(self, ipl, T2i):
-        self.lw_avg[ipl] = 2.*np.pi*hbar*T2i
+        # T2i (MHz) -> THz
+        T2i_THz = T2i * 1.E-6
+        self.lw_avg[ipl] = 2.*np.pi*hbar*T2i_THz
         # eV units
     def get_lw_avg(self):
         return self.lw_avg
-    def collect_from_other_proc(self, ic):
-        lw_full = mpi.collect_array(self.lw_eV[:,ic])
-        self.lw_eV[:,ic] = 0.
-        self.lw_eV[:,ic] = lw_full[:]
+    def collect_from_other_proc(self, ipl):
+        lw_full = mpi.collect_array(self.lw_eV[ipl,:])
+        self.lw_eV[ipl,:] = 0.
+        self.lw_eV[ipl,:] = lw_full[:]
 # lw class inhom static
 class lw_inhom_stat(lw_class):
     # lw is in eV
@@ -656,10 +660,14 @@ class lw_inhom_stat(lw_class):
         self.lw_eV = np.zeros(nconf)
         self.lw_avg= 0.
     def set_lw(self, ic, T2i):
-        self.lw_eV[ic] = 2.*np.pi*hbar*T2i
+        # T2i (MHz) -> THz
+        T2i_THz = T2i * 1.E-6
+        self.lw_eV[ic] = 2.*np.pi*hbar*T2i_THz
         # eV units
     def set_lw_avg(self, T2i):
-        self.lw_avg = 2.*np.pi*hbar*T2i
+        # T2i (MHz) -> THz
+        T2i_THz = T2i * 1.E-6
+        self.lw_avg = 2.*np.pi*hbar*T2i_THz
         # eV units
     def get_lw_avg(self):
         return self.lw_avg

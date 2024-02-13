@@ -3,6 +3,7 @@
 # it computes the energy auto-correlation
 # and it returns it for further processing
 import numpy as np
+import logging
 from pydephasing.input_parameters import p
 from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.nuclear_spin_config import nuclear_spins_config
@@ -76,34 +77,19 @@ def compute_hfi_stat_dephas():
         # compute dynamical evolution
         config.set_nuclear_spin_evol(Hss, HFI0.struct_0)
         # compute dephas. matrix
-        # D^~(u)
-        T2_calc_handler.compute_dephas_matr(ic, config, Hss, HFI0.struct_0)
-        T2_calc_handler.evaluate_T2(ic)
-        import sys
-        sys.exit()
+        # D^~(u) -> T2i - lw_eV
+        T2_calc_handler.parameter_eval_driver(ic, config, Hss, HFI0.struct_0)
         # write data on file
         if log.level <= logging.INFO:
             config.write_It_on_file(p.write_dir, ic)
-        # compute eff. forces 
-        # for each spin
-        HFI0.compute_stat_force_HFS(Hss, config)
-        # initialize energy fluct.
-        E_fluct = spin_level_static_fluctuations(p.nt2)
-        # set spin fluct. energy
-        # extract delta I(t)
-        E_fluct.compute_deltaE_oft(config)
-        # compute average fluct.
-        deltaE_aver_oft[:] += E_fluct.deltaE_oft[:]
-        # eV units
-        # init. ACF
-        acf = autocorrel_func_hfi_stat(E_fluct)
-        # compute ACF
-        D2, Ct = acf.compute_acf()
-        # extract T2 data
-        acf.extract_dephas_data(D2, Ct, T2_obj, Delt_obj, tauc_obj, ic)
         log.info("end It calculation - conf: " + str(ic+1))
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info("\n")
     # wait processes
     mpi.comm.Barrier()
+    import sys
+    sys.exit()
     #
     # gather arrays on a single
     # processor
