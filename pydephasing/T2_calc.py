@@ -1935,7 +1935,7 @@ class T2_eval_static_class(T2_eval_static_base_class):
             if np.abs(self.Dtilde[u,ic]) > 0.:
                 T2i = np.abs(self.Dtilde[u,ic]) ** exp
                 # MHz units
-                print(u, T2i, self.Dtilde[u,ic])
+                log.info("\t " + str(u) + " \t " + str(T2i) + " MHz")
                 break
         return T2i
     # print out data on files 
@@ -1955,6 +1955,11 @@ class T2_eval_static_class(T2_eval_static_base_class):
         namef = p.write_dir + "/T2-avg-data.yml"
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
+    # collect data from processors
+    def collect_data_on_single_proc(self):
+        # collect T2 and lw_obj
+        self.T2_obj.collect_from_other_proc()
+        self.lw_obj.collect_from_other_proc()    
 # -------------------------------------------------------------
 # dynamical dec. model subclass
 # -------------------------------------------------------------
@@ -2043,7 +2048,7 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
                 exp = 1./(u+2)
                 T2i[ip] += np.abs(self.Dtilde[ip,u,ic]) ** exp
                 # MHz units
-                print(u, T2i[ip], self.Dtilde[ip,u,ic])
+                log.info("\t " + str(ip) + "\t " + str(u) + " \t " + str(T2i[ip]) + " MHz")
         return T2i
     # print data methods
     def print_T2_times_data(self):
@@ -2064,6 +2069,12 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         namef = p.write_dir + "/T2-avg-data.yml"
         with open(namef, 'w') as out_file:
             yaml.dump(T2_dict, out_file)
+    # collect data from processors
+    def collect_data_on_single_proc(self):
+        # collect T2 and lw_obj
+        for ip in range(self.npl):
+            self.T2_obj.collect_from_other_proc(ip)
+            self.lw_obj.collect_from_other_proc(ip)
 #
 # class T2_eval definition
 #

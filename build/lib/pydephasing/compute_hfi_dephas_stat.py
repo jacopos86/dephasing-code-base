@@ -82,21 +82,24 @@ def compute_hfi_stat_dephas():
         # write data on file
         if log.level <= logging.INFO:
             config.write_It_on_file(p.write_dir, ic)
-        log.info("end It calculation - conf: " + str(ic+1))
+        log.info("\t end It calculation - conf: " + str(ic+1))
     if mpi.rank == mpi.root:
         log.info("\t " + p.sep)
         log.info("\n")
     # wait processes
     mpi.comm.Barrier()
+    if mpi.rank == mpi.root:
+        log.info("\n")
+        log.info("\t COMPUTE AVG. DEPHASING MATRIX")
+        log.info("\t " + p.sep)
+        log.info("\n")
+    #
+    # gather dephas. matrix 
+    # on a single processor
+    #
+    T2_calc_handler.collect_data_on_single_proc()
     import sys
     sys.exit()
-    #
-    # gather arrays on a single
-    # processor
-    #
-    deltaE_aver_oft = mpi.collect_array(deltaE_aver_oft) / p.nconf
-    E_fluct_aver = spin_level_static_fluctuations(p.nt2)
-    E_fluct_aver.deltaE_oft = deltaE_aver_oft
     #
     if mpi.rank == mpi.root:
         # init. ACF
