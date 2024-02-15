@@ -1932,9 +1932,11 @@ class T2_eval_static_class(T2_eval_static_base_class):
         T2i = 0.
         for u in range(2*p.order_exp+1):
             exp = 1./(u+2)
-            T2i += self.Dtilde[u,ic] ** exp
-            # MHz units
-            print(u, T2i, self.Dtilde[u,ic])
+            if np.abs(self.Dtilde[u,ic]) > 0.:
+                T2i = np.abs(self.Dtilde[u,ic]) ** exp
+                # MHz units
+                print(u, T2i, self.Dtilde[u,ic])
+                break
         return T2i
     # print out data on files 
     def print_T2_times_data(self):
@@ -2039,7 +2041,7 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         for ip in range(self.npl):
             for u in range(2*p.order_exp+1):
                 exp = 1./(u+2)
-                T2i[ip] += self.Dtilde[ip,u,ic] ** exp
+                T2i[ip] += np.abs(self.Dtilde[ip,u,ic]) ** exp
                 # MHz units
                 print(u, T2i[ip], self.Dtilde[ip,u,ic])
         return T2i
