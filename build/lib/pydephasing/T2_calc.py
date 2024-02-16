@@ -1930,8 +1930,10 @@ class T2_eval_static_class(T2_eval_static_base_class):
         Dtld = self.Dtilde_avg[:]
         T2i = self.evaluate_T2(Dtld)
         log.info("\t " + p.sep)
-        print(Dtld[0], self.Dtilde[0,:])
         # set T2i object
+        self.T2_obj.set_T2mus_avg(T2i)
+        # set up lw obj.
+        self.lw_obj.set_lw_avg(T2i)
     # set dephas. matrix
     def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
         # first compute d^(n)I/dt^(n) (t=0)
@@ -2093,80 +2095,3 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         for ip in range(self.npl):
             self.T2_obj.collect_from_other_proc(ip)
             self.lw_obj.collect_from_other_proc(ip)
-#
-# class T2_eval definition
-#
-class T2_eval:
-    # initialization calculation
-    # parameters
-    def __init__(self):
-        # fft sample points
-        self.N = p.N_df
-        # sample spacing -> ps
-        self.T = p.T_df
-        # max iteration curve fitting
-        self.maxiter = p.maxiter
-    # extract T2 fulle
-    def extract_T2(self, t, Ct, D2):
-        # check Ct finite
-        if not np.isfinite(Ct).all():
-            return [None, None, None]
-        # compute exp
-        tau_c1, T2_inv1, ft1 = self.extract_T2_Exp(t, Ct, D2)
-        # compute exp sin
-        tau_c2, T2_inv2, ft2 = self.extract_T2_ExpSin(t, Ct, D2)
-        # final object
-        tau_c = np.array([tau_c1, tau_c2], dtype=object)
-        T2_inv = np.array([T2_inv1, T2_inv2], dtype=object)
-        ft = [ft1, ft2]
-        return tau_c, T2_inv, ft
-    #
-    # T2 calculation methods
-    #
-    #
-    # function 2 -> compute T2
-    #
-    # input : t, Ct, D2
-    # output: tauc, T2_inv, [expsin, fit]
-    def extract_T2_ExpSin(self, t, Ct, D2):
-        # t : time array
-        # Ct : acf
-        # D2 : Delta^2
-        #
-        # fit over exp. function
-        p0 = [1., 1., 1.]      # start with values near those we expect
-        res = scipy.optimize.curve_fit(ExpSin, t, Ct, p0, maxfev=self.maxiter)
-        p = res[0]
-        # p = 1/tau_c (ps^-1)
-        tau_c = 1. / p[2]      # ps
-        # r -> Mukamel book
-        r = np.sqrt(D2) / hbar * tau_c
-        #
-        if r < 1.E-4:
-            T2_inv = D2 / hbar ** 2 * tau_c
-            # ps^-1
-        elif r > 1.E4:
-            T2_inv = np.sqrt(D2) / hbar
-        else:
-            N = self.N
-            T = self.T
-            x = np.linspace(0.0, N*T, N, endpoint=False)
-            y = exp_gt(x, D2, tau_c)
-            try:
-                # perform fit
-                init_param = generate_initial_params(r, D2, tau_c)
-                res = scipy.optimize.curve_fit(Explg, x, y, init_param, maxfev=self.maxiter, xtol=1.E-3, ftol=1.E-3)
-                # gauss vs lorentzian
-                p3 = res[0]
-                if p3[0] > p3[1]:
-                    # T2 -> lorentzian (psec)
-                    T2_inv = p3[2]
-                else:
-                    T2_inv = 1./p3[3]
-                    # ps^-1 units
-            except RuntimeError:
-                # set T2_inv to None
-                log.warning("\t T2_inv is None")
-                T2_inv = None
-        #
-        return tau_c, T2_inv, ExpSin(t, p[0], p[1], p[2])

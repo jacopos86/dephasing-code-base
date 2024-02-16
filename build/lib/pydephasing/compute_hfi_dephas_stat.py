@@ -90,7 +90,7 @@ def compute_hfi_stat_dephas():
     mpi.comm.Barrier()
     if mpi.rank == mpi.root:
         log.info("\n")
-        log.info("\t COMPUTE AVG. T_2*")
+        log.info("\t START AVG. T_2* CALCULATION")
         log.info("\t " + p.sep)
         log.info("\n")
     #
@@ -99,21 +99,11 @@ def compute_hfi_stat_dephas():
     # compute avg T_2*
     #
     T2_calc_handler.avg_parameter_eval_driver()
-    import sys
-    sys.exit()
-    #
-    if mpi.rank == mpi.root:
-        # init. ACF
-        acf = autocorrel_func_hfi_stat(E_fluct_aver)
-        # compute ACF
-        D2, Ct = acf.compute_acf()
-        # extract T2 data
-        acf.extract_dephas_data(D2, Ct, T2_obj, Delt_obj, tauc_obj, p.nconf)
+    # wait
     mpi.comm.Barrier()
+    if mpi.rank == mpi.root:
+        log.info("\n")
+        log.info("\t END AVG. T_2* CALCULATION")
+        log.info("\t " + p.sep)
     #
-    # gather data into lists
-    T2_obj.collect_from_other_proc()
-    Delt_obj.collect_from_other_proc()
-    tauc_obj.collect_from_other_proc()
-    #
-    return T2_obj, Delt_obj, tauc_obj
+    return T2_calc_handler

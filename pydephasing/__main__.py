@@ -247,14 +247,14 @@ elif calc_type1 == "spin":
                 log.info("\n")
                 log.info("\t " + p.sep)
             # compute dephasing time
-            data = compute_hfi_stat_dephas()
+            T2_calc_handler = compute_hfi_stat_dephas()
             # finalize calculation
             if mpi.rank == mpi.root:
                 log.info("\n")
                 log.info("\t" + p.sep)
                 log.info("\t PRINT DATA ON FILES")
                 # write T2 yaml files
-                print_decoher_data(data)
+                T2_calc_handler.print_decoherence_times()
                 log.info("\t" + p.sep)
                 log.info("\n")
             mpi.comm.Barrier()
