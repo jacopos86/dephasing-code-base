@@ -90,14 +90,15 @@ def compute_hfi_stat_dephas():
     mpi.comm.Barrier()
     if mpi.rank == mpi.root:
         log.info("\n")
-        log.info("\t COMPUTE AVG. DEPHASING MATRIX")
+        log.info("\t COMPUTE AVG. T_2*")
         log.info("\t " + p.sep)
         log.info("\n")
     #
     # gather dephas. matrix 
     # on a single processor
+    # compute avg T_2*
     #
-    T2_calc_handler.collect_data_on_single_proc()
+    T2_calc_handler.avg_parameter_eval_driver()
     import sys
     sys.exit()
     #

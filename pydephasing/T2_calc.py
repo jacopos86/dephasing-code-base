@@ -1843,6 +1843,7 @@ class T2_eval_static_base_class(ABC):
         self.lw_obj = None
         self.exp_coeff = None
         self.Dtilde = None
+        self.Dtilde_avg = None
     def init_exp_coeff(self, nconf):
         # set exp. coeff. array
         self.exp_coeff = np.zeros((p.order_exp+1, 3, p.nsp, nconf))
@@ -1871,6 +1872,18 @@ class T2_eval_static_base_class(ABC):
                     ts.display_result()
                 # collect exp. coefficients
                 self.exp_coeff[:,idx,isp,ic] = ts.get_exp_coeff()
+    #
+    # evaluate T2^*
+    def evaluate_T2(self, Dtld):
+        T2i = 0.
+        for u in range(2*p.order_exp+1):
+            exp = 1./(u+2)
+            if np.abs(Dtld[u]) > 0.:
+                T2i = np.abs(Dtld[u]) ** exp
+                # MHz units
+                log.info("\t " + str(u) + " \t " + str(T2i) + " MHz")
+                break
+        return T2i
     # print data methods
     def print_decoherence_times(self):
         # T2 times data
@@ -1888,6 +1901,7 @@ class T2_eval_static_class(T2_eval_static_base_class):
         self.lw_obj = lw_inhom_stat(nconf)
         self.init_exp_coeff(nconf)
         self.Dtilde = np.zeros((2*p.order_exp+1,nconf))
+        self.Dtilde_avg = np.zeros(2*p.order_exp+1)
     #
     # main driver parameters evaluation
     def parameter_eval_driver(self, ic, config, Hss, unprt_struct):
@@ -1896,11 +1910,28 @@ class T2_eval_static_class(T2_eval_static_base_class):
         self.compute_dephas_matr(ic, config, Hss, unprt_struct)
         # evaluate T2 times
         # (2)
-        T2i = self.evaluate_T2(ic)
+        Dtld = self.Dtilde[:,ic]
+        T2i = self.evaluate_T2(Dtld)
+        log.info("\t " + p.sep)
         # set T2i object
         self.T2_obj.set_T2_musec(ic, T2i)
         # set up lw obj.
         self.lw_obj.set_lw(ic, T2i)
+        # collect objects on root proc.
+        self.collect_data_on_single_proc()
+    #
+    # main avg. parameters driver
+    def avg_parameter_eval_driver(self):
+        # compute avg. dephasing matrix
+        # (1)
+        self.compute_avg_dephas_matr()
+        # evaluate T2 times
+        # (2)
+        Dtld = self.Dtilde_avg[:]
+        T2i = self.evaluate_T2(Dtld)
+        log.info("\t " + p.sep)
+        # set T2i object
+        self.T2_obj.set_T2mus_avg(T2i)
     # set dephas. matrix
     def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
         # first compute d^(n)I/dt^(n) (t=0)
@@ -1926,18 +1957,13 @@ class T2_eval_static_class(T2_eval_static_base_class):
                                 self.Dtilde[u,ic] += Ahf[s1-1,2,x] * Ahf[s2-1,2,y] * c_kn * c_knp / (u+2) / (n2+1)
         M = config.set_electron_magnet_vector(Hss)
         self.Dtilde[:,ic] = self.Dtilde[:,ic] * 2. * M[2] ** 2
-    #
-    # evaluate T2^*
-    def evaluate_T2(self, ic):
-        T2i = 0.
+    # compute avg. Dtilde matrix
+    def compute_avg_dephas_matr(self):
         for u in range(2*p.order_exp+1):
-            exp = 1./(u+2)
-            if np.abs(self.Dtilde[u,ic]) > 0.:
-                T2i = np.abs(self.Dtilde[u,ic]) ** exp
-                # MHz units
-                log.info("\t " + str(u) + " \t " + str(T2i) + " MHz")
-                break
-        return T2i
+            Dtld = mpi.collect_array(self.Dtilde[u,:])
+            for ic in range(p.nconf):
+                self.Dtilde_avg[u] += Dtld[ic]
+            self.Dtilde_avg[u] = self.Dtilde_avg[u] / p.nconf
     # print out data on files 
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None}
@@ -1959,7 +1985,7 @@ class T2_eval_static_class(T2_eval_static_base_class):
     def collect_data_on_single_proc(self):
         # collect T2 and lw_obj
         self.T2_obj.collect_from_other_proc()
-        self.lw_obj.collect_from_other_proc()    
+        self.lw_obj.collect_from_other_proc()   
 # -------------------------------------------------------------
 # dynamical dec. model subclass
 # -------------------------------------------------------------
@@ -1982,13 +2008,16 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         self.compute_dephas_matr(ic, config, Hss, unprt_struct)
         # evaluate T2 times
         # (2)
-        T2i = self.evaluate_T2(ic)
-        # set T2i object
         for ip in range(self.npl):
-            self.T2_obj.set_T2_musec(ip, ic, T2i[ip])
-        # set lw obj.
-        for ip in range(self.npl):
-            self.lw_obj.set_lw(ip, ic, T2i[ip])
+            # extract T2i
+            Dtld= self.Dtilde[ip,:,ic]
+            log.info("\t " + str(ip) + ": ")
+            T2i = self.evaluate_T2(Dtld)
+            log.info("\t " + p.sep)
+            # set T2i object
+            self.T2_obj.set_T2_musec(ip, ic, T2i)
+            # set lw obj.
+            self.lw_obj.set_lw(ip, ic, T2i)
     # set dephas. matrix
     def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
         # first compute d^(n)I/dt^(n) (t=0)
@@ -2039,17 +2068,6 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         M = config.set_electron_magnet_vector(Hss)
         self.Dtilde[:,:,ic] = self.Dtilde[:,:,ic] * 2. * M[2] ** 2
     #
-    # evaluate T2^*
-    def evaluate_T2(self, ic):
-        T2i = np.zeros(self.npl)
-        # run over pulses
-        for ip in range(self.npl):
-            for u in range(2*p.order_exp+1):
-                exp = 1./(u+2)
-                T2i[ip] += np.abs(self.Dtilde[ip,u,ic]) ** exp
-                # MHz units
-                log.info("\t " + str(ip) + "\t " + str(u) + " \t " + str(T2i[ip]) + " MHz")
-        return T2i
     # print data methods
     def print_T2_times_data(self):
         T2_dict = {'T2_musec' : None, 'lw_eV' : None, 'n_pulses' : None}
