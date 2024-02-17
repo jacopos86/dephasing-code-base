@@ -2002,6 +2002,7 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         self.init_exp_coeff(nconf)
         self.exp_coeff_pls = np.zeros((self.npl, p.order_exp+1, 3, p.nsp, nconf))
         self.Dtilde = np.zeros((self.npl,2*p.order_exp+1,nconf))
+        self.Dtilde_avg = np.zeros((self.npl,2*p.order_exp+1))
     #
     # main driver parameters evaluation
     def parameter_eval_driver(self, ic, config, Hss, unprt_struct):
@@ -2020,6 +2021,22 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
             self.T2_obj.set_T2_musec(ip, ic, T2i)
             # set lw obj.
             self.lw_obj.set_lw(ip, ic, T2i)
+    #
+    # main avg. parameters driver
+    def avg_parameter_eval_driver(self):
+        # compute avg. dephasing matrix
+        # (1)
+        self.compute_avg_dephas_matr()
+        # evaluate T2 times
+        # (2)
+        for ip in range(self.npl):
+            Dtld = self.Dtilde_avg[ip,:]
+            T2i = self.evaluate_T2(Dtld)
+            log.info("\t " + p.sep)
+            # T2i object
+            self.T2_obj.set_T2mus_avg(ip, T2i)
+            # lw obj.
+            self.lw_obj.set_lw_avg(ip, T2i)
     # set dephas. matrix
     def compute_dephas_matr(self, ic, config, Hss, unprt_struct):
         # first compute d^(n)I/dt^(n) (t=0)
@@ -2029,6 +2046,14 @@ class T2_eval_dyndec_class(T2_eval_static_base_class):
         self.set_exp_coeff_n_pulses(ic)
         # compute dephasing matrix
         self.compute_Dtilde_matr(ic, config, Hss, unprt_struct)
+    # avg. dephasing matrix
+    def compute_avg_dephas_matr(self):
+        for ip in range(self.npl):
+            for u in range(2*p.order_exp+1):
+                Dtld = mpi.collect_array(self.Dtilde[ip,u,:])
+                for ic in range(p.nconf):
+                    self.Dtilde_avg[ip,u] += Dtld[ic]
+                self.Dtilde_avg[ip,u] = self.Dtilde_avg[ip,u] / p.nconf
     # exp. coefficients
     def set_exp_coeff_n_pulses(self, ic):
         for n_p in p.n_pulses:
