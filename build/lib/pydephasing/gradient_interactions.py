@@ -10,6 +10,7 @@ import numpy as np
 import yaml
 import logging
 from sklearn.model_selection import train_test_split
+from pydephasing.neural_network_class import generate_NN_object
 from sklearn.neural_network import MLPRegressor
 from pydephasing.phys_constants import eps
 from pydephasing.input_parameters import p
@@ -410,6 +411,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			full_output.append(output_ij)
 		# learn model
 		print(self.Dns)
+		NN_model = generate_NN_object(self.atom_info_dict['NN_model'])
 		import sys
 		sys.exit()
 		self.learn_network_model(full_input, full_output, p.write_dir)

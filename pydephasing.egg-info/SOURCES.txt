@@ -28,6 +28,7 @@ pydephasing/input_parameters.py
 pydephasing/input_parser.py
 pydephasing/log.py
 pydephasing/mpi.py
+pydephasing/neural_network_class.py
 pydephasing/nuclear_spin_config.py
 pydephasing/ph_ampl_module.py
 pydephasing/ph_resolved_quant.py
