@@ -391,6 +391,14 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			self.dmax_defect = np.inf
 		else:
 			self.dmax_defect = self.atom_info_dict['max_dist_from_defect']
+		# set neural network model
+		self.NN_obj = generate_NN_object(self.atom_info_dict['NN_model'])
+		if mpi.rank == mpi.root:
+			log.info("\t Neural network model : " + self.atom_info_dict['NN_model'])
+		# set NN model parameters
+		self.NN_obj.set_model(self.atom_info_dict['NN_parameters'])
+		import sys
+		sys.exit()
 	#
 	# main driver to compute U grad2D U
 	def compute_2nd_order_gradients(self, displ_structs):
@@ -411,9 +419,6 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			full_output.append(output_ij)
 		# learn model
 		print(self.Dns)
-		NN_model = generate_NN_object(self.atom_info_dict['NN_model'])
-		import sys
-		sys.exit()
 		self.learn_network_model(full_input, full_output, p.write_dir)
 		# compute grad ^ 2 tensor
 		self.compute_2nd_derivative_tensor(jax_list, displ_structs)

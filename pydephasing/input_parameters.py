@@ -227,8 +227,6 @@ class dynamical_data_input(data_input):
         # ph. data file
         if 'hd5_eigen_file' in data:
             self.hd5_eigen_file = self.work_dir + '/' + data['hd5_eigen_file']
-        # read displ. atoms data
-        self.read_atoms_displ()
         #
         # atom resolved
         if 'atom_res' in data:
@@ -339,6 +337,9 @@ class dynamical_data_input(data_input):
                 log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
                 log.info("\t " + p.sep)
                 log.info("\n")
+        #
+        # read displ. atoms data
+        self.read_atoms_displ()
     #
     # time arrays
     def set_time_arrays(self):

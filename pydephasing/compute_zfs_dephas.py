@@ -54,8 +54,6 @@ def compute_homo_dephas():
     # set atoms dict
     atoms.extract_atoms_coords(nat)
     # zfs 2nd order
-    # TODO : uncomment here
-    #'''
     if p.order_2_correct:
         # set 2nd order tensor
         grad2ZFS = gradient_2nd_ZFS(p.work_dir, p.grad_info)
@@ -74,7 +72,6 @@ def compute_homo_dephas():
                 grad2ZFS.write_grad2Dtensor_to_file(p.write_dir)
         if log.level <= logging.DEBUG and p.order_2_correct:
             grad2ZFS.check_tensor_coefficients()
-    #'''
     mpi.comm.Barrier()
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
