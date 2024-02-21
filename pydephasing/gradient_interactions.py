@@ -603,15 +603,12 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		if mpi.rank == mpi.root:
 			log.info("\n")
 			log.info("\t " + p.sep)
-			if self.atom_info_dict['NN_model'] == "MLP":
-				log.info("\t REGR. NETWORK SCORE (00 COMPONENT): " + str(self.NN_obj_00.regr.score(X_test_00, y_test_00)))
-				log.info("\t REGR. NETWORK SCORE (01 COMPONENT): " + str(self.NN_obj_01.regr.score(X_test_01, y_test_01)))
-				log.info("\t REGR. NETWORK SCORE (02 COMPONENT): " + str(self.NN_obj_02.regr.score(X_test_02, y_test_02)))
-				log.info("\t REGR. NETWORK SCORE (11 COMPONENT): " + str(self.NN_obj_11.regr.score(X_test_11, y_test_11)))
-				log.info("\t REGR. NETWORK SCORE (12 COMPONENT): " + str(self.NN_obj_12.regr.score(X_test_12, y_test_12)))
-				log.info("\t REGR. NETWORK SCORE (22 COMPONENT): " + str(self.NN_obj_22.regr.score(X_test_22, y_test_22)))
-				log.info("\t N. LAYERS MULTILAYER PERCEPTRON MODEL: " + str(self.regr_00.n_layers_))
-				log.info("\t MODEL SHAPE: " + str(len(self.regr_00.coefs_)))
+			log.info("\t REGR. NETWORK SCORE (00 COMPONENT): " + self.NN_obj_00.get_score(X_test_00, y_test_00))
+			log.info("\t REGR. NETWORK SCORE (01 COMPONENT): " + self.NN_obj_01.get_score(X_test_01, y_test_01))
+			log.info("\t REGR. NETWORK SCORE (02 COMPONENT): " + self.NN_obj_02.get_score(X_test_02, y_test_02))
+			log.info("\t REGR. NETWORK SCORE (11 COMPONENT): " + self.NN_obj_11.get_score(X_test_11, y_test_11))
+			log.info("\t REGR. NETWORK SCORE (12 COMPONENT): " + self.NN_obj_12.get_score(X_test_12, y_test_12))
+			log.info("\t REGR. NETWORK SCORE (22 COMPONENT): " + self.NN_obj_22.get_score(X_test_22, y_test_22))
 			log.info("\t " + p.sep)
 			log.info("\n")
 			if log.level <= logging.INFO:
