@@ -1,7 +1,7 @@
 from pydephasing.log import log
 from sklearn.neural_network import MLPRegressor
 from sklearn.model_selection import train_test_split
-import keras
+from tensorflow import keras
 from pydephasing.mpi import mpi
 #
 # here we define the neural network class
