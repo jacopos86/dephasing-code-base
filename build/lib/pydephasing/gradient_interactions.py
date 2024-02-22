@@ -391,14 +391,8 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			self.dmax_defect = np.inf
 		else:
 			self.dmax_defect = self.atom_info_dict['max_dist_from_defect']
-		# set neural network model
-		self.NN_obj = generate_NN_object(self.atom_info_dict['NN_model'])
 		if mpi.rank == mpi.root:
 			log.info("\t Neural network model : " + self.atom_info_dict['NN_model'])
-		# set NN model parameters
-		self.NN_obj.set_model(self.atom_info_dict['NN_parameters'])
-		import sys
-		sys.exit()
 	#
 	# main driver to compute U grad2D U
 	def compute_2nd_order_gradients(self, displ_structs):
@@ -572,6 +566,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 	#
 	# learn model MLP network
 	def learn_network_model(self, input_data, output_data, write_dir):
+		params = self.atom_info_dict['NN_parameters']
 		# build neural network to learn missing Daxby
 		# given input layer :
 		# 1) Dax(h) 2) Dax(-h) 3) Dby(h) 4) Dby(-h) 4) 1-d/L 5) 1-(d/L)^2
@@ -580,36 +575,40 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		[input_00, input_01, input_02, input_11, input_12, input_22] = input_data
 		# output data
 		[output_00, output_01, output_02, output_11, output_12, output_22] = output_data
-		# make model
-		X_train, X_test_00, y_train, y_test_00 = train_test_split(input_00,output_00,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_00 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#
-		X_train, X_test_01, y_train, y_test_01 = train_test_split(input_01,output_01,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_01 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#print(self.regr_01.predict(X_test_01[:20]), y_test_01[:20])
-		X_train, X_test_02, y_train, y_test_02 = train_test_split(input_02,output_02,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_02 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#
-		X_train, X_test_11, y_train, y_test_11 = train_test_split(input_11,output_11,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_11 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#
-		X_train, X_test_12, y_train, y_test_12 = train_test_split(input_12,output_12,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_12 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#
-		X_train, X_test_22, y_train, y_test_22 = train_test_split(input_22,output_22,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_22 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
+		# set neural network model - 00 component
+		self.NN_obj_00 = generate_NN_object(params)
+		self.NN_obj_00.set_model(params)
+		X_test_00, y_test_00 = self.NN_obj_00.fit(params, input_00, output_00)
+		# set neural network - 01 component
+		self.NN_obj_01 = generate_NN_object(params)
+		self.NN_obj_01.set_model(params)
+		X_test_01, y_test_01 = self.NN_obj_01.fit(params, input_01, output_01)
+		# set neural network - 02 component
+		self.NN_obj_02 = generate_NN_object(params)
+		self.NN_obj_02.set_model(params)
+		X_test_02, y_test_02 = self.NN_obj_02.fit(params, input_02, output_02)
+		# set neural network - 11 component
+		self.NN_obj_11 = generate_NN_object(params)
+		self.NN_obj_11.set_model(params)
+		X_test_11, y_test_11 = self.NN_obj_11.fit(params, input_11, output_11)
+		# set neural network - 12 component
+		self.NN_obj_12 = generate_NN_object(params)
+		self.NN_obj_12.set_model(params)
+		X_test_12, y_test_12 = self.NN_obj_12.fit(params, input_12, output_12)
+		# set neural network - 22 component
+		self.NN_obj_22 = generate_NN_object(params)
+		self.NN_obj_22.set_model(params)
+		X_test_22, y_test_22 = self.NN_obj_22.fit(params, input_22, output_22)
 		#
 		if mpi.rank == mpi.root:
 			log.info("\n")
 			log.info("\t " + p.sep)
-			log.info("\t REGR. NETWORK SCORE (00 COMPONENT): " + str(self.regr_00.score(X_test_00, y_test_00)))
-			log.info("\t REGR. NETWORK SCORE (01 COMPONENT): " + str(self.regr_01.score(X_test_01, y_test_01)))
-			log.info("\t REGR. NETWORK SCORE (02 COMPONENT): " + str(self.regr_02.score(X_test_02, y_test_02)))
-			log.info("\t REGR. NETWORK SCORE (11 COMPONENT): " + str(self.regr_11.score(X_test_11, y_test_11)))
-			log.info("\t REGR. NETWORK SCORE (12 COMPONENT): " + str(self.regr_12.score(X_test_12, y_test_12)))
-			log.info("\t REGR. NETWORK SCORE (22 COMPONENT): " + str(self.regr_22.score(X_test_22, y_test_22)))
-			log.info("\t N. LAYERS MULTILAYER PERCEPTRON MODEL: " + str(self.regr_00.n_layers_))
-			log.info("\t MODEL SHAPE: " + str(len(self.regr_00.coefs_)))
+			log.info("\t REGR. NETWORK SCORE (00 COMPONENT): " + self.NN_obj_00.get_score(X_test_00, y_test_00))
+			log.info("\t REGR. NETWORK SCORE (01 COMPONENT): " + self.NN_obj_01.get_score(X_test_01, y_test_01))
+			log.info("\t REGR. NETWORK SCORE (02 COMPONENT): " + self.NN_obj_02.get_score(X_test_02, y_test_02))
+			log.info("\t REGR. NETWORK SCORE (11 COMPONENT): " + self.NN_obj_11.get_score(X_test_11, y_test_11))
+			log.info("\t REGR. NETWORK SCORE (12 COMPONENT): " + self.NN_obj_12.get_score(X_test_12, y_test_12))
+			log.info("\t REGR. NETWORK SCORE (22 COMPONENT): " + self.NN_obj_22.get_score(X_test_22, y_test_22))
 			log.info("\t " + p.sep)
 			log.info("\n")
 			if log.level <= logging.INFO:
@@ -617,17 +616,17 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 				file_name = "{}".format(write_dir + '/' + file_name)
 				data = {'00': [None]*2, '01': [None]*2, '02': [None]*2, '11': [None]*2, '12': [None]*2, '22': [None]*2}
 				data['00'][0] = y_test_00
-				data['00'][1] = self.regr_00.predict(X_test_00)
+				data['00'][1] = self.NN_obj_00.predict(X_test_00)
 				data['01'][0] = y_test_01
-				data['01'][1] = self.regr_01.predict(X_test_01)
+				data['01'][1] = self.NN_obj_01.predict(X_test_01)
 				data['02'][0] = y_test_02
-				data['02'][1] = self.regr_02.predict(X_test_02)
+				data['02'][1] = self.NN_obj_02.predict(X_test_02)
 				data['11'][0] = y_test_11
-				data['11'][1] = self.regr_11.predict(X_test_11)
+				data['11'][1] = self.NN_obj_11.predict(X_test_11)
 				data['12'][0] = y_test_12
-				data['12'][1] = self.regr_12.predict(X_test_12)
+				data['12'][1] = self.NN_obj_12.predict(X_test_12)
 				data['22'][0] = y_test_22
-				data['22'][1] = self.regr_22.predict(X_test_22)
+				data['22'][1] = self.NN_obj_22.predict(X_test_22)
 				with open(file_name, 'w') as out_file:
 					yaml.dump(data, out_file)
 		mpi.comm.Barrier()
