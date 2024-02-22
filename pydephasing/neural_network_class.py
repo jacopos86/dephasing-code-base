@@ -58,6 +58,10 @@ class MLP_model_class(NN_model_base_class):
             log.info("\t MODEL SHAPE: " + str(len(self.regr.coefs_)))
         score = self.regr.score(X_test, y_test)
         return str(score)
+    # predict value
+    def predict(self, X):
+        y = self.regr.predict(X)
+        return y
 #
 # concrete DL model class
 class DNN_model_class(NN_model_base_class):
@@ -95,3 +99,7 @@ class DNN_model_class(NN_model_base_class):
         if mpi.rank == mpi.root:
             log.info("NN model accuracy level : " + str(acc))
         return str(score)
+    # predict value
+    def predict(self, X):
+        y = self.NN_model.predict(X)
+        return y
