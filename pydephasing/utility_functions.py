@@ -24,6 +24,9 @@ import yaml
 # 8) print ZPL gradient data
 #    input : gradZPL, hessZPL, outdir
 #    output: None
+# 9) print matrix as string
+#    input : matrix
+#    output : string
 #
 #  function 1)
 #
@@ -141,3 +144,14 @@ def print_zpl_fluct(gradZPL, hessZPL, out_dir):
 	# eV / ang - eV / ang^2 units
 	with open(file_name, 'w') as out_file:
 		yaml.dump(data, out_file)
+#
+# function 9) print matrix
+#
+def print_2D_matrix(A):
+    size = A.shape
+    line = ""
+    for i in range(size[0]):
+        for j in range(size[1]):
+            line += "  {0:.3f}".format(A[i,j])
+        line += "\n"
+    return line

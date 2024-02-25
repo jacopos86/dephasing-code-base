@@ -3,12 +3,13 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 from pydephasing.mpi import mpi
+import warnings
 #
 # here we define the neural network class
 # two concrete subclasses :
 # 1) multilayer perceptron
 # 2) keras DNN -> from pytorch
-
+warnings.filterwarnings("ignore")
 #
 # function to create the NN
 # instance
@@ -58,6 +59,10 @@ class MLP_model_class(NN_model_base_class):
             log.info("\t MODEL SHAPE: " + str(len(self.regr.coefs_)))
         score = self.regr.score(X_test, y_test)
         return str(score)
+    # predict value
+    def predict(self, X):
+        y = self.regr.predict(X)
+        return y
 #
 # concrete DL model class
 class DNN_model_class(NN_model_base_class):
@@ -95,3 +100,7 @@ class DNN_model_class(NN_model_base_class):
         if mpi.rank == mpi.root:
             log.info("NN model accuracy level : " + str(acc))
         return str(score)
+    # predict value
+    def predict(self, X):
+        y = self.NN_model.predict(X)
+        return y

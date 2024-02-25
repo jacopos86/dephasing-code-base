@@ -11,6 +11,7 @@ import yaml
 import logging
 from sklearn.model_selection import train_test_split
 from pydephasing.neural_network_class import generate_NN_object
+from pydephasing.utility_functions import print_2D_matrix
 from sklearn.neural_network import MLPRegressor
 from pydephasing.phys_constants import eps
 from pydephasing.input_parameters import p
@@ -412,7 +413,11 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			output_ij = mpi.collect_list(output_ij)
 			full_output.append(output_ij)
 		# learn model
-		print(self.Dns)
+		if mpi.rank == mpi.root:
+			log.debug("\t Noise matrix :")
+			log.debug("\t " + print_2D_matrix(self.Dns))
+			log.debug("\n")
+			log.debug("\t " + p.sep)
 		self.learn_network_model(full_input, full_output, p.write_dir)
 		# compute grad ^ 2 tensor
 		self.compute_2nd_derivative_tensor(jax_list, displ_structs)
