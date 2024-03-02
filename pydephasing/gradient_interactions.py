@@ -9,10 +9,8 @@ import os
 import numpy as np
 import yaml
 import logging
-from sklearn.model_selection import train_test_split
 from pydephasing.neural_network_class import generate_NN_object
 from pydephasing.utility_functions import print_2D_matrix
-from sklearn.neural_network import MLPRegressor
 from pydephasing.phys_constants import eps
 from pydephasing.input_parameters import p
 from pydephasing.atomic_list_struct import atoms
@@ -412,12 +410,9 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		for output_ij in output_data:
 			output_ij = mpi.collect_list(output_ij)
 			full_output.append(output_ij)
-		# learn model
 		if mpi.rank == mpi.root:
-			log.debug("\t Noise matrix :")
-			log.debug("\t " + print_2D_matrix(self.Dns))
-			log.debug("\n")
-			log.debug("\t " + p.sep)
+			print_2D_matrix(self.Dns)
+		# learn model
 		self.learn_network_model(full_input, full_output, p.write_dir)
 		# compute grad ^ 2 tensor
 		self.compute_2nd_derivative_tensor(jax_list, displ_structs)
@@ -482,7 +477,8 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		mpi.comm.Barrier()
 		# run over displ.
 		# ia/idx
-		for jax in tqdm(jax_list):
+		#for jax in tqdm(jax_list):
+		for jax in range(100, 200):
 			ia = atoms.index_to_ia_map[jax]-1
 			idx= atoms.index_to_idx_map[jax]
 			da = self.struct_0.struct.get_distance(ia,self.defect_index)
@@ -578,30 +574,31 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		# first make training+test set
 		# input data
 		[input_00, input_01, input_02, input_11, input_12, input_22] = input_data
+		params['input_shape'] = np.array(input_00).shape[1]
 		# output data
 		[output_00, output_01, output_02, output_11, output_12, output_22] = output_data
 		# set neural network model - 00 component
-		self.NN_obj_00 = generate_NN_object(params)
+		self.NN_obj_00 = generate_NN_object(self.atom_info_dict['NN_model'])
 		self.NN_obj_00.set_model(params)
 		X_test_00, y_test_00 = self.NN_obj_00.fit(params, input_00, output_00)
 		# set neural network - 01 component
-		self.NN_obj_01 = generate_NN_object(params)
+		self.NN_obj_01 = generate_NN_object(self.atom_info_dict['NN_model'])
 		self.NN_obj_01.set_model(params)
 		X_test_01, y_test_01 = self.NN_obj_01.fit(params, input_01, output_01)
 		# set neural network - 02 component
-		self.NN_obj_02 = generate_NN_object(params)
+		self.NN_obj_02 = generate_NN_object(self.atom_info_dict['NN_model'])
 		self.NN_obj_02.set_model(params)
 		X_test_02, y_test_02 = self.NN_obj_02.fit(params, input_02, output_02)
 		# set neural network - 11 component
-		self.NN_obj_11 = generate_NN_object(params)
+		self.NN_obj_11 = generate_NN_object(self.atom_info_dict['NN_model'])
 		self.NN_obj_11.set_model(params)
 		X_test_11, y_test_11 = self.NN_obj_11.fit(params, input_11, output_11)
 		# set neural network - 12 component
-		self.NN_obj_12 = generate_NN_object(params)
+		self.NN_obj_12 = generate_NN_object(self.atom_info_dict['NN_model'])
 		self.NN_obj_12.set_model(params)
 		X_test_12, y_test_12 = self.NN_obj_12.fit(params, input_12, output_12)
 		# set neural network - 22 component
-		self.NN_obj_22 = generate_NN_object(params)
+		self.NN_obj_22 = generate_NN_object(self.atom_info_dict['NN_model'])
 		self.NN_obj_22.set_model(params)
 		X_test_22, y_test_22 = self.NN_obj_22.fit(params, input_22, output_22)
 		#
@@ -721,25 +718,25 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 						# Daxby calculation
 						Daxby = np.zeros((3,3))
 						input_00 = [x1, x2, Dax1[0,0]-D[0,0], Dax2[0,0]-D[0,0], Dby1[0,0]-D[0,0], Dby2[0,0]-D[0,0]]
-						Daxby[0,0] = D[0,0] + self.regr_00.predict([input_00])
+						Daxby[0,0] = D[0,0] + self.NN_obj_00.predict([input_00])
 						#
 						input_01 = [x1, x2, Dax1[0,1]-D[0,1], Dax2[0,1]-D[0,1], Dby1[0,1]-D[0,1], Dby2[0,1]-D[0,1]]
-						Daxby[0,1] = D[0,1] + self.regr_01.predict([input_01])
+						Daxby[0,1] = D[0,1] + self.NN_obj_01.predict([input_01])
 						Daxby[1,0] = Daxby[0,1]
 						#
 						input_02 = [x1, x2, Dax1[0,2]-D[0,2], Dax2[0,2]-D[0,2], Dby1[0,2]-D[0,2], Dby2[0,2]-D[0,2]]
-						Daxby[0,2] = D[0,2] + self.regr_02.predict([input_02])
+						Daxby[0,2] = D[0,2] + self.NN_obj_02.predict([input_02])
 						Daxby[2,0] = Daxby[0,2]
 						#
 						input_11 = [x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]]
-						Daxby[1,1] = D[1,1] + self.regr_11.predict([input_11])
+						Daxby[1,1] = D[1,1] + self.NN_obj_11.predict([input_11])
 						#
 						input_12 = [x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]]
-						Daxby[1,2] = D[1,2] + self.regr_12.predict([input_12])
+						Daxby[1,2] = D[1,2] + self.NN_obj_12.predict([input_12])
 						Daxby[2,1] = Daxby[1,2]
 						#
 						input_22 = [x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]]
-						Daxby[2,2] = D[2,2] + self.regr_22.predict([input_22])
+						Daxby[2,2] = D[2,2] + self.NN_obj_22.predict([input_22])
 						# subtract noise
 						dDax = np.zeros((3,3))
 						dDax[:,:] = np.abs(Dax1[:,:]-D[:,:])*dr0[idx]/dr[idx]

@@ -90,22 +90,5 @@ class energy_level_fluctuations:
         self.deltaE_oft[:,:] += wq * deltaEq.deltaEq_oft[:,:]
 #
 # static spin fluctuations class
-class spin_level_static_fluctuations:
-    # initialization
-    def __init__(self, nt):
-        self.nt = nt
-        # deltaE(t)
-        self.deltaE_oft = np.zeros(self.nt)
-    # compute energy fluctuations
-    def compute_deltaE_oft(self, spins_config):
-        # run over nuclear spins
-        for isp in range(spins_config.nsp):
-            # spin fluctuations
-            dIt = spins_config.nuclear_spins[isp]['dIt']
-            # forces (THz)
-            F = spins_config.nuclear_spins[isp]['F']
-            # run over time steps
-            for t in range(self.nt):
-                self.deltaE_oft[t] = self.deltaE_oft[t] + np.dot(F[:], dIt[:,t])
-        # eV units
-        self.deltaE_oft[:] = self.deltaE_oft[:] * hbar
+class ZFS_ph_fluctuations:
+    pass

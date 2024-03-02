@@ -14,6 +14,7 @@ warnings.filterwarnings("ignore")
 # function to create the NN
 # instance
 def generate_NN_object(NN_model):
+    print(NN_model)
     if NN_model == "MLP":
         return MLP_model_class()
     elif NN_model == "DNN":
@@ -76,9 +77,10 @@ class DNN_model_class(NN_model_base_class):
         activation_out= NN_parameters['activation_out']
         loss = NN_parameters['loss']
         optimizer = NN_parameters['optimizer']
+        input_shape = NN_parameters['input_shape']
         # build the model
         self.NN_model = keras.Sequential()
-        self.NN_model.add(keras.layers.Dense(units=1, activation=activation_in, input_shape=[1]))
+        self.NN_model.add(keras.layers.Dense(units=1, activation=activation_in, input_shape=[input_shape]))
         for n in range(n_hidden_layers):
             self.NN_model.add(keras.layers.Dense(units=n_hidden_units,activation=activation_hid))
         self.NN_model.add(keras.layers.Dense(units=1, activation=activation_out))
@@ -92,6 +94,8 @@ class DNN_model_class(NN_model_base_class):
     def fit(self, NN_parameters, X, y):
         epochs = NN_parameters['epochs']
         verbose= NN_parameters['verbose']
+        import numpy as np
+        print(np.array(X).shape, np.array(y).shape)
         # fitting
         self.NN_model.fit(X, y, epochs=epochs, verbose=verbose)
     # get score

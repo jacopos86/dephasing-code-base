@@ -11,7 +11,6 @@ pydephasing/auto_correl_inhom_driver.py
 pydephasing/auto_correlation_driver.py
 pydephasing/auto_correlation_spph_mod.py
 pydephasing/auto_correlation_stat_module.py
-pydephasing/compute_dyndec_dephas.py
 pydephasing/compute_exc_dephas.py
 pydephasing/compute_hfi_dephas.py
 pydephasing/compute_hfi_dephas_stat.py

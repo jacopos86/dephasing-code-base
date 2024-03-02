@@ -1,6 +1,8 @@
 import numpy as np
-from math import exp, atan2
+from math import exp
 from pydephasing.phys_constants import eps, kb, hbar
+from pydephasing.log import log
+from pydephasing.input_parameters import p
 import yaml
 #
 # utility functions module
@@ -148,10 +150,13 @@ def print_zpl_fluct(gradZPL, hessZPL, out_dir):
 # function 9) print matrix
 #
 def print_2D_matrix(A):
-    size = A.shape
-    line = ""
-    for i in range(size[0]):
-        for j in range(size[1]):
-            line += "  {0:.3f}".format(A[i,j])
-        line += "\n"
-    return line
+	size = A.shape
+	log.info("\t Noise matrix :")
+	for i in range(size[0]):
+		line = ""
+		for j in range(size[1]):
+			line += "  {0:.3f}".format(A[i,j])
+		log.info("\t " + line)
+	log.info("\n")
+	log.info("\t " + p.sep)
+	return line
