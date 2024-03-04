@@ -1148,7 +1148,7 @@ CONTAINS
     !  allocate Dso
     
     IF (.not. ALLOCATED (Dso) ) THEN
-       ALLOCATE ( Dso (nhm,nhm,3,nsp), stat=ierr )
+       ALLOCATE ( Dso (nhm,nhm,4,nsp), stat=ierr )
        if (ierr/=0) call errore ('dvan_so_pauli_basis', 'allocating Dso', abs (ierr))
     END IF
     !
@@ -1169,23 +1169,16 @@ CONTAINS
              do jh= 1, nh(nt)
                 vj = indv (jh,nt)
                 !
+                ijs = 0
                 do is1= 1, 2
                    do is2= 1, 2
+                      ijs = ijs + 1
+                      Dso (ih,jh,ijs,nt) = frpp(nt)%dion(vi,vj) *    &
+                        fcoef (ih,jh,is1,is2,nt)
+                      !
                       if (vi .ne. vj) fcoef(ih,jh,is1,is2,nt) = (0.d0,0.d0)
                    end do
                 end do
-                !  sigma_z  -> index 3
-                !
-                Dso (ih,jh,3,nt) = frpp(nt)%dion(vi,vj) *      &
-                     (fcoef (ih,jh,1,1,nt) - fcoef (ih,jh,2,2,nt))
-                !  sigma_x  -> index 1
-                !
-                Dso (ih,jh,1,nt) = frpp(nt)%dion(vi,vj) *      &
-                     (fcoef (ih,jh,1,2,nt) + fcoef (ih,jh,2,1,nt))
-                !  sigma_y  -> index 2
-                !
-                Dso (ih,jh,2,nt) = frpp(nt)%dion(vi,vj) *      &
-                     cmplx (0._dp, -1._dp) * (fcoef (ih,jh,1,2,nt) - fcoef (ih,jh,2,1,nt))
                 !
              end do
           end do
@@ -1194,6 +1187,7 @@ CONTAINS
        !
     end do
     
+    !
     RETURN
     !
   END SUBROUTINE dvan_so_pauli_basis
@@ -1235,7 +1229,7 @@ CONTAINS
     !
     !    allocate H_SO^a_on
     
-    allocate ( HSO_a (ntr, 3), stat=ierr )
+    allocate ( HSO_a (ntr, 4), stat=ierr )
     if (ierr/=0) call errore ('compute_soc_matrix_elements', 'allocating HSO_a', abs (ierr))
     HSO_a = (0.d0, 0.d0)
     
@@ -1251,47 +1245,36 @@ CONTAINS
        kpi= transitions_list (itr, 4)
        ni = transitions_list (itr, 5)
        spi= transitions_list (itr, 6) 
+       isp= (si-1)*2 + spi
        
        !
-       !  S matrix elements
-       
-       s_xyz = (0.d0,0.d0)
-       s_xyz (1) = sigma_x (si,spi)
-       s_xyz (2) = sigma_y (si,spi)
-       s_xyz (3) = sigma_z (si,spi)
-       WRITE(stdout,*) s_xyz
-       
        !
-       !  iterate over a index
-       do a= 1, 3
-          !
-          !  iterate atom species
-          ijkb0 = 0
-          do nt= 1, ntyp
-             do na= 1, nat
-                IF ( ityp (na) .eq. nt ) THEN
-                   !
-                   do ih= 1, nh(nt)
-                      ikb = ijkb0 + ih
-                      do jh= 1, nh(nt)
-                         jkb = ijkb0 + jh
+       !  iterate atom species
+       ijkb0 = 0
+       do nt= 1, ntyp
+          do na= 1, nat
+             IF ( ityp (na) .eq. nt ) THEN
+                !
+                do ih= 1, nh(nt)
+                   ikb = ijkb0 + ih
+                   do jh= 1, nh(nt)
+                      jkb = ijkb0 + jh
+                      !
+                      IF (gamma_only) THEN
+                         HSO_a (itr,isp) = HSO_a (itr,isp) +     &
+                              bec_sp (ki)%r (ikb,oi) * Dso (ih,jh,isp,nt) * bec_sp (kpi)%r (jkb,ni)
                          !
-                         IF (gamma_only) THEN
-                            HSO_a (itr,a) = HSO_a (itr,a) +     &
-                                 bec_sp (ki)%r (ikb,oi) * s_xyz (a) * Dso (ih,jh,a,nt) * bec_sp (kpi)%r (jkb,ni)
-                            !
-                            !WRITE(stdout,*) HSO_a (itr,a), bec_sp (ki)%r (ikb,oi), s_xyz (a) 
-                         ELSE
-                            HSO_a (itr,a) = HSO_a (itr,a) +     &
-                                 conjg (bec_sp (ki)%k (ikb,oi)) * s_xyz (a) * Dso (ih,jh,a,nt) * bec_sp (kpi)%k (jkb,ni)
-                            !
-                         END IF
-                      end do
+                         !WRITE(stdout,*) HSO_a (itr,a), bec_sp (ki)%r (ikb,oi), s_xyz (a) 
+                      ELSE
+                         HSO_a (itr,isp) = HSO_a (itr,isp) +     &
+                              conjg (bec_sp (ki)%k (ikb,oi)) * Dso (ih,jh,isp,nt) * bec_sp (kpi)%k (jkb,ni)
+                         !
+                      END IF
                    end do
-                   ijkb0 = ijkb0 + nh (nt)
-                   !
-                END IF
-             end do
+                end do
+                ijkb0 = ijkb0 + nh (nt)
+                !
+             END IF
           end do
        end do
        !
