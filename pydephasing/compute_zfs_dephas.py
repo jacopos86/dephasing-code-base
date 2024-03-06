@@ -16,6 +16,7 @@ from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.ph_ampl_module import PhononAmplitude
 from pydephasing.auto_correlation_spph_mod import acf_sp_ph
 from pydephasing.T2_calc_handler import set_T2_calc_handler
+from pydephasing.energy_fluct_mod import ZFS_ph_fluctuations
 #
 def compute_homo_dephas():
     # main driver code for the calculation of dephasing time
@@ -53,6 +54,7 @@ def compute_homo_dephas():
     atoms.compute_index_to_idx_map(nat)
     # set atoms dict
     atoms.extract_atoms_coords(nat)
+    '''
     # zfs 2nd order
     if p.order_2_correct:
         # set 2nd order tensor
@@ -75,6 +77,7 @@ def compute_homo_dephas():
         if log.level <= logging.DEBUG and p.order_2_correct:
             grad2ZFS.check_tensor_coefficients()
     mpi.comm.Barrier()
+    '''
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
@@ -85,6 +88,12 @@ def compute_homo_dephas():
     # extract phonon data
     #
     u, wu, nq, qpts, wq, mesh = extract_ph_data()
+    #
+    # compute ZFS fluctuations
+    ZFS_fluct = ZFS_ph_fluctuations()
+    ZFS_fluct.compute_fluctuations(qpts, nat, wu)
+    import sys
+    sys.exit()
     #
     if mpi.rank == 0:
         log.info("\n")

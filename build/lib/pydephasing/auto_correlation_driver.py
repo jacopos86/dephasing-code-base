@@ -198,6 +198,7 @@ class acf_ph(object):
                 #sys.exit()
                 # iterate
                 iql += 1
+    #
     # collect data
     def collect_acf_from_processes(self, nat):
         # collect data from processes
@@ -271,14 +272,6 @@ class acf_ph(object):
                 for iT in range(p.ntmp):
                     for ia in range(nat):
                         self.acf_atr[:,ia,iT] = mpi.collect_time_freq_array(self.acf_atr_sp[:,ia,iT])
-    def collect_acfdd_from_processes(self):
-        # n. pulses
-        npl = len(p.n_pulses)
-        self.acfdd = np.zeros((p.nt,npl,p.ntmp), dtype=type(self.acfdd_sp[0,0,0]))
-        # run over T
-        for iT in range(p.ntmp):
-            for ipl in range(npl):
-                self.acfdd[:,ipl,iT] = mpi.collect_time_array(self.acfdd_sp[:,ipl,iT])
     #
     #
     def print_autocorrel_data_spinconf(self, ft, ft_atr, ft_wql, ft_phr, ic, iT):
@@ -325,21 +318,6 @@ class acf_ph(object):
             if log.level <= logging.INFO:
                 namef = self.write_dir + "/acf-data-phr-ic" + str(ic) + "-iT" + str(iT+1) + ".yml"
                 print_acf_dict(p.time2, Ct, ft_phr, namef)
-        # wql data
-        if ft_wql is not None and p.ph_resolved:
-            Ct = np.zeros((p.nt2,p.nwbn))
-            # run over iph
-            for iwb in range(p.nwbn):
-                D2 = self.acf_wql[0,iwb,iT].real
-                if np.abs(D2) == 0.:
-                    pass
-                else:
-                    for t in range(p.nt2):
-                        Ct[t,iwb] = self.acf_wql[t,iwb,iT].real / D2
-            # write data on file
-            if log.level <= logging.INFO:
-                namef = self.write_dir + "/acf-data-wql-ic" + str(ic) + "-iT" + str(iT+1) + ".yml"
-                print_acf_dict(p.time2, Ct, ft_wql, namef)
     #
     # auto correlation tests
     def auto_correl_test(self):
