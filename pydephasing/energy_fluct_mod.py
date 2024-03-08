@@ -123,3 +123,13 @@ class ZFS_ph_fluctuations:
         for iqqp in qqp_list:
             iq = iqqp[0]
             iqp= iqqp[1]
+            for il in range(3*nat):
+                if wu[iq][il] > p.min_freq:
+                    assert np.abs(wu[iq][il]-wu[iqp][il]) < 1.E-4
+                    # -> Eql
+                    Eql = wu[iq][il] * THz_to_ev
+                    # run over temperatures
+                    for iT in range(p.ntmp):
+                        # compute n. phonons
+                        T = p.temperatures[iT]
+                        nql_T = bose_occup(Eql, T)

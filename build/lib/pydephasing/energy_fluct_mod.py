@@ -119,4 +119,17 @@ class ZFS_ph_fluctuations:
         A_lq = compute_ph_amplitude_q(wu, nat, ql_list)
         # compute eff. forces
         F_lqqp = self.transf_2nd_order_force_phr(u, nat, qpts, np.zeros((3*nat,3*nat)), qqp_list)
-        print(len(F_lqqp), len(A_lq))
+        # sum over (q,q',l)
+        for iqqp in qqp_list:
+            iq = iqqp[0]
+            iqp= iqqp[1]
+            for il in range(3*nat):
+                if wu[iq][il] > p.min_freq:
+                    assert np.abs(wu[iq][il]-wu[iqp][il]) < 1.E-4
+                    # -> Eql
+                    Eql = wu[iq][il] * THz_to_ev
+                    # run over temperatures
+                    for iT in range(p.ntmp):
+                        # compute n. phonons
+                        T = p.temperatures[iT]
+                        nql_T = bose_occup(Eql, T)
