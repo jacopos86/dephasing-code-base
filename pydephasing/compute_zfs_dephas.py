@@ -90,8 +90,17 @@ def compute_homo_dephas():
     u, wu, nq, qpts, wq, mesh = extract_ph_data()
     #
     # compute ZFS fluctuations
-    ZFS_fluct = ZFS_ph_fluctuations()
-    ZFS_fluct.compute_fluctuations(qpts, nat, wu)
+    if p.deph:
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t START ENERGY FLUCTUATIONS CALC.")
+        ZFS_fluct = ZFS_ph_fluctuations()
+        ZFS_fluct.compute_fluctuations(qpts, nat, wu, u)
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t ENERGY FLUCTUATIONS CALC. CONCLUDED")
+            log.info("\t " + p.sep)
     import sys
     sys.exit()
     #
