@@ -1,7 +1,7 @@
 !
 !   MODULE  :  spin orbit operator
 !
-MODULE spin_orbit_operator
+MODULE spin_orbit_operator_uspp
   
   USE kinds,                        ONLY : DP
   USE pseudo_types,                 ONLY : pseudo_upf
@@ -24,9 +24,6 @@ MODULE spin_orbit_operator
   complex(DP), allocatable                        :: Dso (:,:,:,:)
   !
   !  SOC operator
-  complex(DP)                                     :: sigma_x (2,2), sigma_y (2,2), sigma_z (2,2)
-  !
-  !  spin operators
   complex(DP), allocatable                        :: HSO_a (:,:)
   !  spin orbit matrix elements
   
@@ -57,28 +54,28 @@ CONTAINS
   end subroutine set_spin_operators
   !
   ! ====================================================================================
-  subroutine init_run_frpp ( )
+  subroutine init_us_frpp ( )
     ! ==================================================================================
     
     implicit none
     
     !
-    call init_frpp_parameters ( )
+    call init_us_frpp_parameters ( )
     
     !
-    call allocate_FR_pp_variables ( )
+    call allocate_us_FR_pp_variables ( )
     
     !
-  end subroutine init_run_frpp
+  end subroutine init_us_frpp
   !
   ! ====================================================================================
-  subroutine compute_spin_orbit_operator ( )
+  subroutine compute_spin_orbit_operator_uspp ( )
     ! ----------------------------------------------------------------------------------
     
     implicit none
     
     !
-    call set_spin_operators ()
+    !call set_spin_operators ()
     !
     call set_spin_orbit_operator ()
     !
@@ -90,7 +87,7 @@ CONTAINS
   end subroutine compute_spin_orbit_operator
   !
   ! ====================================================================================
-  subroutine init_frpp_parameters ( )
+  subroutine init_us_frpp_parameters ( )
     ! ----------------------------------------------------------------------------------
     
     USE ions_base,             ONLY : nsp, nat, ityp
@@ -159,11 +156,11 @@ CONTAINS
     IF (spline_ps) ALLOCATE ( tab_d2y (nqx,nbetam,nsp) )
     !
     
-    call allocate_FR_pp_variables ()
+    call allocate_us_FR_pp_variables ()
     
     RETURN
     !
-  end subroutine init_frpp_parameters
+  end subroutine init_us_frpp_parameters
   !
   ! ====================================================================================
   subroutine allocate_FR_pp_variables ( )
@@ -1286,4 +1283,4 @@ CONTAINS
   END SUBROUTINE compute_soc_matrix_elements
   
   !
-END MODULE spin_orbit_operator
+END MODULE spin_orbit_operator_uspp

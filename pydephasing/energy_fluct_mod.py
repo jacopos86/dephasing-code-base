@@ -107,7 +107,7 @@ class ZFS_ph_fluctuations:
         return F_lqqp
     # compute energy 
     # fluctuations
-    def compute_fluctuations(self, qpts, nat, wu, u):
+    def compute_fluctuations(self, wq, qpts, nat, wu, u):
         # first set transitions list
         qqp_list = self.set_qqp_list(qpts)
         # compute amplitudes
@@ -120,6 +120,7 @@ class ZFS_ph_fluctuations:
         # compute eff. forces
         F_lqqp = self.transf_2nd_order_force_phr(u, nat, qpts, np.zeros((3*nat,3*nat)), qqp_list)
         # sum over (q,q',l)
+        iqql = 0
         for iqqp in qqp_list:
             iq = iqqp[0]
             iqp= iqqp[1]
@@ -133,3 +134,4 @@ class ZFS_ph_fluctuations:
                         # compute n. phonons
                         T = p.temperatures[iT]
                         nql_T = bose_occup(Eql, T)
+                iqql += 1

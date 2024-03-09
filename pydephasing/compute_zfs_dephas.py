@@ -96,7 +96,7 @@ def compute_homo_dephas():
             log.info("\t " + p.sep)
             log.info("\t START ENERGY FLUCTUATIONS CALC.")
         ZFS_fluct = ZFS_ph_fluctuations()
-        ZFS_fluct.compute_fluctuations(qpts, nat, wu, u)
+        ZFS_fluct.compute_fluctuations(wq, qpts, nat, wu, u)
         if mpi.rank == mpi.root:
             log.info("\n")
             log.info("\t ENERGY FLUCTUATIONS CALC. CONCLUDED")
