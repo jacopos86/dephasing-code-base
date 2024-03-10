@@ -1,46 +1,43 @@
-  !
-  ! ----------------------------------------------------------------------------
-  !
-  !          zero field splitting tensor module
-  !
-  ! ----------------------------------------------------------------------------
-  !
+!
+! ----------------------------------------------------------------------------
+!
+!          zero field splitting tensor module
+!
+! ----------------------------------------------------------------------------
+!
 MODULE zfs_module
-  !
+   !
+
+   USE kinds,               ONLY : DP
   
-  USE kinds,               ONLY : DP
-  
-  
-  
-  real(DP), allocatable         :: ddi_G (:,:,:)
-  !
-  !  dip. dip. inter. (G)
-  real(DP), allocatable         :: ddi_r (:,:,:)
-  !
-  !  dip. dip. inter. (r)
-  complex(DP), allocatable      :: Dab_ij (:,:,:)
-  !
-  !  Dab(i,j)
-  real(DP)                      :: Dab (3,3)
-  !  D tensor
-  real(DP)                      :: Dso_ab (3,3)
-  !  SOC D tensor
-  real(DP)                      :: D, E
-  !  D coefficients
-  integer, allocatable          :: transitions_table (:,:)
-  !  transitions index
-  integer                       :: nmax
-  !  n. occupied states
-  !  max iter. index in sum
-  integer                       :: niter
-  !  tot. number iterations
-  !  to execute
-  
-  
-  CONTAINS
-    !
-    SUBROUTINE allocate_zfs_array_variables ()
-      
+   real(DP), allocatable         :: ddi_G (:,:,:)
+   !
+   !  dip. dip. inter. (G)
+   real(DP), allocatable         :: ddi_r (:,:,:)
+   !
+   !  dip. dip. inter. (r)
+   complex(DP), allocatable      :: Dab_ij (:,:,:)
+   !
+   !  Dab(i,j)
+   real(DP)                      :: Dab (3,3)
+   !  D tensor
+   real(DP)                      :: Dso_ab (3,3)
+   !  SOC D tensor
+   real(DP)                      :: D, E
+   !  D coefficients
+   integer, allocatable          :: transitions_table (:,:)
+   !  transitions index
+   integer                       :: nmax
+   !  n. occupied states
+   !  max iter. index in sum
+   integer                       :: niter
+   !  tot. number iterations
+   !  to execute
+   
+   CONTAINS
+   !
+   SUBROUTINE allocate_zfs_array_variables ()
+    
       USE gvect,      ONLY : ngm
       USE fft_base,   ONLY : dfftp
       
@@ -73,10 +70,10 @@ MODULE zfs_module
       Dab_ij = cmplx (0._dp, 0._dp)
       
       !
-    END SUBROUTINE allocate_zfs_array_variables
+   END SUBROUTINE allocate_zfs_array_variables
 
-    ! ================================================================
-    SUBROUTINE set_spin_band_index_occ_levels ( )
+   ! ================================================================
+   SUBROUTINE set_spin_band_index_occ_levels ( )
       ! ==============================================================
 
       USE constants,           ONLY : eps4
@@ -169,10 +166,10 @@ MODULE zfs_module
       
       RETURN
       !
-    END SUBROUTINE set_spin_band_index_occ_levels
-    !
-    ! ================================================================
-    SUBROUTINE set_SOC_transitions_list ( transitions_list, ntr )
+   END SUBROUTINE set_spin_band_index_occ_levels
+   !
+   ! ================================================================
+   SUBROUTINE set_SOC_transitions_list ( transitions_list, ntr )
       ! ==============================================================
       
       USE constants,                  ONLY : eps4
@@ -279,10 +276,10 @@ MODULE zfs_module
       !
       RETURN
       !
-    END SUBROUTINE set_SOC_transitions_list
-    !
-    ! ================================================================
-    SUBROUTINE compute_ddig_space ( )
+   END SUBROUTINE set_SOC_transitions_list
+   !
+   ! ================================================================
+   SUBROUTINE compute_ddig_space ( )
       ! ==============================================================
       !
       !    compute dipole - dipole interaction in G space
@@ -335,15 +332,14 @@ MODULE zfs_module
       RETURN
       
       !        
-    END SUBROUTINE compute_ddig_space
+   END SUBROUTINE compute_ddig_space
     
-    !
-    !  compute ddi (r) : inv fft
-    !
-
-    ! ----------------------------------------------------------------
-    SUBROUTINE compute_invfft_ddiG ()
-      ! --------------------------------------------------------------
+   ! -----------------------------------------------------------------
+   !  compute ddi (r) : inv fft
+   !
+   ! ----------------------------------------------------------------
+   SUBROUTINE compute_invfft_ddiG ()
+      ! -------------------------------------------------------------
 
       USE constants,                ONLY : eps8
       USE mp,                       ONLY : mp_sum
@@ -424,11 +420,11 @@ MODULE zfs_module
       END DO
       
       !
-    END SUBROUTINE compute_invfft_ddiG
+   END SUBROUTINE compute_invfft_ddiG
 
-    !
-    ! ------------------------------------------------------------
-    SUBROUTINE compute_Dab_ij ( )
+   !
+   ! -------------------------------------------------------------
+   SUBROUTINE compute_Dab_ij ( )
       ! ----------------------------------------------------------
       !
       !   Compute rho(G, -G) for two electrons.
@@ -661,11 +657,11 @@ MODULE zfs_module
       ! bohr ^ -3
       
       !
-    END SUBROUTINE compute_Dab_ij
+   END SUBROUTINE compute_Dab_ij
     
-    !
-    ! =====================================================
-    SUBROUTINE set_zfs_tensor ( )
+   !
+   ! =====================================================
+   SUBROUTINE set_zfs_tensor ( )
       ! ---------------------------------------------------
       !
       !   This subroutine compute the ZFS tensor
@@ -822,13 +818,12 @@ MODULE zfs_module
       !
       RETURN
       !
-    END SUBROUTINE compute_zfs_tensor
+   END SUBROUTINE compute_zfs_tensor
     
-    ! ==========================================================================
-    SUBROUTINE compute_soc_zfs_tensor ()
-      ! ------------------------------------------------------------------------
+   ! ==========================================================================
+   SUBROUTINE compute_soc_zfs_tensor ()
+      ! -----------------------------------------------------------------------
 
-      USE spin_orbit_operator,      ONLY : compute_soc_matrix_elements
       USE bec_module,               ONLY : allocate_bec_arrays, compute_bec_array
       
       implicit none
@@ -861,10 +856,10 @@ MODULE zfs_module
       !
       RETURN
       !
-    END SUBROUTINE compute_soc_zfs_tensor
+   END SUBROUTINE compute_soc_zfs_tensor
     
-    ! ==========================================================================
-    SUBROUTINE set_soc_zfs_tensor ( transitions_list, ntr )
+   ! ==========================================================================
+   SUBROUTINE set_soc_zfs_tensor ( transitions_list, ntr )
       ! ------------------------------------------------------------------------
       !
       !      ESO_ab = \sum_o,s,s' \sum_n^unocc Re{ <Psi_o^s|HSO^a|Psi_n^s'>
@@ -873,7 +868,6 @@ MODULE zfs_module
       USE constants,                    ONLY : ELECTRONVOLT_SI, RYTOEV
       USE physical_constants,           ONLY : Hz_to_joule
       USE wvfct,                        ONLY : et
-      USE spin_orbit_operator,          ONLY : HSO_a
       USE io_global,                    ONLY : stdout
       
       !
@@ -922,7 +916,6 @@ MODULE zfs_module
       !
       RETURN
       !
-    END SUBROUTINE set_soc_zfs_tensor
-    !
+   END SUBROUTINE set_soc_zfs_tensor
+   !
 END MODULE zfs_module
-  

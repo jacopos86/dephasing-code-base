@@ -2,8 +2,13 @@
 !    MODULE : spin operators declaration
 !
 MODULE spin_operators
+    !
+    USE kinds,           ONLY : DP
 
+    !
+    !  spin orbit coupling operator
 
+    complex(DP), allocatable :: HSO_a (:,:)
 
 
 
@@ -65,7 +70,7 @@ MODULE spin_operators
         !    internal variables
 
         integer                        :: a, ih, jh, ikb, jkb, ijkb0, itr, na, nt
-        integer                        :: ki, kpi, ni, oi, si, spi
+        integer                        :: ki, kpi, ni, oi, si, spi, isp
         complex(DP)                    :: s_xyz (3)
         !    spin vector
         INTEGER                        :: ierr
@@ -106,12 +111,12 @@ MODULE spin_operators
                                 !
                                 IF (gamma_only) THEN
                                     HSO_a (itr,isp) = HSO_a (itr,isp) +     &
-                                        bec_sp (ki)%r (ikb,oi) * Dso (ih,jh,isp,nt) * bec_sp (kpi)%r (jkb,ni)
+                                        bec_sp (ki)%r (ikb,oi) * Vso (ih,jh,isp,nt) * bec_sp (kpi)%r (jkb,ni)
                                 !
                                 !WRITE(stdout,*) HSO_a (itr,a), bec_sp (ki)%r (ikb,oi), s_xyz (a) 
                                 ELSE
                                     HSO_a (itr,isp) = HSO_a (itr,isp) +     &
-                                        conjg (bec_sp (ki)%k (ikb,oi)) * Dso (ih,jh,isp,nt) * bec_sp (kpi)%k (jkb,ni)
+                                        conjg (bec_sp (ki)%k (ikb,oi)) * Vso (ih,jh,isp,nt) * bec_sp (kpi)%k (jkb,ni)
                                 !
                                 END IF
                             end do
