@@ -16,7 +16,10 @@ constants_module.o \
 pwscf_perturb_calc.o \
 extract_wfc.o \
 bec_setup.o \
-spin_orbit_operator.o
+spin_orbit_operator_uspp.o \
+spin_orbit_operator_ncpp.o \
+spin_module.o \
+extract_pseudo.o
 
 PWOBJS = ../../PW/src/libpw.a
 PPOBJS = ../../PP/src/libpp.a
