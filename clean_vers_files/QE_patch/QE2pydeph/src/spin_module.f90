@@ -10,9 +10,12 @@ MODULE spin_operators
 
     complex(DP), allocatable :: HSO_a (:,:)
 
+    !
+    !  spin operators
 
-
-
+    complex(DP)              :: sigma_x (2,2)
+    complex(DP)              :: sigma_y (2,2)
+    complex(DP)              :: sigma_z (2,2)
 
 
 
