@@ -47,7 +47,7 @@ MODULE spin_operators
     !
     !
     ! =============================================================================================
-    SUBROUTINE compute_soc_matrix_elements ( transitions_list, ntr )
+    SUBROUTINE compute_soc_matrix_elements ( transitions_list, ntr, frpp )
         ! -------------------------------------------------------------------------------------------
         !
         !    this subroutine computes the SOC matrix
@@ -63,12 +63,14 @@ MODULE spin_operators
         USE uspp_param,           ONLY : nh
         USE control_flags,        ONLY : gamma_only
         USE io_global,            ONLY : stdout
+        USE pseudo_types,         ONLY : pseudo_upf
 
         !
         IMPLICIT NONE
 
-        integer, intent(in)            :: ntr
-        integer, intent(in)            :: transitions_list (ntr,6)
+        integer, intent(in)                     :: ntr
+        integer, intent(in)                     :: transitions_list (ntr,6)
+        TYPE (pseudo_upf), intent(in), TARGET   :: frpp (ntyp)
 
         !    internal variables
 
