@@ -55,7 +55,8 @@ class ZFS_ph_fluctuations:
     # fluctuations
     # dV = \sum_lambda \sum_q w(q) A_lambda(q) A_lambda(-q) (1+2n_lambda(q)) Delta F_lambda,q;lambda,-q
     def __init__(self):
-        self.dE_eV = 0.
+        self.dE_eV = np.zeros(p.ntmp)
+        self.dE_sp = np.zeros(p.ntmp)
         # eV units
     # set (q,-q,l) transitions
     # list
@@ -134,4 +135,19 @@ class ZFS_ph_fluctuations:
                         # compute n. phonons
                         T = p.temperatures[iT]
                         nql_T = bose_occup(Eql, T)
+                        # compute De_fluct
+                        self.dE_sp[iT] += 0.5 * A_lq[iqql] * A_lq[iqql].conj() * F_lqqp[iqql] * (1.+2.*nql_T)
+                        # ps^-2 * eV ps^2 = eV
                 iqql += 1
+        # fluct. energy (eV)
+        for iT in range(p.ntmp):
+            self.dE_sp[iT] = self.dE_sp[iT].real
+    # collect data
+    def collect_acf_from_processes(self):
+        for iT in range(p.ntmp):
+            dE_list = mpi.comm.gather(self.dE_sp[iT], root=mpi.root)
+            dE = 0.
+            if mpi.rank == mpi.root:
+                for x in dE_list:
+                    dE += x
+            self.dE_eV[iT] = mpi.comm.bcast(dE, root=mpi.root)

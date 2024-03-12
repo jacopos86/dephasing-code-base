@@ -112,16 +112,33 @@ MODULE spin_operators
                             do jh= 1, nh(nt)
                                 jkb = ijkb0 + jh
                                 !
-                                IF (gamma_only) THEN
-                                    HSO_a (itr,isp) = HSO_a (itr,isp) +     &
-                                        bec_sp (ki)%r (ikb,oi) * Vso (ih,jh,isp,nt) * bec_sp (kpi)%r (jkb,ni)
-                                !
-                                !WRITE(stdout,*) HSO_a (itr,a), bec_sp (ki)%r (ikb,oi), s_xyz (a) 
-                                ELSE
-                                    HSO_a (itr,isp) = HSO_a (itr,isp) +     &
-                                        conjg (bec_sp (ki)%k (ikb,oi)) * Vso (ih,jh,isp,nt) * bec_sp (kpi)%k (jkb,ni)
-                                !
-                                END IF
+                                SELECT CASE (frpp(nt)%typ)
+                                    ! ------------------------------------
+                                    !
+                                    !    US pp case
+                                    !
+                                    ! ------------------------------------
+                                    CASE ('US')
+                                        IF (gamma_only) THEN
+                                            HSO_a (itr,isp) = HSO_a (itr,isp) +     &
+                                                bec_sp (ki)%r (ikb,oi) * Vso_US (ih,jh,isp,nt) * bec_sp (kpi)%r (jkb,ni)
+                                            !
+                                            !WRITE(stdout,*) HSO_a (itr,a), bec_sp (ki)%r (ikb,oi), s_xyz (a) 
+                                        ELSE
+                                            HSO_a (itr,isp) = HSO_a (itr,isp) +     &
+                                                conjg (bec_sp (ki)%k (ikb,oi)) * Vso_US (ih,jh,isp,nt) * bec_sp (kpi)%k (jkb,ni)
+                                            !
+                                        END IF
+                                    !  ---------------------------------
+                                    !
+                                    !    NC pp case
+                                    !
+                                    !  ---------------------------------
+                                    CASE ('NC')
+                                        CONTINUE
+                                    CASE DEFAULT
+                                        call errore ('compute_soc_matrix_elements -> frpp US / NC only', 1)
+                                END SELECT
                             end do
                         end do
                         ijkb0 = ijkb0 + nh (nt)
