@@ -145,60 +145,6 @@ class acf_ph(object):
             # driver of ACF - order 2 calculation
             self.compute_acf_2_driver(nat, wq, u, wu, ql_list_2, qlp_list_2, qmq_map, A_lq, eff_force_obj, H)
     #
-    # compute acf parameters -> dyndec calculation
-    def compute_acf_dyndec(self, wq, wu, u, qpts, nat, Fax, Faxby, ql_list):
-        # compute ph. amplitude
-        A_lq = compute_ph_amplitude_q(wu, nat, ql_list)
-        # compute effective force (first order)
-        Fjax_lq = transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list)
-        F_lq = np.zeros(len(ql_list), dtype=np.complex128)
-        for jax in range(3*nat):
-            F_lq[:] += Fjax_lq[jax,:]
-        # set w_k coefficients
-        npl = len(p.n_pulses)
-        # compute <V(1)(t) V(1)(t')>
-        self.compute_dkt0_acf_Vph1(wq, wu, ql_list, A_lq, F_lq)
-        #self.compute_acf_Vph1(wq, wu, ql_list, A_lq, F_lq)
-        plt.xlim([0.,1.5])
-        #plt.plot(p.time[:], self.acf_sp[:,0].real)
-        plt.plot(p.time[:], self.acfdd_sp[:,0,0].real)
-        plt.show()
-        #
-        #plt.plot(p.time[:], self.acfdd_sp[:,0].real)
-        #if mpi.rank == mpi.root:
-        #    plt.show()
-        #
-        # if 2nd order
-        if p.order_2_correct:
-            nq = len(qpts)
-            qmq_list = set_q_to_mq_list(qpts, nq)
-            # set qlp list (only q>0)
-            qlp_list = []
-            for iqpair in qmq_list:
-                iq1 = iqpair[0]
-                for il in range(3*nat):
-                    qlp_list.append((iq1,il))
-            # complete amplitudes
-            A_lqp = compute_ph_amplitude_q(wu, nat, qlp_list)
-            # compute effective force (second order)
-            # run over q pts list
-            iql = 0
-            for iq, il in tqdm(ql_list):
-                # effective force
-                Fjax_lqlqp = transf_2nd_order_force_phr(il, iq, u, qpts, nat, Faxby, qlp_list)
-                F_lqlqp = np.zeros(len(qlp_list), dtype=np.complex128)
-                for jax in range(3*nat):
-                    F_lqlqp[:] += Fjax_lqlqp[jax,:]
-                # update acf - dyndec
-                #self.compute_dkt0_acf_Vph2(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp, w_k)
-                plt.xlim([0.,.3])
-                plt.plot(p.time[:], self.acfdd_sp[:,0].real)
-                if mpi.rank == mpi.root:
-                    plt.show()
-                #sys.exit()
-                # iterate
-                iql += 1
-    #
     # collect data
     def collect_acf_from_processes(self, nat):
         # collect data from processes
@@ -314,10 +260,6 @@ class acf_ph(object):
                 else:
                     for t in range(p.nt2):
                         Ct[t,iph] = self.acf_phr[t,iph,iT].real / D2
-            # write data on file
-            if log.level <= logging.INFO:
-                namef = self.write_dir + "/acf-data-phr-ic" + str(ic) + "-iT" + str(iT+1) + ".yml"
-                print_acf_dict(p.time2, Ct, ft_phr, namef)
     #
     # auto correlation tests
     def auto_correl_test(self):

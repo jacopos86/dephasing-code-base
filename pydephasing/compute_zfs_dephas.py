@@ -54,7 +54,6 @@ def compute_homo_dephas():
     atoms.compute_index_to_idx_map(nat)
     # set atoms dict
     atoms.extract_atoms_coords(nat)
-    '''
     # zfs 2nd order
     if p.order_2_correct:
         # set 2nd order tensor
@@ -77,7 +76,6 @@ def compute_homo_dephas():
         if log.level <= logging.DEBUG and p.order_2_correct:
             grad2ZFS.check_tensor_coefficients()
     mpi.comm.Barrier()
-    '''
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
@@ -102,8 +100,6 @@ def compute_homo_dephas():
             log.info("\n")
             log.info("\t ENERGY FLUCTUATIONS CALC. CONCLUDED")
             log.info("\t " + p.sep)
-    import sys
-    sys.exit()
     #
     if mpi.rank == 0:
         log.info("\n")
@@ -148,6 +144,8 @@ def compute_homo_dephas():
         # eV / ang^2
     else:
         Faxby = None
+    import sys
+    sys.exit()
     # set q pts. grid
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)

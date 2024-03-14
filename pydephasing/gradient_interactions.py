@@ -397,6 +397,8 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 	def compute_2nd_order_gradients(self, displ_structs):
 		# compute noise
 		self.compute_noise(displ_structs)
+		if mpi.rank == mpi.root:
+			print_2D_matrix(self.Dns)
 		# set NN model to find missing terms
 		nat = self.struct_0.nat
 		jax_list = mpi.random_split(range(3*nat))
@@ -410,8 +412,6 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		for output_ij in output_data:
 			output_ij = mpi.collect_list(output_ij)
 			full_output.append(output_ij)
-		if mpi.rank == mpi.root:
-			print_2D_matrix(self.Dns)
 		# learn model
 		self.learn_network_model(full_input, full_output, p.write_dir)
 		# compute grad ^ 2 tensor
@@ -632,6 +632,8 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 				with open(file_name, 'w') as out_file:
 					yaml.dump(data, out_file)
 		mpi.comm.Barrier()
+		import sys
+		sys.exit()
 	#
 	# compute tensor 2nd derivative
 	def compute_2nd_derivative_tensor(self, jax_list, displ_structs):

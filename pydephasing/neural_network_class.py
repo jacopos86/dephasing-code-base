@@ -85,7 +85,7 @@ class DNN_model_class(NN_model_base_class):
             self.NN_model.add(keras.layers.Dense(units=n_hidden_units,activation=activation_hid))
         self.NN_model.add(keras.layers.Dense(units=1, activation=activation_out))
         # compile model
-        self.NN_model.compile(loss=loss, optimizer=optimizer, metrics=['accuracy'])
+        self.NN_model.compile(loss=loss, optimizer=optimizer)
         # display model
         info = str(self.NN_model.summary())
         if mpi.rank == mpi.root:
@@ -94,10 +94,13 @@ class DNN_model_class(NN_model_base_class):
     def fit(self, NN_parameters, X, y):
         epochs = NN_parameters['epochs']
         verbose= NN_parameters['verbose']
-        import numpy as np
-        print(np.array(X).shape, np.array(y).shape)
+        random_state = NN_parameters['random_state']
+        test_size = NN_parameters['test_size']
+        shuffle = NN_parameters['shuffle']
+        X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state, test_size=test_size, shuffle=shuffle)
         # fitting
-        self.NN_model.fit(X, y, epochs=epochs, verbose=verbose)
+        self.NN_model.fit(X_train, y_train, epochs=epochs, verbose=verbose)
+        return X_test, y_test
     # get score
     def get_score(self, X_test, y_test):
         score, acc = self.NN_model.evaluate(X_test, y_test)
