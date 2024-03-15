@@ -103,10 +103,8 @@ class DNN_model_class(NN_model_base_class):
         return X_test, y_test
     # get score
     def get_score(self, X_test, y_test):
-        score, acc = self.NN_model.evaluate(X_test, y_test)
-        if mpi.rank == mpi.root:
-            log.info("NN model accuracy level : " + str(acc))
-        return str(score)
+        test_loss = self.NN_model.evaluate(X_test, y_test)
+        return str(test_loss)
     # predict value
     def predict(self, X):
         y = self.NN_model.predict(X)
