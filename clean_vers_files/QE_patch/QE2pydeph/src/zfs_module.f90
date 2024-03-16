@@ -869,6 +869,7 @@ MODULE zfs_module
       USE physical_constants,           ONLY : Hz_to_joule
       USE wvfct,                        ONLY : et
       USE io_global,                    ONLY : stdout
+      USE spin_operators,               ONLY : HSO_a
       
       !
       IMPLICIT NONE
@@ -896,6 +897,8 @@ MODULE zfs_module
          !
          do a= 1, 3
             do b= 1, 3
+               ! TODO
+               ! correct here Dso_ab iteration
                DSO_ab (a,b) = DSO_ab (a,b) +        &
                     real (HSO_a (itr,a) * conjg (HSO_a (itr,b))) / (et (oi,ki) - et (ni,kpi))
                !

@@ -58,12 +58,13 @@ MODULE spin_operators
         !             \sum_uv < Psi_o | beta_u > [chi(s) sigma_a chi(s')] <beta_v|Psi_n> Dso_a(u,v)
         !
 
-        USE bec_module,           ONLY : bec_sp
-        USE ions_base,            ONLY : ntyp => nsp, nat, ityp
-        USE uspp_param,           ONLY : nh
-        USE control_flags,        ONLY : gamma_only
-        USE io_global,            ONLY : stdout
-        USE pseudo_types,         ONLY : pseudo_upf
+        USE bec_module,                    ONLY : bec_sp
+        USE ions_base,                     ONLY : ntyp => nsp, nat, ityp
+        USE uspp_param,                    ONLY : nh
+        USE control_flags,                 ONLY : gamma_only
+        USE io_global,                     ONLY : stdout
+        USE pseudo_types,                  ONLY : pseudo_upf
+        USE spin_orbit_operator_uspp,      ONLY : Vso_US
 
         !
         IMPLICIT NONE
