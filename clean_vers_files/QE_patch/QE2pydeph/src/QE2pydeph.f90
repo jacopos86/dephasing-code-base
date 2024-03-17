@@ -23,6 +23,8 @@ PROGRAM QE_pydeph
    USE spin_orb,                  ONLY : lspinorb
    USE klist,                     ONLY : nks
    USE wvfct,                     ONLY : nbnd
+   USE pseudo_types,              ONLY : pseudo_upf
+   USE ions_base,                 ONLY : ntyp => nsp
 
    !
    IMPLICIT NONE
@@ -31,12 +33,15 @@ PROGRAM QE_pydeph
    !   INTERNAL VARIABLES
    !
 
-   CHARACTER (LEN=256)              :: outdir
-   CHARACTER (LEN=8)                :: code = 'QE_PYDEPH'
-   CHARACTER (LEN=256)              :: trimcheck
-   CHARACTER (LEN=20)               :: dft_name
+   CHARACTER (LEN=256)                    :: outdir
+   CHARACTER (LEN=8)                      :: code = 'QE_PYDEPH'
+   CHARACTER (LEN=256)                    :: trimcheck
+   CHARACTER (LEN=20)                     :: dft_name
    !
-   INTEGER                          :: ios
+   TYPE (pseudo_upf), TARGET, ALLOCATABLE :: frpp (:)
+   !
+   INTEGER                                :: ios
+   INTEGER                                :: ierr
 
    !
    !   NAMELIST zfs_hfi module
@@ -118,6 +123,11 @@ PROGRAM QE_pydeph
 
       !
       dft_name = get_dft_name ()
+      ! allocate frpp
+      ALLOCATE ( frpp (ntyp), STAT=ierr )
+      IF (ierr/=0) call errore (code, 'error allocating frpp', abs (ierr))
+
+      !
       call read_FR_pseudo ( frpp, dft_name, .TRUE. )
       call init_run_frpp ()
       !

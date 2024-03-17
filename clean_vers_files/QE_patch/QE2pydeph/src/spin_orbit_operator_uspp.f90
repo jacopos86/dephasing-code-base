@@ -30,13 +30,14 @@ CONTAINS
    ! ====================================================================================
    subroutine init_US_frpp ( frpp )
       ! =================================================================================
+      USE ions_base,                         ONLY : nsp
 
       implicit none
       !
-      TYPE (pseudo_upf), INTENT(IN), TARGET       :: frpp (ntyp)
+      TYPE (pseudo_upf), INTENT(IN), TARGET       :: frpp (nsp)
 
       !
-      call init_US_frpp_parameters ( frpp )
+      call init_US_frpp_parameters (frpp)
 
       !
       call allocate_US_frpp_variables ( ) 
@@ -44,15 +45,19 @@ CONTAINS
    end subroutine init_US_frpp
    !
    ! ====================================================================================
-   subroutine compute_spin_orbit_operator_uspp ( )
+   subroutine compute_spin_orbit_operator_uspp ( frpp )
       ! ----------------------------------------------------------------------------------
+      USE ions_base,                        ONLY : nsp
 
       implicit none
 
       !
-      call set_US_spin_orbit_operator ()
+      TYPE (pseudo_upf), intent(inout), TARGET   :: frpp (nsp)
+      
       !
-      call dvan_so_pauli_basis ()
+      call set_US_spin_orbit_operator (frpp)
+      !
+      call dvan_so_pauli_basis (frpp)
 
       !
       RETURN
@@ -76,7 +81,7 @@ CONTAINS
       implicit none
 
       !
-      TYPE (pseudo_upf), intent(in), TARGET   :: frpp (ntyp)
+      TYPE (pseudo_upf), intent(in), TARGET   :: frpp (nsp)
 
       !
       !   internal variables
@@ -217,7 +222,7 @@ CONTAINS
       implicit none
 
       !
-      TYPE (pseudo_upf), intent(in), TARGET   :: frpp (ntyp)
+      TYPE (pseudo_upf), intent(inout), TARGET   :: frpp (ntyp)
 
       !    internal variables
 
@@ -574,75 +579,76 @@ CONTAINS
    END SUBROUTINE set_US_spin_orbit_operator
    !
    ! =======================================================================
-  SUBROUTINE dvan_so_pauli_basis ()
-    ! ---------------------------------------------------------------------
-    !      transform dvan_so from |up,dw> basis to
-    !      basis of pauli matrices
-    !
-    
-    USE spin_orb,            ONLY : fcoef
-    USE uspp_param,          ONLY : nh, nhm
-    USE uspp,                ONLY : indv
-    USE ions_base,           ONLY : nsp
-    
-    !
-    IMPLICIT NONE
-    
-    !  internal variables
-    
-    integer                      :: ih, jh, vi, vj
-    integer                      :: nt
-    integer                      :: is1, is2
-    INTEGER                      :: ierr
-    
-    
-    !
-    !  allocate Dso
-    
-    IF (.not. ALLOCATED (Dso) ) THEN
-       ALLOCATE ( Dso (nhm,nhm,4,nsp), stat=ierr )
-       if (ierr/=0) call errore ('dvan_so_pauli_basis', 'allocating Dso', abs (ierr))
-    END IF
-    !
-    Dso = cmplx (0._dp, 0._dp)
-    
-    !
-    !  iterate over atom species
-    !
-    
-    do nt= 1, nsp
-       !
-       IF (frpp(nt)%has_so) THEN
-          !
-          !   compute the bare coefficients
-          !
-          do ih= 1, nh(nt)
-             vi = indv (ih,nt)
-             do jh= 1, nh(nt)
-                vj = indv (jh,nt)
-                !
-                ijs = 0
-                do is1= 1, 2
-                   do is2= 1, 2
-                      ijs = ijs + 1
-                      Dso (ih,jh,ijs,nt) = frpp(nt)%dion(vi,vj) *    &
-                        fcoef (ih,jh,is1,is2,nt)
-                      !
-                      if (vi .ne. vj) fcoef(ih,jh,is1,is2,nt) = (0.d0,0.d0)
-                   end do
-                end do
-                !
-             end do
-          end do
-          !
-       END IF
-       !
-    end do
-    
-    !
-    RETURN
-    !
-  END SUBROUTINE dvan_so_pauli_basis
-  
-  !
+   SUBROUTINE dvan_so_pauli_basis (frpp)
+      ! --------------------------------------------------------------------
+      !      transform dvan_so from |up,dw> basis to
+      !      basis of pauli matrices
+      !
+
+      USE spin_orb,            ONLY : fcoef
+      USE uspp_param,          ONLY : nh, nhm
+      USE uspp,                ONLY : indv
+      USE ions_base,           ONLY : nsp
+
+      !
+      IMPLICIT NONE
+
+      !
+      TYPE (pseudo_upf), intent(in), TARGET   :: frpp (nsp)
+
+      !  internal variables
+
+      integer                      :: ih, jh, vi, vj
+      integer                      :: nt
+      integer                      :: is1, is2, ijs
+      INTEGER                      :: ierr
+
+      !
+      !  allocate Dso
+
+      IF (.not. ALLOCATED (Vso_US) ) THEN
+         ALLOCATE ( Vso_US (nhm,nhm,4,nsp), stat=ierr )
+         if (ierr/=0) call errore ('dvan_so_pauli_basis', 'allocating Vso_US', abs (ierr))
+      END IF
+      !
+      Vso_US = cmplx (0._dp, 0._dp)
+
+      !
+      !  iterate over atom species
+      !
+
+      do nt= 1, nsp
+         !
+         IF (frpp(nt)%has_so) THEN
+            !
+            !   compute the bare coefficients
+            !
+            do ih= 1, nh(nt)
+               vi = indv (ih,nt)
+               do jh= 1, nh(nt)
+                  vj = indv (jh,nt)
+                  !
+                  ijs = 0
+                  do is1= 1, 2
+                     do is2= 1, 2
+                        ijs = ijs + 1
+                        Vso_US (ih,jh,ijs,nt) = frpp(nt)%dion(vi,vj) *    &
+                           fcoef (ih,jh,is1,is2,nt)
+                        !
+                        if (vi .ne. vj) fcoef(ih,jh,is1,is2,nt) = (0.d0,0.d0)
+                     end do
+                  end do
+                  !
+               end do
+            end do
+            !
+         END IF
+         !
+      end do
+
+      !
+      RETURN
+      !
+   END SUBROUTINE dvan_so_pauli_basis  
+   !
 END MODULE spin_orbit_operator_uspp
