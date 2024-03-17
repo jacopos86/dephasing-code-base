@@ -6,11 +6,8 @@
 ! ---------------------------------------------------------
 !
 MODULE spin_orbit_operator_ncpp
-
-
-
-
-
+    !
+    USE kinds,               ONLY : DP
 
 
 
@@ -64,17 +61,26 @@ MODULE spin_orbit_operator_ncpp
         !   beta_l(G) = (4pi/omega)^0.5 \int_0^infty dr r^2 fl(r) jl(Gr)
         !
         ! ----------------------------------------------------------------
-
         
+        USE uspp_param,          ONLY : lmaxkb
+        USE us,                  ONLY : spline_ps
         
         !
         IMPLICIT NONE
 
         !
+        INTEGER, INTENT(IN)          :: npw_
+        !  n. PWs
+
+        
+        
+        !
         !    internal variables
 
-
-
+        REAL(DP), ALLOCATABLE        :: qg (:), vq (:)
+        REAL(DP), ALLOCATABLE        :: xdata (:)
+        !
+        INTEGER                      :: iq
 
 
         !
