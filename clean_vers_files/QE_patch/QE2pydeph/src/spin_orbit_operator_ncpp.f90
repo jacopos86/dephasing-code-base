@@ -57,6 +57,64 @@ MODULE spin_orbit_operator_ncpp
     END SUBROUTINE compute_Vso_nnp
 
     !
+    ! ====================================================================
+    SUBROUTINE compute_beta_ofG (npw_, igk_, q_, betal_q_)
+        ! ----------------------------------------------------------------
+        !
+        !   beta_l(G) = (4pi/omega)^0.5 \int_0^infty dr r^2 fl(r) jl(Gr)
+        !
+        ! ----------------------------------------------------------------
+
+        
+        
+        !
+        IMPLICIT NONE
+
+        !
+        !    internal variables
+
+
+
+
+
+        !
+        IF (lmaxkb < 0) RETURN
+
+        !
+        !  set cache blocking size
+        numblock = (npw_+blocksize-1)/blocksize
+        !
+        IF (spline_ps) THEN
+            ALLOCATE ( xdata (nqx) )
+            DO iq= 1, nqx
+               xdata (iq) = (iq - 1) * dq
+            END DO
+        END IF
+
+        !
+        ALLOCATE ( qg (blocksize) )
+        ALLOCATE ( vq (blocksize) )
+        ALLOCATE ( gk (3,blocksize) )
+
+        !
+        ! run over iblock
+
+
+
+
+
+
+
+        
+
+
+
+
+        !
+        RETURN
+        !
+    END SUBROUTINE compute_beta_ofG
+    !
     ! ==============================================
     SUBROUTINE compute_Pl_derivative ()
         ! ------------------------------------------
