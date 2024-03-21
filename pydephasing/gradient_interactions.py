@@ -477,8 +477,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		mpi.comm.Barrier()
 		# run over displ.
 		# ia/idx
-		#for jax in tqdm(jax_list):
-		for jax in range(100, 200):
+		for jax in tqdm(jax_list):
 			ia = atoms.index_to_ia_map[jax]-1
 			idx= atoms.index_to_idx_map[jax]
 			da = self.struct_0.struct.get_distance(ia,self.defect_index)
@@ -632,8 +631,6 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 				with open(file_name, 'w') as out_file:
 					yaml.dump(data, out_file)
 		mpi.comm.Barrier()
-		import sys
-		sys.exit()
 	#
 	# compute tensor 2nd derivative
 	def compute_2nd_derivative_tensor(self, jax_list, displ_structs):

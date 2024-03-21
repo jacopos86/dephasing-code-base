@@ -98,17 +98,13 @@ class DNN_model_class(NN_model_base_class):
         test_size = NN_parameters['test_size']
         shuffle = NN_parameters['shuffle']
         X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state, test_size=test_size, shuffle=shuffle)
-        import numpy as np
-        print(np.array(X).shape, np.array(y).shape)
         # fitting
         self.NN_model.fit(X_train, y_train, epochs=epochs, verbose=verbose)
         return X_test, y_test
     # get score
     def get_score(self, X_test, y_test):
-        score, acc = self.NN_model.evaluate(X_test, y_test)
-        if mpi.rank == mpi.root:
-            log.info("NN model accuracy level : " + str(acc))
-        return str(score)
+        test_loss = self.NN_model.evaluate(X_test, y_test)
+        return str(1.-test_loss)
     # predict value
     def predict(self, X):
         y = self.NN_model.predict(X)

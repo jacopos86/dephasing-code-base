@@ -104,7 +104,7 @@ class DNN_model_class(NN_model_base_class):
     # get score
     def get_score(self, X_test, y_test):
         test_loss = self.NN_model.evaluate(X_test, y_test)
-        return str(test_loss)
+        return str(1.-test_loss)
     # predict value
     def predict(self, X):
         y = self.NN_model.predict(X)
