@@ -105,7 +105,25 @@ MODULE spin_orbit_operator_ncpp
         !
         ! run over iblock
 
+        DO iblock= 1, numblock
+            !
+            realblocksize = MIN(npw_-(iblock-1)*blocksize,blocksize)
+            !
+            DO ig= 1, realblocksize
+                ig_orig = (iblock-1)*blocksize + ig
+                gk (1,ig) = q_(1) + g(1,igk_(ig_orig))
+                gk (2,ig) = q_(2) + g(2,igk_(ig_orig))
+                gk (3,ig) = q_(3) + g(3,igk_(ig_orig))
+                qg (ig) = gk (1,ig)**2 + gk (2,ig)**2 + gk (3,ig)**2
+            END DO
 
+            !
+            !  set qg = |q+G| in atomic units
+
+            do ig= 1, realblocksize
+                qg (ig) = SQRT(qg(ig))*tpiba
+            end do
+            
 
 
 
