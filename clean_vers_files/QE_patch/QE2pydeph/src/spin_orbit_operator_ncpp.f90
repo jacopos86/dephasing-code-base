@@ -123,8 +123,26 @@ MODULE spin_orbit_operator_ncpp
             do ig= 1, realblocksize
                 qg (ig) = SQRT(qg(ig))*tpiba
             end do
-            
+            !
+            ! |beta_lm(q)> = (4pi/omega).f_l(q).(i^l).S(q)
+            ! The spherical harmonics do not enter
+            ! the expression here
+            DO nb= 1, frpp(nt)%nbeta
+                !
+                IF (frpp(nt)%is_gth) THEN
+                    call mk_ffnl_gth ( nt, nb, realblocksize, qg, vq )
+                ELSE
+                    do ig= 1, realblocksize
+                        IF (spline_ps) THEN
+                            vq (ig) = splint (xdata, tab (:,nb,nt), tab_d2y (:,nb,nt), qg (ig))
+                        ELSE
+                            px = qg (ig) / dq - INT (qg(ig)/dq)
 
+
+
+                        END IF
+                    end do
+                END IF
 
 
 
