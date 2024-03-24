@@ -8,7 +8,7 @@ from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.input_parameters import p
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
-from pydephasing.gradient_interactions import gradient_ZFS, gradient_2nd_ZFS
+from pydephasing.gradient_interactions import gradient_ZFS, generate_2nd_order_grad_instance
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
@@ -57,9 +57,11 @@ def compute_homo_dephas():
     # zfs 2nd order
     if p.order_2_correct:
         # set 2nd order tensor
-        grad2ZFS = gradient_2nd_ZFS(p.work_dir, p.grad_info)
+        grad2ZFS = generate_2nd_order_grad_instance(p.work_dir, p.grad_info)
         grad2ZFS.set_gs_zfs_tensor()
         # set secon order grad
+        import sys
+        sys.exit()
         grad2ZFS.compute_2nd_order_gradients(struct_list_2nd)
     # debug mode
     if mpi.rank == mpi.root:

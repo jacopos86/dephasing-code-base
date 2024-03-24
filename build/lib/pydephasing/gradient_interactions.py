@@ -23,17 +23,9 @@ from tqdm import tqdm
 from abc import ABC
 #
 class perturbation_ZFS(ABC):
-	def __init__(self, out_dir, atoms_info):
+	def __init__(self, out_dir):
 		# out dir
-		self.out_dir = out_dir
-		# read atoms info data
-		try:
-			f = open(atoms_info)
-		except:
-			msg = "\t COULD NOT FIND: " + atoms_info
-			log.error(msg)
-		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
-		f.close()
+		self.out_dir = out_dir	
 	# read outcar file
 	def read_outcar_diag(self, outcar):
 		# read file
@@ -167,7 +159,15 @@ class perturbation_ZFS(ABC):
 class gradient_ZFS(perturbation_ZFS):
 	# initialization
 	def __init__(self, out_dir, atoms_info):
-		super().__init__(out_dir, atoms_info)
+		super().__init__(out_dir)
+		# read atoms info data
+		try:
+			f = open(atoms_info)
+		except:
+			msg = "\t COULD NOT FIND: " + atoms_info
+			log.error(msg)
+		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
+		f.close()
 		# set other variables
 		self.gradDtensor = None
 		self.U_gradD_U = None
@@ -365,11 +365,34 @@ class gradient_ZFS(perturbation_ZFS):
 		#
 		#   (THz/ang) units
 		#
+#  ------------------------------------------------------------------
 #
+#               2nd order gradient classes
+#
+# -------------------------------------------------------------------
+def generate_2nd_order_grad_instance(out_dir, atoms_info):
+	# read atoms info data
+	try:
+		f = open(atoms_info)
+	except:
+		msg = "\t COULD NOT FIND: " + atoms_info
+		log.error(msg)
+	atoms_info_dict = yaml.load(f, Loader=yaml.Loader)
+	f.close()
+	# select model
+	if atoms_info_dict['NN_model'] == "MLP":
+		return gradient_2nd_ZFS_MLP(out_dir, atoms_info_dict)
+	elif atoms_info_dict['NN_model'] == "DNN":
+		return gradient_2nd_ZFS_DNN(out_dir, atoms_info_dict)
+	else:
+		log.error("Wrong neural network model selection : MLP / DNN")
+#
+#   base 2nd order gradient
 class gradient_2nd_ZFS(perturbation_ZFS):
 	# initialization
-	def __init__(self, out_dir, atoms_info):
-		super().__init__(out_dir, atoms_info)
+	def __init__(self, out_dir, atoms_info_dict):
+		super().__init__(out_dir)
+		self.atom_info_dict = atoms_info_dict
 		# set other variables
 		self.grad2Dtensor = None
 		self.U_grad2D_U = None
@@ -564,7 +587,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		output_data = [output_00, output_01, output_02, output_11, output_12, output_22]
 		return input_data, output_data
 	#
-	# learn model MLP network
+	# learn model network
 	def learn_network_model(self, input_data, output_data, write_dir):
 		params = self.atom_info_dict['NN_parameters']
 		# build neural network to learn missing Daxby
@@ -631,6 +654,92 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 				with open(file_name, 'w') as out_file:
 					yaml.dump(data, out_file)
 		mpi.comm.Barrier()
+	#
+	# set grad_a grad_b D tensor -> quantization coordinate system
+	#
+	def set_Ugrad2DU_tensor(self):
+    	# atoms number in simulation
+		nat = self.struct_0.nat
+		# grad grad D = U^+ ggD U
+		self.U_grad2D_U = np.zeros((3*nat, 3*nat, 3, 3))
+		# U operator
+		U = self.struct_0.Deigv
+		g2D = np.zeros((3,3))
+		# iterate over (a,x)
+		for jax in range(3*nat):
+			for jby in range(3*nat):
+				g2D[:,:] = 0.
+				g2D[:,:] = self.grad2Dtensor[jax,jby,:,:]
+				g2DU = np.matmul(g2D, U)
+				g2Dt = np.matmul(U.transpose(), g2DU)
+				self.U_grad2D_U[jax,jby,:,:] = g2Dt[:,:]
+		self.U_grad2D_U[:,:,:,:] = self.U_grad2D_U[:,:,:,:] * 1.E-6
+		#
+		#    (THz/Ang^2)   units
+		#
+	#
+	# write grad_ax,by D to file
+	#
+	def write_grad2Dtensor_to_file(self, write_dir):
+		# write data on file
+		file_name = "grad2_Dtensor.yml"
+		file_name = "{}".format(write_dir + '/' + file_name)
+		data = {'grad2D': {'coeffs' : self.grad2Dtensor, 'units' : 'MHz/ang^2'}, 'Ugrad2DU' : {'coeffs' : self.U_grad2D_U, 'units' : 'THz/ang^2'} }
+		# write data
+		with open(file_name, 'w') as out_file:
+			yaml.dump(data, out_file)
+	#
+	# check size of tensor coefficients
+	#
+	def check_tensor_coefficients(self):
+		nat = self.struct_0.nat
+		# take average for each tensor component
+		g2D00 = 0.
+		g2D01 = 0.
+		g2D02 = 0.
+		g2D11 = 0.
+		g2D12 = 0.
+		g2D22 = 0.
+		for jax in range(3*nat):
+			for jby in range(3*nat):
+				g2D00 += self.grad2Dtensor[jax,jby,0,0]
+				g2D01 += self.grad2Dtensor[jax,jby,0,1]
+				g2D02 += self.grad2Dtensor[jax,jby,0,2]
+				g2D11 += self.grad2Dtensor[jax,jby,1,1]
+				g2D12 += self.grad2Dtensor[jax,jby,1,2]
+				g2D22 += self.grad2Dtensor[jax,jby,2,2]
+		g2D00 = g2D00 / (9.*nat**2)
+		g2D01 = g2D01 / (9.*nat**2)
+		g2D02 = g2D02 / (9.*nat**2)
+		g2D11 = g2D11 / (9.*nat**2)
+		g2D12 = g2D12 / (9.*nat**2)
+		g2D22 = g2D22 / (9.*nat**2)
+		# loop over tensor components
+		for ia in range(nat):
+			for idx in range(3):
+				jax = ia*3+idx
+				for ib in range(nat):
+					for idy in range(3):
+						jby = ib*3+idy
+						if np.abs(self.grad2Dtensor[jax,jby,0,0]-g2D00) > 1.E6:
+							log.warning('\t 00 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
+						if np.abs(self.grad2Dtensor[jax,jby,0,1]-g2D01) > 1.E6:
+							log.warning('\t 01 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
+						if np.abs(self.grad2Dtensor[jax,jby,0,2]-g2D02) > 1.E6:
+							log.warning('\t 02 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
+						if np.abs(self.grad2Dtensor[jax,jby,1,1]-g2D11) > 1.E6:
+							log.warning('\t 11 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
+						if np.abs(self.grad2Dtensor[jax,jby,1,2]-g2D12) > 1.E6:
+							log.warning('\t 12 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
+						if np.abs(self.grad2Dtensor[jax,jby,2,2]-g2D22) > 1.E6:
+							log.warning('\t 22 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
+# 
+#    MLP
+#    2nd order ZFS gradient class
+#    
+class gradient_2nd_ZFS_MLP(gradient_2nd_ZFS):
+	def __init__(self, out_dir, atoms_info_dict):
+		super(gradient_2nd_ZFS_MLP, self).__init__(out_dir, atoms_info_dict)
 	#
 	# compute tensor 2nd derivative
 	def compute_2nd_derivative_tensor(self, jax_list, displ_structs):
@@ -781,85 +890,18 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			log.info("\t GRAD_ax;by CALCULATION COMPLETED")
 			log.info("\t " + p.sep)
 			log.info("\n")
+#
+#   DNN
+#   2nd order ZFS gradient class
+#
+class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
+	def __init__(self, out_dir, atoms_info_dict):
+		super(gradient_2nd_ZFS_DNN, self).__init__(out_dir, atoms_info_dict)
 	#
-	# set grad_a grad_b D tensor -> quantization coordinate system
-	#
-	def set_Ugrad2DU_tensor(self):
-    	# atoms number in simulation
-		nat = self.struct_0.nat
-		# grad grad D = U^+ ggD U
-		self.U_grad2D_U = np.zeros((3*nat, 3*nat, 3, 3))
-		# U operator
-		U = self.struct_0.Deigv
-		g2D = np.zeros((3,3))
-		# iterate over (a,x)
-		for jax in range(3*nat):
-			for jby in range(3*nat):
-				g2D[:,:] = 0.
-				g2D[:,:] = self.grad2Dtensor[jax,jby,:,:]
-				g2DU = np.matmul(g2D, U)
-				g2Dt = np.matmul(U.transpose(), g2DU)
-				self.U_grad2D_U[jax,jby,:,:] = g2Dt[:,:]
-		self.U_grad2D_U[:,:,:,:] = self.U_grad2D_U[:,:,:,:] * 1.E-6
-		#
-		#    (THz/Ang^2)   units
-		#
-	#
-	# write grad_ax,by D to file
-	#
-	def write_grad2Dtensor_to_file(self, write_dir):
-		# write data on file
-		file_name = "grad2_Dtensor.yml"
-		file_name = "{}".format(write_dir + '/' + file_name)
-		data = {'grad2D': {'coeffs' : self.grad2Dtensor, 'units' : 'MHz/ang^2'}, 'Ugrad2DU' : {'coeffs' : self.U_grad2D_U, 'units' : 'THz/ang^2'} }
-		# write data
-		with open(file_name, 'w') as out_file:
-			yaml.dump(data, out_file)
-	#
-	# check size of tensor coefficients
-	#
-	def check_tensor_coefficients(self):
-		nat = self.struct_0.nat
-		# take average for each tensor component
-		g2D00 = 0.
-		g2D01 = 0.
-		g2D02 = 0.
-		g2D11 = 0.
-		g2D12 = 0.
-		g2D22 = 0.
-		for jax in range(3*nat):
-			for jby in range(3*nat):
-				g2D00 += self.grad2Dtensor[jax,jby,0,0]
-				g2D01 += self.grad2Dtensor[jax,jby,0,1]
-				g2D02 += self.grad2Dtensor[jax,jby,0,2]
-				g2D11 += self.grad2Dtensor[jax,jby,1,1]
-				g2D12 += self.grad2Dtensor[jax,jby,1,2]
-				g2D22 += self.grad2Dtensor[jax,jby,2,2]
-		g2D00 = g2D00 / (9.*nat**2)
-		g2D01 = g2D01 / (9.*nat**2)
-		g2D02 = g2D02 / (9.*nat**2)
-		g2D11 = g2D11 / (9.*nat**2)
-		g2D12 = g2D12 / (9.*nat**2)
-		g2D22 = g2D22 / (9.*nat**2)
-		# loop over tensor components
-		for ia in range(nat):
-			for idx in range(3):
-				jax = ia*3+idx
-				for ib in range(nat):
-					for idy in range(3):
-						jby = ib*3+idy
-						if np.abs(self.grad2Dtensor[jax,jby,0,0]-g2D00) > 1.E6:
-							log.warning('\t 00 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
-						if np.abs(self.grad2Dtensor[jax,jby,0,1]-g2D01) > 1.E6:
-							log.warning('\t 01 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
-						if np.abs(self.grad2Dtensor[jax,jby,0,2]-g2D02) > 1.E6:
-							log.warning('\t 02 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
-						if np.abs(self.grad2Dtensor[jax,jby,1,1]-g2D11) > 1.E6:
-							log.warning('\t 11 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
-						if np.abs(self.grad2Dtensor[jax,jby,1,2]-g2D12) > 1.E6:
-							log.warning('\t 12 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
-						if np.abs(self.grad2Dtensor[jax,jby,2,2]-g2D22) > 1.E6:
-							log.warning('\t 22 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
+	# compute tensor 2nd derivative
+	def compute_2nd_derivative_tensor(self, jax_list, displ_structs):
+		pass
+
 #
 #   class :
 #   gradient hyperfine interaction

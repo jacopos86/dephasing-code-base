@@ -14,7 +14,6 @@ warnings.filterwarnings("ignore")
 # function to create the NN
 # instance
 def generate_NN_object(NN_model):
-    print(NN_model)
     if NN_model == "MLP":
         return MLP_model_class()
     elif NN_model == "DNN":
