@@ -900,8 +900,41 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 	#
 	# compute tensor 2nd derivative
 	def compute_2nd_derivative_tensor(self, jax_list, displ_structs):
-		pass
-
+		# n. atoms
+		nat = self.struct_0.nat
+		# initialize grad^2 D
+		self.grad2Dtensor = np.zeros((3*nat, 3*nat, 3, 3))
+		# reference ZFS
+		D = self.struct_0.Dtensor
+		# lattice parameters
+		L1, L2, L3 = self.struct_0.struct.lattice.abc
+		L = np.sqrt(L1**2 + L2**2 + L3**2)
+		# dr0
+		out_dir_full = self.out_dir + '/' + self.default_dir
+		for displ_struct in displ_structs:
+			if displ_struct.outcars_dir == out_dir_full:
+				dr0 = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
+				# ang units
+			else:
+				pass
+		if dr0 is None:
+			log.error("\t DEFAULT ATOM DISPLACEMENT NOT FOUND")
+		# input lists for NN model
+		input_00 = []
+		input_01 = []
+		input_02 = []
+		input_11 = []
+		input_12 = []
+		input_22 = []
+		# run jax list
+		for jax in tqdm(jax_list):
+			ia = atoms.index_to_ia_map[jax]-1
+			idx= atoms.index_to_idx_map[jax]
+			# distance from defect
+			da = self.struct_0.struct.get_distance(ia, self.defect_index)
+			for ib in range(ia, nat):
+				# distance from defect
+				db = self.struct_0.struct.get_distance(ib, self.defect_index)
 #
 #   class :
 #   gradient hyperfine interaction
