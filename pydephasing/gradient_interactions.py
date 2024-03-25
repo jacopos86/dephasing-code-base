@@ -935,6 +935,27 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 			for ib in range(ia, nat):
 				# distance from defect
 				db = self.struct_0.struct.get_distance(ib, self.defect_index)
+				# distance d(a,b)
+				dab = self.struct_0.struct.get_distance(ia, ib)
+				# check distance
+				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
+					for idy in range(3):
+						jby = ib*3+idy
+						iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
+						if iaxby in self.atom_info_dict.keys():
+							outcars_dir = self.atom_info_dict[iaxby]
+						else:
+							outcars_dir = self.default_dir
+						out_dir_full = ''
+						out_dir_full = self.out_dir + '/' + outcars_dir
+						# displ. structs.
+						for displ_struct in displ_structs:
+							if displ_struct.outcars_dir == out_dir_full:
+								dr = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
+								# ang units
+							else:
+								pass
+						out_dir_full += '/'
 #
 #   class :
 #   gradient hyperfine interaction
