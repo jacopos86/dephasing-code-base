@@ -956,6 +956,66 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 							else:
 								pass
 						out_dir_full += '/'
+						# first order outcars
+						file_name = str(ia+1) + '-' + str(idx+1) + '-1/OUTCAR'			
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dax1 = self.read_outcar_full(outcar)
+						# first order outcars
+						file_name = str(ia+1) + '-' + str(idx+1) + '-2/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dax2 = self.read_outcar_full(outcar)
+						# first order jby
+						file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dby1 = self.read_outcar_full(outcar)
+						# read outcar
+						file_name = str(ib+1) + '-' + str(idy+1) + '-2/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dby2 = self.read_outcar_full(outcar)
+						# distances
+						x1 = 1. - dab/L
+						x2 = 1. - (dab/L) ** 2
+						# append data to compute
+						input_00.append(np.array([x1, x2, Dax1[0,0]-D[0,0], Dax2[0,0]-D[0,0], Dby1[0,0]-D[0,0], Dby2[0,0]-D[0,0]]))
+						input_01.append(np.array([x1, x2, Dax1[0,1]-D[0,1], Dax2[0,1]-D[0,1], Dby1[0,1]-D[0,1], Dby2[0,1]-D[0,1]]))
+						input_02.append(np.array([x1, x2, Dax1[0,2]-D[0,2], Dax2[0,2]-D[0,2], Dby1[0,2]-D[0,2], Dby2[0,2]-D[0,2]]))
+						input_11.append(np.array([x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]]))
+						input_12.append(np.array([x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]]))
+						input_22.append(np.array([x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]]))
+		# predict Daxby
+		Daxby_00 = self.NN_obj_00.predict(input_00)
+		Daxby_01 = self.NN_obj_01.predict(input_01)
+		Daxby_02 = self.NN_obj_02.predict(input_02)
+		Daxby_11 = self.NN_obj_11.predict(input_11)
+		Daxby_12 = self.NN_obj_12.predict(input_12)
+		Daxby_22 = self.NN_obj_22.predict(input_22)
+		# compute tensor gradient
+		for jax in jax_list:
+			ia = atoms.index_to_ia_map[jax] - 1
+			idx= atoms.index_to_idx_map[jax]
+			# distance from defect
+			da = self.struct_0.struct.get_distance(ia, self.defect_index)
+			for ib in range(ia, nat):
+				# distance from defect center
+				db = self.struct_0.struct.get_distance(ib, self.defect_index)
+				# distance d(a,b)
+				dab= self.struct_0.struct.get_distance(ia, ib)
+				# distance cut-off
+				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
+					for idy in range(3):
+						jby = ib*3+idy
 #
 #   class :
 #   gradient hyperfine interaction
