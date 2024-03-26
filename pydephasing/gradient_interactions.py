@@ -940,7 +940,6 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 				# check distance
 				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
 					for idy in range(3):
-						jby = ib*3+idy
 						iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
 						if iaxby in self.atom_info_dict.keys():
 							outcars_dir = self.atom_info_dict[iaxby]
@@ -948,13 +947,6 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 							outcars_dir = self.default_dir
 						out_dir_full = ''
 						out_dir_full = self.out_dir + '/' + outcars_dir
-						# displ. structs.
-						for displ_struct in displ_structs:
-							if displ_struct.outcars_dir == out_dir_full:
-								dr = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
-								# ang units
-							else:
-								pass
 						out_dir_full += '/'
 						# first order outcars
 						file_name = str(ia+1) + '-' + str(idx+1) + '-1/OUTCAR'			
@@ -1002,6 +994,7 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 		Daxby_12 = self.NN_obj_12.predict(input_12)
 		Daxby_22 = self.NN_obj_22.predict(input_22)
 		# compute tensor gradient
+		ii = 0
 		for jax in jax_list:
 			ia = atoms.index_to_ia_map[jax] - 1
 			idx= atoms.index_to_idx_map[jax]
@@ -1016,6 +1009,19 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
 					for idy in range(3):
 						jby = ib*3+idy
+
+
+						#  Daxby calculation
+						Daxby = np.zeros((3,3))
+						Daxby[0,0] = Daxby_00[ii]
+						Daxby[0,1] = Daxby_01[ii]
+						Daxby[1,0] = Daxby[0,1]
+						Daxby[0,2] = Daxby_02[ii]
+						Daxby[2,0] = Daxby[0,2]
+						Daxby[1,1] = Daxby_11[ii]
+						Daxby[1,2] = Daxby_12[ii]
+						Daxby[2,1] = Daxby[1,2]
+						Daxby[2,2] = Daxby_22[ii]
 #
 #   class :
 #   gradient hyperfine interaction
