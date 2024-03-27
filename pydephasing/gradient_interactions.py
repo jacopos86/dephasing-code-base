@@ -926,6 +926,8 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 		input_11 = []
 		input_12 = []
 		input_22 = []
+		Dax1_lst = []
+		Dby1_lst = []
 		# run jax list
 		for jax in tqdm(jax_list):
 			ia = atoms.index_to_ia_map[jax]-1
@@ -955,6 +957,7 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 						if not isExist:
 							log.error("\t " + outcar + " FILE NOT FOUND")
 						Dax1 = self.read_outcar_full(outcar)
+						Dax1_lst.append(Dax1)
 						# first order outcars
 						file_name = str(ia+1) + '-' + str(idx+1) + '-2/OUTCAR'
 						outcar = "{}".format(out_dir_full + file_name)
@@ -969,6 +972,7 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 						if not isExist:
 							log.error("\t " + outcar + " FILE NOT FOUND")
 						Dby1 = self.read_outcar_full(outcar)
+						Dby1_lst.append(Dby1)
 						# read outcar
 						file_name = str(ib+1) + '-' + str(idy+1) + '-2/OUTCAR'
 						outcar = "{}".format(out_dir_full + file_name)
@@ -1009,8 +1013,24 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
 					for idy in range(3):
 						jby = ib*3+idy
-
-
+						iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
+						if iaxby in self.atom_info_dict.keys():
+							outcars_dir = self.atom_info_dict[iaxby]
+						else:
+							outcars_dir = self.default_dir
+						out_dir_full = ''
+						out_dir_full = self.out_dir + '/' + outcars_dir
+						# displ. structs
+						for displ_struct in displ_structs:
+							if displ_struct.outcars_dir == out_dir_full:
+								dr = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
+								# ang units
+							else:
+								pass
+						# Dax1
+						Dax1 = Dax1_lst[ii]
+						# Dby1
+						Dby1 = Dby1_lst[ii]
 						#  Daxby calculation
 						Daxby = np.zeros((3,3))
 						Daxby[0,0] = Daxby_00[ii]
@@ -1022,6 +1042,36 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 						Daxby[1,2] = Daxby_12[ii]
 						Daxby[2,1] = Daxby[1,2]
 						Daxby[2,2] = Daxby_22[ii]
+						# subtract noise
+						dDax = np.zeros((3,3))
+						dDax[:,:] = np.abs(Dax1[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDax[i1,i2] <= self.Dns[i1,i2]:
+									Dax1[i1,i2] = D[i1,i2]
+						#
+						dDby = np.zeros((3,3))
+						dDby[:,:] = np.abs(Dby1[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDby[i1,i2] <= self.Dns[i1,i2]:
+									Dby1[i1,i2] = D[i1,i2]
+						# Daxby
+						dDaxby = np.zeros((3,3))
+						dDaxby[:,:] = np.abs(Daxby[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDaxby[i1,i2] <= self.Dns[i1,i2]:
+									Daxby[i1,i2] = D[i1,i2]
+						# grad2 D
+						self.grad2Dtensor[jax,jby,0,0] = (Daxby[0,0] - Dax1[0,0] - Dby1[0,0] + D[0,0]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,0,1] = (Daxby[0,1] - Dax1[0,1] - Dby1[0,1] + D[0,1]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,1,0] = self.grad2Dtensor[jax,jby,0,1]
+						self.grad2Dtensor[jax,jby,0,2] = (Daxby[0,2] - Dax1[0,2] - Dby1[0,2] + D[0,2]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,2,0] = self.grad2Dtensor[jax,jby,0,2]
+						self.grad2Dtensor[jax,jby,1,1] = (Daxby[1,1] - Dax1[1,1] - Dby1[1,1] + D[1,1]) / (dr[idx] * dr[idy])
+
+						ii += 1
 #
 #   class :
 #   gradient hyperfine interaction
