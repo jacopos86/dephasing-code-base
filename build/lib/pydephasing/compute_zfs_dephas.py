@@ -60,9 +60,9 @@ def compute_homo_dephas():
         grad2ZFS = generate_2nd_order_grad_instance(p.work_dir, p.grad_info)
         grad2ZFS.set_gs_zfs_tensor()
         # set secon order grad
-        import sys
-        sys.exit()
         grad2ZFS.compute_2nd_order_gradients(struct_list_2nd)
+    import sys
+    sys.exit()
     # debug mode
     if mpi.rank == mpi.root:
         if log.level <= logging.DEBUG:

@@ -439,6 +439,8 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		self.learn_network_model(full_input, full_output, p.write_dir)
 		# compute grad ^ 2 tensor
 		self.compute_2nd_derivative_tensor(jax_list, displ_structs)
+		import sys
+		sys.exit()
 		self.grad2Dtensor = mpi.collect_array(self.grad2Dtensor)
 		mpi.comm.Barrier()
 		# compute u Grad^2 D U
@@ -900,8 +902,208 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 	#
 	# compute tensor 2nd derivative
 	def compute_2nd_derivative_tensor(self, jax_list, displ_structs):
-		pass
-
+		# n. atoms
+		nat = self.struct_0.nat
+		# initialize grad^2 D
+		self.grad2Dtensor = np.zeros((3*nat, 3*nat, 3, 3))
+		# reference ZFS
+		D = self.struct_0.Dtensor
+		# lattice parameters
+		L1, L2, L3 = self.struct_0.struct.lattice.abc
+		L = np.sqrt(L1**2 + L2**2 + L3**2)
+		# dr0
+		out_dir_full = self.out_dir + '/' + self.default_dir
+		for displ_struct in displ_structs:
+			if displ_struct.outcars_dir == out_dir_full:
+				dr0 = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
+				# ang units
+			else:
+				pass
+		if dr0 is None:
+			log.error("\t DEFAULT ATOM DISPLACEMENT NOT FOUND")
+		# input lists for NN model
+		input_00 = []
+		input_01 = []
+		input_02 = []
+		input_11 = []
+		input_12 = []
+		input_22 = []
+		Dax1_lst = []
+		Dby1_lst = []
+		# run jax list
+		#for jax in tqdm(jax_list):
+		for jax in range(1):
+			ia = atoms.index_to_ia_map[jax]-1
+			idx= atoms.index_to_idx_map[jax]
+			# distance from defect
+			da = self.struct_0.struct.get_distance(ia, self.defect_index)
+			for ib in range(ia, nat):
+				# distance from defect
+				db = self.struct_0.struct.get_distance(ib, self.defect_index)
+				# distance d(a,b)
+				dab = self.struct_0.struct.get_distance(ia, ib)
+				# check distance
+				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
+					for idy in range(3):
+						iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
+						if iaxby in self.atom_info_dict.keys():
+							outcars_dir = self.atom_info_dict[iaxby]
+						else:
+							outcars_dir = self.default_dir
+						out_dir_full = ''
+						out_dir_full = self.out_dir + '/' + outcars_dir
+						out_dir_full += '/'
+						# first order outcars
+						file_name = str(ia+1) + '-' + str(idx+1) + '-1/OUTCAR'			
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dax1 = self.read_outcar_full(outcar)
+						Dax1_lst.append(Dax1)
+						# first order outcars
+						file_name = str(ia+1) + '-' + str(idx+1) + '-2/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dax2 = self.read_outcar_full(outcar)
+						# first order jby
+						file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dby1 = self.read_outcar_full(outcar)
+						Dby1_lst.append(Dby1)
+						# read outcar
+						file_name = str(ib+1) + '-' + str(idy+1) + '-2/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dby2 = self.read_outcar_full(outcar)
+						# distances
+						x1 = 1. - dab/L
+						x2 = 1. - (dab/L) ** 2
+						# append data to compute
+						input_00.append(np.array([x1, x2, Dax1[0,0]-D[0,0], Dax2[0,0]-D[0,0], Dby1[0,0]-D[0,0], Dby2[0,0]-D[0,0]]))
+						input_01.append(np.array([x1, x2, Dax1[0,1]-D[0,1], Dax2[0,1]-D[0,1], Dby1[0,1]-D[0,1], Dby2[0,1]-D[0,1]]))
+						input_02.append(np.array([x1, x2, Dax1[0,2]-D[0,2], Dax2[0,2]-D[0,2], Dby1[0,2]-D[0,2], Dby2[0,2]-D[0,2]]))
+						input_11.append(np.array([x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]]))
+						input_12.append(np.array([x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]]))
+						input_22.append(np.array([x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]]))
+						break
+		# predict Daxby
+		Daxby_00 = self.NN_obj_00.predict(input_00)
+		if mpi.rank == mpi.root:
+			log.info("\t 00 component computed")
+		Daxby_01 = self.NN_obj_01.predict(input_01)
+		if mpi.rank == mpi.root:
+			log.info("\t 01 component computed")
+		Daxby_02 = self.NN_obj_02.predict(input_02)
+		if mpi.rank == mpi.root:
+			log.info("\t 02 component computed")
+		Daxby_11 = self.NN_obj_11.predict(input_11)
+		if mpi.rank == mpi.root:
+			log.info("\t 11 component computed")
+		Daxby_12 = self.NN_obj_12.predict(input_12)
+		if mpi.rank == mpi.root:
+			log.info("\t 12 component computed")
+		Daxby_22 = self.NN_obj_22.predict(input_22)
+		if mpi.rank == mpi.root:
+			log.info("\t 22 component computed")
+		# compute tensor gradient
+		ii = 0
+		for jax in jax_list:
+			ia = atoms.index_to_ia_map[jax] - 1
+			idx= atoms.index_to_idx_map[jax]
+			# distance from defect
+			da = self.struct_0.struct.get_distance(ia, self.defect_index)
+			for ib in range(ia, nat):
+				# distance from defect center
+				db = self.struct_0.struct.get_distance(ib, self.defect_index)
+				# distance d(a,b)
+				dab= self.struct_0.struct.get_distance(ia, ib)
+				# distance cut-off
+				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
+					for idy in range(3):
+						jby = ib*3+idy
+						iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
+						if iaxby in self.atom_info_dict.keys():
+							outcars_dir = self.atom_info_dict[iaxby]
+						else:
+							outcars_dir = self.default_dir
+						out_dir_full = ''
+						out_dir_full = self.out_dir + '/' + outcars_dir
+						# displ. structs
+						for displ_struct in displ_structs:
+							if displ_struct.outcars_dir == out_dir_full:
+								dr = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
+								# ang units
+							else:
+								pass
+						# Dax1
+						Dax1 = Dax1_lst[ii]
+						# Dby1
+						Dby1 = Dby1_lst[ii]
+						#  Daxby calculation
+						Daxby = np.zeros((3,3))
+						Daxby[0,0] = Daxby_00[ii]
+						Daxby[0,1] = Daxby_01[ii]
+						Daxby[1,0] = Daxby[0,1]
+						Daxby[0,2] = Daxby_02[ii]
+						Daxby[2,0] = Daxby[0,2]
+						Daxby[1,1] = Daxby_11[ii]
+						Daxby[1,2] = Daxby_12[ii]
+						Daxby[2,1] = Daxby[1,2]
+						Daxby[2,2] = Daxby_22[ii]
+						# subtract noise
+						dDax = np.zeros((3,3))
+						dDax[:,:] = np.abs(Dax1[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDax[i1,i2] <= self.Dns[i1,i2]:
+									Dax1[i1,i2] = D[i1,i2]
+						#
+						dDby = np.zeros((3,3))
+						dDby[:,:] = np.abs(Dby1[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDby[i1,i2] <= self.Dns[i1,i2]:
+									Dby1[i1,i2] = D[i1,i2]
+						# Daxby
+						dDaxby = np.zeros((3,3))
+						dDaxby[:,:] = np.abs(Daxby[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDaxby[i1,i2] <= self.Dns[i1,i2]:
+									Daxby[i1,i2] = D[i1,i2]
+						# grad2 D
+						self.grad2Dtensor[jax,jby,0,0] = (Daxby[0,0] - Dax1[0,0] - Dby1[0,0] + D[0,0]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,0,1] = (Daxby[0,1] - Dax1[0,1] - Dby1[0,1] + D[0,1]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,1,0] = self.grad2Dtensor[jax,jby,0,1]
+						self.grad2Dtensor[jax,jby,0,2] = (Daxby[0,2] - Dax1[0,2] - Dby1[0,2] + D[0,2]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,2,0] = self.grad2Dtensor[jax,jby,0,2]
+						self.grad2Dtensor[jax,jby,1,1] = (Daxby[1,1] - Dax1[1,1] - Dby1[1,1] + D[1,1]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,1,2] = (Daxby[1,2] - Dax1[1,2] - Dby1[1,2] + D[1,2]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,2,1] = self.grad2Dtensor[jax,jby,1,2]
+						self.grad2Dtensor[jax,jby,2,2] = (Daxby[2,2] - Dax1[2,2] - Dby1[2,2] + D[2,2]) / (dr[idx] * dr[idy])
+						#
+						if jax != jby:
+							self.grad2Dtensor[jby,jax,:,:] = self.grad2Dtensor[jax,jby,:,:]
+						ii += 1
+				else:
+					pass
+		#
+		# MHz / ang^2 units
+		#
+		if mpi.rank == mpi.root:
+			log.info("\n")
+			log.info("\t " + p.sep)
+			log.info("\t GRAD_ax;by CALCULATION COMPLETED")
+			log.info("\t " + p.sep)
+			log.info("\n")
 #
 #   class :
 #   gradient hyperfine interaction

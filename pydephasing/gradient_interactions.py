@@ -439,6 +439,8 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		self.learn_network_model(full_input, full_output, p.write_dir)
 		# compute grad ^ 2 tensor
 		self.compute_2nd_derivative_tensor(jax_list, displ_structs)
+		import sys
+		sys.exit()
 		self.grad2Dtensor = mpi.collect_array(self.grad2Dtensor)
 		mpi.comm.Barrier()
 		# compute u Grad^2 D U
@@ -929,7 +931,8 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 		Dax1_lst = []
 		Dby1_lst = []
 		# run jax list
-		for jax in tqdm(jax_list):
+		#for jax in tqdm(jax_list):
+		for jax in range(1):
 			ia = atoms.index_to_ia_map[jax]-1
 			idx= atoms.index_to_idx_map[jax]
 			# distance from defect
@@ -990,13 +993,26 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 						input_11.append(np.array([x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]]))
 						input_12.append(np.array([x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]]))
 						input_22.append(np.array([x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]]))
+						break
 		# predict Daxby
 		Daxby_00 = self.NN_obj_00.predict(input_00)
+		if mpi.rank == mpi.root:
+			log.info("\t 00 component computed")
 		Daxby_01 = self.NN_obj_01.predict(input_01)
+		if mpi.rank == mpi.root:
+			log.info("\t 01 component computed")
 		Daxby_02 = self.NN_obj_02.predict(input_02)
+		if mpi.rank == mpi.root:
+			log.info("\t 02 component computed")
 		Daxby_11 = self.NN_obj_11.predict(input_11)
+		if mpi.rank == mpi.root:
+			log.info("\t 11 component computed")
 		Daxby_12 = self.NN_obj_12.predict(input_12)
+		if mpi.rank == mpi.root:
+			log.info("\t 12 component computed")
 		Daxby_22 = self.NN_obj_22.predict(input_22)
+		if mpi.rank == mpi.root:
+			log.info("\t 22 component computed")
 		# compute tensor gradient
 		ii = 0
 		for jax in jax_list:
@@ -1070,8 +1086,24 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 						self.grad2Dtensor[jax,jby,0,2] = (Daxby[0,2] - Dax1[0,2] - Dby1[0,2] + D[0,2]) / (dr[idx] * dr[idy])
 						self.grad2Dtensor[jax,jby,2,0] = self.grad2Dtensor[jax,jby,0,2]
 						self.grad2Dtensor[jax,jby,1,1] = (Daxby[1,1] - Dax1[1,1] - Dby1[1,1] + D[1,1]) / (dr[idx] * dr[idy])
-
+						self.grad2Dtensor[jax,jby,1,2] = (Daxby[1,2] - Dax1[1,2] - Dby1[1,2] + D[1,2]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,2,1] = self.grad2Dtensor[jax,jby,1,2]
+						self.grad2Dtensor[jax,jby,2,2] = (Daxby[2,2] - Dax1[2,2] - Dby1[2,2] + D[2,2]) / (dr[idx] * dr[idy])
+						#
+						if jax != jby:
+							self.grad2Dtensor[jby,jax,:,:] = self.grad2Dtensor[jax,jby,:,:]
 						ii += 1
+				else:
+					pass
+		#
+		# MHz / ang^2 units
+		#
+		if mpi.rank == mpi.root:
+			log.info("\n")
+			log.info("\t " + p.sep)
+			log.info("\t GRAD_ax;by CALCULATION COMPLETED")
+			log.info("\t " + p.sep)
+			log.info("\n")
 #
 #   class :
 #   gradient hyperfine interaction
