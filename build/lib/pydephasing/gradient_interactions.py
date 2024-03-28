@@ -931,8 +931,7 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 		Dax1_lst = []
 		Dby1_lst = []
 		# run jax list
-		#for jax in tqdm(jax_list):
-		for jax in range(1):
+		for jax in tqdm(jax_list):
 			ia = atoms.index_to_ia_map[jax]-1
 			idx= atoms.index_to_idx_map[jax]
 			# distance from defect
@@ -987,12 +986,12 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 						x1 = 1. - dab/L
 						x2 = 1. - (dab/L) ** 2
 						# append data to compute
-						input_00.append(np.array([x1, x2, Dax1[0,0]-D[0,0], Dax2[0,0]-D[0,0], Dby1[0,0]-D[0,0], Dby2[0,0]-D[0,0]]))
-						input_01.append(np.array([x1, x2, Dax1[0,1]-D[0,1], Dax2[0,1]-D[0,1], Dby1[0,1]-D[0,1], Dby2[0,1]-D[0,1]]))
-						input_02.append(np.array([x1, x2, Dax1[0,2]-D[0,2], Dax2[0,2]-D[0,2], Dby1[0,2]-D[0,2], Dby2[0,2]-D[0,2]]))
-						input_11.append(np.array([x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]]))
-						input_12.append(np.array([x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]]))
-						input_22.append(np.array([x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]]))
+						input_00.append([x1, x2, Dax1[0,0]-D[0,0], Dax2[0,0]-D[0,0], Dby1[0,0]-D[0,0], Dby2[0,0]-D[0,0]])
+						input_01.append([x1, x2, Dax1[0,1]-D[0,1], Dax2[0,1]-D[0,1], Dby1[0,1]-D[0,1], Dby2[0,1]-D[0,1]])
+						input_02.append([x1, x2, Dax1[0,2]-D[0,2], Dax2[0,2]-D[0,2], Dby1[0,2]-D[0,2], Dby2[0,2]-D[0,2]])
+						input_11.append([x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]])
+						input_12.append([x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]])
+						input_22.append([x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]])
 						break
 		# predict Daxby
 		Daxby_00 = self.NN_obj_00.predict(input_00)
