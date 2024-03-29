@@ -992,7 +992,6 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 						input_11.append([x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]])
 						input_12.append([x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]])
 						input_22.append([x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]])
-						break
 		# predict Daxby
 		Daxby_00 = self.NN_obj_00.predict(input_00)
 		if mpi.rank == mpi.root:
