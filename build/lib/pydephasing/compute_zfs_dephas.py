@@ -61,8 +61,6 @@ def compute_homo_dephas():
         grad2ZFS.set_gs_zfs_tensor()
         # set secon order grad
         grad2ZFS.compute_2nd_order_gradients(struct_list_2nd)
-    import sys
-    sys.exit()
     # debug mode
     if mpi.rank == mpi.root:
         if log.level <= logging.DEBUG:
@@ -144,8 +142,6 @@ def compute_homo_dephas():
         # eV / ang^2
     else:
         Faxby = None
-    import sys
-    sys.exit()
     # set q pts. grid
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)

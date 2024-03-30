@@ -109,7 +109,7 @@ class acf_ph(object):
             #
             # check Delta^2 value
             if mpi.rank == mpi.root:
-                print(self.acf_sp[0,0,:])
+                print(self.acf_sp[0,:])
             if log.level <= logging.INFO:
                 if p.time_resolved:
                     self.Delta_2 += self.compute_acf_V2_t0(wq, wu, iq, il, qlp_list, A_lq[iql], A_lqp, F_lqlqp)

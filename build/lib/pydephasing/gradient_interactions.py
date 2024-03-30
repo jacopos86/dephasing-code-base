@@ -439,8 +439,6 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		self.learn_network_model(full_input, full_output, p.write_dir)
 		# compute grad ^ 2 tensor
 		self.compute_2nd_derivative_tensor(jax_list, displ_structs)
-		import sys
-		sys.exit()
 		self.grad2Dtensor = mpi.collect_array(self.grad2Dtensor)
 		mpi.comm.Barrier()
 		# compute u Grad^2 D U

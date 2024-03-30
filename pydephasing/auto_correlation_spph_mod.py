@@ -1251,6 +1251,7 @@ class GPU_acf_sp_ph(acf_sp_ph):
                 ALQP[iqlp]= A_lqp[iqlp]
                 FLQLQP[iqlp]= sum(F_lqlqp[:,iqlp])
                 iqlp += 1
+            print(FLQLQP)
             # iterate temperature
             for iT in range(p.ntmp):
                 T = np.double(p.temperatures[iT])
