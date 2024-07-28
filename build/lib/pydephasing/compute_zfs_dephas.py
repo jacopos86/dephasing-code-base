@@ -54,6 +54,7 @@ def compute_homo_dephas():
     atoms.compute_index_to_idx_map(nat)
     # set atoms dict
     atoms.extract_atoms_coords(nat)
+    atoms.set_supercell_coords(nat)
     # zfs 2nd order
     if p.order_2_correct:
         # set 2nd order tensor
@@ -128,6 +129,9 @@ def compute_homo_dephas():
     # F should be in eV/ang units
     sp_ph_inter.set_Fax_zfs(gradZFS, Hsp)
     Fax = sp_ph_inter.Fzfs_ax
+    print(max(Fax))
+    import sys
+    sys.exit()
     # 2nd order calculation
     if p.order_2_correct:
         # F_axby = <1|S Grad_ax,by D S|1> - <0|S Grad_ax,by D S|0>

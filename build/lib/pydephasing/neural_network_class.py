@@ -84,7 +84,7 @@ class DNN_model_class(NN_model_base_class):
             self.NN_model.add(keras.layers.Dense(units=n_hidden_units,activation=activation_hid))
         self.NN_model.add(keras.layers.Dense(units=1, activation=activation_out))
         # compile model
-        self.NN_model.compile(loss=loss, optimizer=optimizer)
+        self.NN_model.compile(loss=loss, optimizer=optimizer, metrics=[loss])
         # display model
         info = str(self.NN_model.summary())
         if mpi.rank == mpi.root:
@@ -102,8 +102,8 @@ class DNN_model_class(NN_model_base_class):
         return X_test, y_test
     # get score
     def get_score(self, X_test, y_test):
-        test_loss = self.NN_model.evaluate(X_test, y_test)
-        return str(1.-test_loss)
+        _, test_accuracy = self.NN_model.evaluate(X_test, y_test)
+        return str(test_accuracy)
     # predict value
     def predict(self, X):
         y = self.NN_model.predict(X)

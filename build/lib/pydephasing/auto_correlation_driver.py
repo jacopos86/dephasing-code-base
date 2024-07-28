@@ -233,22 +233,6 @@ class acf_ph(object):
         if log.level <= logging.INFO:
             namef = self.write_dir + "/acf-data-ic" + str(ic) + "-iT" + str(iT+1) + ".yml"
             print_acf_dict(p.time, Ct, ft, namef)
-        # at. resolved
-        if ft_atr is not None and p.at_resolved:
-            nat = self.acf_atr.shape[1]
-            Ct = np.zeros((p.nt2,nat))
-            # run over ia
-            for ia in range(nat):
-                D2 = self.acf_atr[0,ia,iT].real
-                if np.abs(D2) == 0.:
-                    pass
-                else:
-                    for t in range(p.nt2):
-                        Ct[t,ia] = self.acf_atr[t,ia,iT].real / D2
-            # write data on file
-            if log.level <= logging.INFO:
-                namef = self.write_dir + "/acf-data-atr-ic" + str(ic) + "-iT" + str(iT+1) + ".yml"
-                print_acf_dict(p.time2, Ct, ft_atr, namef)
         # ph. resolved
         if ft_phr is not None and p.ph_resolved:
             Ct = np.zeros((p.nt2,p.nphr))

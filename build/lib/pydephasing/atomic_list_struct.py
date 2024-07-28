@@ -22,6 +22,12 @@ class AtomicStructureClass:
         if len(self.atoms_dict) != nat:
             log.error("wrong number of atoms in yaml file...")
             sys.exit(1)
+    # set supercell coordinates
+    # with respect to unit cell lattice vectors
+    def set_supercell_coords(self, nat):
+        self.supercell_size = [1, 1, 1]
+        # cell coordinate
+        self.Rn = np.zeros((3,nat))
     # set index_to_ia_map
     def compute_index_to_ia_map(self, nat):
         self.index_to_ia_map = np.zeros(3*nat, dtype=int)
