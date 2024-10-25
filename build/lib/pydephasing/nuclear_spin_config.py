@@ -10,10 +10,14 @@ from scipy import integrate
 import yaml
 from pydephasing.utility_functions import set_cross_prod_matrix, norm_realv, ODE_solver
 from pydephasing.phys_constants import gamma_n
+from pydephasing.mpi import mpi
+from pydephasing.log import log
+from pydephasing.input_parameters import p
+import matplotlib.pyplot as plt
 import random
+import logging
 #
-class nuclear_spins_config:
-	#
+class nuclear_spins_config():
 	def __init__(self, nsp, B0):
 		self.nsp = nsp
 		self.B0 = np.array(B0)
@@ -28,23 +32,81 @@ class nuclear_spins_config:
 		nt = int(T / (dt/2.))
 		self.time_dense = np.linspace(0., T, nt)
 		# micro sec units
+	def set_orientation(self, ic):
+		# theta angles
+		np.random.seed(ic)
+		th = np.random.normal(0., 1., self.nsp)
+		m = max(np.abs(np.min(th)), np.max(th))
+		th[:] = th[:] * np.pi / m
+		if log.level <= logging.DEBUG:
+			#count, bins, ignored = plt.hist(th, 30, density=True)
+			#plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ), linewidth=2, color='r')
+			plt.hist(th, 30, density=True)
+			plt.ylabel("theta distrib.")
+			plt.show()
+		# phi angles
+		np.random.seed(ic+1)
+		phi = np.random.normal(0., 1., self.nsp)
+		m = max(np.abs(np.min(phi)), np.max(phi))
+		phi[:] = phi[:] * 2.*np.pi / m
+		if log.level <= logging.DEBUG:
+			plt.hist(phi, 30, density=True)
+			plt.ylabel("phi distrib.")
+			plt.show()
+		# directions array
+		Iv = np.zeros((3, self.nsp))
+		for isp in range(self.nsp):
+			cth = np.cos(th[isp])
+			sth = np.sin(th[isp])
+			cphi= np.cos(phi[isp])
+			sphi= np.sin(phi[isp])
+			# spin vector
+			Iv[0,isp] = sth * cphi
+			Iv[1,isp] = sth * sphi
+			Iv[2,isp] = cth
+		return Iv
+	# set electron spin magnetization vector
+	def set_electron_magnet_vector(self, Hss):
+		Mt = Hss.Mt
+		# ps units
+		t = Hss.time
+		# compute <Mt> -> spin magnetization
+		T = t[-1]
+		# ps units
+		rx = integrate.simpson(Mt[0,:], t) / T
+		ry = integrate.simpson(Mt[1,:], t) / T
+		rz = integrate.simpson(Mt[2,:], t) / T
+		M  = np.array([rx, ry, rz])
+		return M
 	# set nuclear configuration method
 	def set_nuclear_spins(self, nat, ic):
-		# assume nuclear spin oriented along mag. field direction
-		v = self.B0 / norm_realv(self.B0)
+		# set distribution of orientations
+		if p.rnd_orientation:
+			Iv = self.set_orientation(ic)
+		else:
+			# assume nuclear spin random initial orientation
+			v = self.B0 / norm_realv(self.B0)
+			Iv = np.zeros((3,self.nsp))
+			isp = 0
+			while isp < self.nsp:
+				Iv[:,isp] = v[:]
+				isp += 1
 		# set spin list
 		Ilist = []
-		for isp in range(self.nsp):
+		isp = 0
+		while isp < self.nsp:
 			# set spin vector
 			I = np.zeros(3)
 			# compute components
 			# in cart. coordinates
-			I[:] = 0.5 * v[:]
+			I[:] = 0.5 * Iv[:,isp]
 			Ilist.append(I)
+			isp += 1
 		# set atom's site
 		random.seed(ic)
 		sites = random.sample(range(1, nat+1), self.nsp)
-		print(sites)
+		if mpi.rank == mpi.root:
+			log.info("\t nuclear spin sites : " + str(sites))
 		# define dictionary
 		keys = ['site', 'I']
 		for isp in range(self.nsp):
@@ -56,15 +118,9 @@ class nuclear_spins_config:
 		# B : applied magnetic field (Gauss)
 		# spin_hamilt : spin Hamiltonian object
 		# unprt_struct : unperturbed atomic structure
-		Mt = Hss.Mt
-		# ps units
-		t = Hss.time
-		T = t[-1]
-		# compute <Mt> -> spin magnetization
-		rx = integrate.simpson(Mt[0,:], t) / T
-		ry = integrate.simpson(Mt[1,:], t) / T
-		rz = integrate.simpson(Mt[2,:], t) / T
-		M = np.array([rx, ry, rz])
+		M = self.set_electron_magnet_vector(Hss)
+		if mpi.rank == mpi.root:
+			log.info("\t <S>_t = " + str(M))
 		# n. time steps integ.
 		nt = len(self.time_dense)
 		# time interv. (micro sec)
@@ -90,19 +146,39 @@ class nuclear_spins_config:
 			I0 = self.nuclear_spins[isp]['I']
 			It = ODE_solver(I0, Ft, dt)
 			self.nuclear_spins[isp]['It'] = It
-	# set nuclear spin time fluct.
-	def set_nuclear_spin_time_fluct(self):
-		# time steps
-		nt = len(self.time)
-		# run over different active spins
-		# in the config.
+	# compute nuclear spin derivatives at t=0
+	def compute_nuclear_spin_derivatives(self, Hss, unprt_struct, n):
+		# dIa/dt = gamma_n B X Ia + (A_hf(a) M(t)) X Ia
+		# dt^(2)Ia = gamma_n B X dIa/dt + (A_hf(a) M(t)) X dIa/dt
+		# ...
+		# dt^(n)Ia = gamma_n B X dt^(n-1)Ia + (A_hf(a) M(t)) X d^(n-1)Ia
+		# spin magnetization
+		M = self.set_electron_magnet_vector(Hss)
+		# set [B] antisymmetric matrix
+		Btilde = set_cross_prod_matrix(self.B0)
+		# iterate over spins
 		for isp in range(self.nsp):
-			It = self.nuclear_spins[isp]['It']
-			dIt = np.zeros((3,nt))
-			dIt[0,:] = It[0,:] - It[0,0]
-			dIt[1,:] = It[1,:] - It[1,0]
-			dIt[2,:] = It[2,:] - It[2,0]
-			self.nuclear_spins[isp]['dIt'] = dIt
+			# order 0 spin vector
+			self.nuclear_spins[isp]['dIt'] = np.zeros((3,n+1))
+			I0 = self.nuclear_spins[isp]['I']
+			self.nuclear_spins[isp]['dIt'][:,0] = I0[:]
+			# hyperfine interaction
+			A = np.zeros((3,3))
+			site = self.nuclear_spins[isp]['site']
+			A[:,:] = 2.*np.pi*unprt_struct.Ahfi[site-1,:,:]
+			AM = np.matmul(A, M)
+			AM_tilde = set_cross_prod_matrix(AM)
+			# generator : F
+			F = np.zeros((3,3))
+			F[:,:] = gamma_n * Btilde[:,:]
+			F[:,:]+= AM_tilde[:,:]
+			# iterate over nth order derivatives
+			for i in range(1, n+1):
+				dI0 = self.nuclear_spins[isp]['dIt'][:,i-1]
+				# compute dI
+				dI = np.matmul(F, dI0)
+				self.nuclear_spins[isp]['dIt'][:,i] = dI[:]
+				# musec^(-i) units
 	# write I(t) on ext. file
 	def write_It_on_file(self, out_dir, ic):
 		# write file name

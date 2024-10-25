@@ -1,8 +1,9 @@
 import numpy as np
-from math import exp, atan2
+from math import exp
 from pydephasing.phys_constants import eps, kb, hbar
+from pydephasing.log import log
+from pydephasing.input_parameters import p
 import yaml
-import sys
 #
 # utility functions module
 #
@@ -12,17 +13,22 @@ import sys
 #    input : energy (eV), temperature (K)
 # 3) delta function
 #    input : x, y
-# 4) solve ODE dy/dt = Fy
+# 4) lorentzian
+#    input : x, eta
+# 5) solve ODE dy/dt = Fy
 #    input : y0, F, dt
-# 5) set cross product matrix
+# 6) set cross product matrix
 #    input : a
 #    output : [a] : axv = [a]v
-# 6) triplet state evolution
+# 7) triplet state evolution
 #    input : Ht, psi0, dt
 #    output : psit
-# 7) print ZPL gradient data
+# 8) print ZPL gradient data
 #    input : gradZPL, hessZPL, outdir
 #    output: None
+# 9) print matrix as string
+#    input : matrix
+#    output : string
 #
 #  function 1)
 #
@@ -53,6 +59,12 @@ def delta(x, y):
 #
 #  function 4)
 #
+def lorentzian(x, eta):
+	ltz = eta/2. / (x ** 2 + (eta/2.) ** 2) * 1./np.pi
+	return ltz
+#
+#  function 5)
+#
 def ODE_solver(y0, F, dt):
 	# this routine solves
 	# dy/dt = F(t) y -> y real 3d vector
@@ -80,7 +92,7 @@ def ODE_solver(y0, F, dt):
 		yt[:,i+1] = y[:] + (K1[:] + 2.*K2[:] + 2.*K3[:] + K4[:]) / 6.
 	return yt
 #
-#   function 5)
+#   function 6)
 #
 def set_cross_prod_matrix(a):
 	A = np.zeros((3,3))
@@ -92,7 +104,7 @@ def set_cross_prod_matrix(a):
 	A[2,1] =  a[0]
 	return A
 #
-#   function 6)
+#   function 7)
 #
 def triplet_evolution(Ht, psi0, dt):
 	# this routine solves
@@ -123,7 +135,7 @@ def triplet_evolution(Ht, psi0, dt):
 		psit[:,i+1] = v[:] + (K1[:] + 2.*K2[:] + 2.*K3[:] + K4[:]) / 6.
 	return psit
 #
-# function 7) print ZPL gradient data
+# function 8) print ZPL gradient data
 # on output file
 #
 def print_zpl_fluct(gradZPL, hessZPL, out_dir):
@@ -134,3 +146,17 @@ def print_zpl_fluct(gradZPL, hessZPL, out_dir):
 	# eV / ang - eV / ang^2 units
 	with open(file_name, 'w') as out_file:
 		yaml.dump(data, out_file)
+#
+# function 9) print matrix
+#
+def print_2D_matrix(A):
+	size = A.shape
+	log.info("\t Noise matrix :")
+	for i in range(size[0]):
+		line = ""
+		for j in range(size[1]):
+			line += "  {0:.3f}".format(A[i,j])
+		log.info("\t " + line)
+	log.info("\n")
+	log.info("\t " + p.sep)
+	return line

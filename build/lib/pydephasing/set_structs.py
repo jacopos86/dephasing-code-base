@@ -11,6 +11,7 @@ import h5py
 import yaml
 from pydephasing.log import log
 from pydephasing.mpi import mpi
+from pydephasing.input_parameters import p
 #
 #  ground state structure
 #  acquires ground state data
@@ -193,10 +194,14 @@ class UnpertStruct:
 			unit_key = list(f.keys())[2]
 			units = str(list(f[unit_key])[0])
 			if mpi.rank == mpi.root:
-				log.info("force const. units: " + units)
+				log.info("\n")
+				log.info("\t " + p.sep)
+				log.info("\t FORCE CONSTANTS UNITS : " + units)
+				log.info("\t " + p.sep)
+				log.info("\n")
 			if units != "b'eV/angstrom^2'":
-				log.error("wrong force constants units")
-				raise Exception("wrong force constants units")
+				log.error("\t WRONG FORCE CONSTANTS UNITS")
+				raise Exception("WRONG FORCE CONSTANTS UNITS")
 			# extract force constants
 			key = list(f.keys())[1]
 			p2s_map = list(f[key])

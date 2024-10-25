@@ -1,0 +1,198 @@
+(pydeph) jacopo@jacopo-XPS-8950:~/PROJECTS/dephasing-code-base$ mpirun -np 4 python pydephasing -ct1 spin -ct2 homo -typ relax -yml_inp ./TESTS/2/inputA.yml 
+Detected 1 CUDA Capable device(s)
+Detected 1 CUDA Capable device(s)
+Detected 1 CUDA Capable device(s)
+Detected 1 CUDA Capable device(s)
+  INFO     | __main__.py - <module> at line 17 :                	 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  INFO     | __main__.py - <module> at line 18 :                	 ++++++                                                                                  ++++++
+  INFO     | __main__.py - <module> at line 19 :                	 ++++++                           PYDEPHASING   CODE                                     ++++++
+  INFO     | __main__.py - <module> at line 20 :                	 ++++++                                                                                  ++++++
+  INFO     | __main__.py - <module> at line 21 :                	 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  INFO     | __main__.py - <module> at line 93 :                	 **********************************************************************************************
+  INFO     | __main__.py - <module> at line 94 :                
+
+  INFO     | __main__.py - <module> at line 95 :                	 SPIN - PHONON CALCULATION
+  INFO     | __main__.py - <module> at line 96 :                
+
+  INFO     | __main__.py - <module> at line 118 :               	 T1 CALCULATION -> STARTING
+  INFO     | __main__.py - <module> at line 119 :               	 HOMOGENEOUS SPIN - RELAXATION
+  INFO     | __main__.py - <module> at line 120 :               
+
+  INFO     | __main__.py - <module> at line 121 :               	 **********************************************************************************************
+100%|██████████| 161/161 [04:06<00:00,  1.53s/it]
+  INFO     | gradient_interactions.py - learn_network_model at line 593 :
+
+  INFO     | gradient_interactions.py - learn_network_model at line 594 :	 **********************************************************************************************
+  INFO     | gradient_interactions.py - learn_network_model at line 595 :	 REGR. NETWORK SCORE (00 COMPONENT): 0.999823227429158
+  INFO     | gradient_interactions.py - learn_network_model at line 596 :	 REGR. NETWORK SCORE (01 COMPONENT): 0.999749326696768
+  INFO     | gradient_interactions.py - learn_network_model at line 597 :	 REGR. NETWORK SCORE (02 COMPONENT): 0.9827322485101644
+  INFO     | gradient_interactions.py - learn_network_model at line 598 :	 REGR. NETWORK SCORE (11 COMPONENT): 0.9997845551476285
+  INFO     | gradient_interactions.py - learn_network_model at line 599 :	 REGR. NETWORK SCORE (12 COMPONENT): 0.9997839419972111
+  INFO     | gradient_interactions.py - learn_network_model at line 600 :	 REGR. NETWORK SCORE (22 COMPONENT): 0.9997575774361712
+  INFO     | gradient_interactions.py - learn_network_model at line 601 :	 N. LAYERS MULTILAYER PERCEPTRON MODEL: 3
+  INFO     | gradient_interactions.py - learn_network_model at line 602 :	 MODEL SHAPE: 2
+  INFO     | gradient_interactions.py - learn_network_model at line 603 :	 **********************************************************************************************
+  INFO     | gradient_interactions.py - learn_network_model at line 604 :
+
+
+  0%|          | 0/161 [00:00<?, ?it/s]
+  0%|          | 0/162 [00:00<?, ?it/s]
+100%|██████████| 162/162 [04:11<00:00,  1.55s/it]
+  INFO     | gradient_interactions.py - compute_2nd_derivative_tensor at line 769 :
+
+  INFO     | gradient_interactions.py - compute_2nd_derivative_tensor at line 770 :	 **********************************************************************************************
+  INFO     | gradient_interactions.py - compute_2nd_derivative_tensor at line 771 :	 GRAD_ax;by CALCULATION COMPLETED
+  INFO     | gradient_interactions.py - compute_2nd_derivative_tensor at line 772 :	 **********************************************************************************************
+  INFO     | gradient_interactions.py - compute_2nd_derivative_tensor at line 773 :
+
+  INFO     | extract_ph_data.py - check_eigenv_data at line 114 :
+
+  INFO     | extract_ph_data.py - check_eigenv_data at line 115 :	 **********************************************************************************************
+  INFO     | extract_ph_data.py - check_eigenv_data at line 116 :	 EIGENVECTOR TEST    ->    PASSED
+  INFO     | extract_ph_data.py - check_eigenv_data at line 117 :	 **********************************************************************************************
+  INFO     | extract_ph_data.py - check_eigenv_data at line 118 :
+
+  INFO     | extract_ph_data.py - check_freq_data at line 129 : 
+
+  INFO     | extract_ph_data.py - check_freq_data at line 130 : 	 **********************************************************************************************
+  INFO     | extract_ph_data.py - check_freq_data at line 131 : 	 FREQUENCY TEST    ->    PASSED
+  INFO     | extract_ph_data.py - check_freq_data at line 132 : 	 **********************************************************************************************
+  INFO     | extract_ph_data.py - check_freq_data at line 133 : 
+
+  INFO     | extract_ph_data.py - check_weights at line 141 :   
+
+  INFO     | extract_ph_data.py - check_weights at line 142 :   	 **********************************************************************************************
+  INFO     | extract_ph_data.py - check_weights at line 143 :   	 W(Q) TEST    ->    PASSED
+  INFO     | extract_ph_data.py - check_weights at line 144 :   	 **********************************************************************************************
+  INFO     | extract_ph_data.py - check_weights at line 145 :   
+
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 93 :
+
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 94 :	 **********************************************************************************************
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 95 :	 Q MESH INFORMATION
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 96 :
+
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 97 :
+
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 98 :	 nq: 512
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 99 :	 mesh: [8, 8, 8]
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[1]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[2]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[3]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[4]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[5]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[6]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[7]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[8]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[9]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 102 :	 wq[10]: 0.001953125
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 103 :	 ...
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 107 :
+
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 108 :	 **********************************************************************************************
+  INFO     | compute_zfs_dephas.py - compute_homo_dephas at line 109 :
+
+(0.0003127928851635487+8.199144653597786e-06j)
+(0.0003127928851635487+8.199144653597786e-06j)
+(0.0003127928851635487+8.199144653597786e-06j)
+(0.0003127928851635487+8.199144653597786e-06j)
+[3.73472475e-22+1.19970143e-41j 3.73484932e-22-5.75560848e-41j
+ 3.82512366e-22+3.07329879e-41j 4.11448293e-22+2.36058406e-41j
+ 4.64706751e-22-1.35542647e-40j 5.34619069e-22-3.21392612e-40j
+ 1.07378431e-21+1.02174404e-39j]
+[3.73472475e-22 3.73484932e-22 3.82512366e-22 4.11448293e-22
+ 4.64706751e-22 5.34619069e-22 1.07378431e-21]
+
+  0%|          | 0/41280 [00:00<?, ?it/s]375 165120
+
+  0%|          | 0/41280 [00:00<?, ?it/s]27 165120
+  INFO     | auto_correlation_driver.py - compute_acf_2_driver at line 87 :
+
+  INFO     | auto_correlation_driver.py - compute_acf_2_driver at line 88 :	 **********************************************************************************************
+  INFO     | auto_correlation_driver.py - compute_acf_2_driver at line 89 :	 PROGRESS (q,l) ITERATION ...
+  0%|          | 0/41280 [00:00<?, ?it/s]26 165120
+
+  0%|          | 0/41280 [00:00<?, ?it/s]115 165120
+OK
+OK
+OK
+  0%|          | 1/41280 [00:12<146:45:53, 12.80s/it]14 165120
+  0%|          | 1/41280 [00:12<144:56:56, 12.64s/it][3.73472475e-22+1.19970143e-41j 3.73547622e-22-5.75560848e-41j
+ 4.41617244e-22+3.07329868e-41j 6.52809915e-22+2.36058568e-41j
+ 1.00984106e-21-1.35542651e-40j 1.50502763e-21-3.21392591e-40j
+ 7.14732551e-21+1.02174386e-39j]
+[3.73472475e-22 3.79983748e-22 5.22723364e-21 1.91912168e-20
+ 4.20957243e-20 7.39383023e-20 4.52497995e-19]
+127 165120
+OK
+  0%|          | 1/41280 [00:14<164:37:49, 14.36s/it]35 165120
+OK
+  0%|          | 1/41280 [00:12<143:12:59, 12.49s/it]271 165120
+OK
+OK
+[3.73472475e-22+1.19970143e-41j 3.73563624e-22-5.75560848e-41j
+ 4.57518270e-22+3.07329755e-41j 7.17798850e-22+2.36058487e-41j
+ 1.15665418e-21-1.35542624e-40j 1.76639708e-21-3.21393049e-40j
+ 8.78339449e-21+1.02174702e-39j]
+[3.73472475e-22 3.82403990e-22 7.08789388e-21 2.63608946e-20
+ 5.79527354e-20 1.01863386e-19 6.23843002e-19]
+OK
+  0%|          | 2/41280 [00:23<136:30:27, 11.91s/it]215 165120
+  0%|          | 2/41280 [00:28<166:06:57, 14.49s/it]27 165120
+  0%|          | 2/41280 [00:32<191:05:17, 16.67s/it]79 165120
+  0%|          | 2/41280 [00:33<200:36:39, 17.50s/it]598 165120
+OK
+OK
+OK
+[3.73472475e-22+1.19970143e-41j 3.73564869e-22-5.75560848e-41j
+ 4.76236167e-22+3.07329751e-41j 7.97087048e-22+2.36058510e-41j
+ 1.33697169e-21-1.35542651e-40j 2.08816752e-21-3.21393050e-40j
+ 1.08026614e-20+1.02174707e-39j]
+[3.73472475e-22 3.82451119e-22 7.73353250e-21 2.90093632e-20
+ 6.39023619e-20 1.12412110e-19 6.89245012e-19]
+OK
+  0%|          | 3/41280 [00:48<188:39:15, 16.45s/it]68 165120
+  0%|          | 3/41280 [00:48<189:35:19, 16.54s/it]132 165120
+  0%|          | 3/41280 [00:42<168:49:19, 14.72s/it]348 165120
+  0%|          | 3/41280 [00:47<186:03:43, 16.23s/it]20 165120
+OK
+OK
+OK
+OK
+[3.73472475e-22+1.19970143e-41j 3.73564869e-22-5.75560848e-41j
+ 4.81389580e-22+3.07329720e-41j 8.78280846e-22+2.36058163e-41j
+ 1.58200513e-21-1.35542685e-40j 2.57286937e-21-3.21393133e-40j
+ 1.42111844e-20+1.02174670e-39j]
+[3.73472475e-22 3.82451119e-22 7.73371744e-21 2.90122769e-20
+ 6.39111548e-20 1.12429503e-19 6.89367320e-19]
+  0%|          | 4/41280 [01:01<190:35:12, 16.62s/it]272 165120
+  0%|          | 4/41280 [01:06<201:37:16, 17.58s/it]1546 165120
+  0%|          | 4/41280 [01:10<213:43:18, 18.64s/it]1267 165120
+  0%|          | 4/41280 [01:12<219:34:13, 19.15s/it]210 165120
+OK
+OK
+  0%|          | 5/41280 [01:15<179:55:16, 15.69s/it]602 165120
+  0%|          | 5/41280 [01:24<193:29:35, 16.88s/it]1029 165120
+OK
+OK
+OK
+[3.73472475e-22+1.19970143e-41j 3.73564869e-22-5.75560848e-41j
+ 4.81405465e-22+3.07329720e-41j 8.78532894e-22+2.36058163e-41j
+ 1.58276704e-21-1.35542685e-40j 2.57437741e-21-3.21393133e-40j
+ 1.42217957e-20+1.02174670e-39j]
+[3.73472475e-22 3.82451119e-22 7.76849824e-21 2.95635768e-20
+ 6.55757312e-20 1.15721374e-19 7.12483283e-19]
+  0%|          | 5/41280 [01:32<235:52:33, 20.57s/it]665 165120
+  0%|          | 5/41280 [01:36<243:20:10, 21.22s/it]261 165120
+  0%|          | 6/41280 [01:29<174:28:05, 15.22s/it]137 165120
+OK
+OK
+OK
+OK
+[3.73472475e-22+1.19970143e-41j 3.73564869e-22-5.75560848e-41j
+ 4.81410230e-22+3.07329720e-41j 8.78609520e-22+2.36058163e-41j
+ 1.58299941e-21-1.35542685e-40j 2.57483792e-21-3.21393133e-40j
+ 1.42250407e-20+1.02174670e-39j]
+[3.73472475e-22 3.82451119e-22 7.77253236e-21 2.96284083e-20
+ 6.57722482e-20 1.16110682e-19 7.15224252e-19]
+

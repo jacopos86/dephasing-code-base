@@ -1,0 +1,24 @@
+working_dir : /home/jacopo/PROJECTS/dephasing-code-base/examples/GCB
+output_dir : T2-TEST-E
+unpert_dir :
+  - GS
+  - EXC-SINGL
+yaml_pos_file : phonopy_disp.yaml
+hd5_eigen_file : mesh.hdf5
+grad_info_file : info.yml
+2nd_order_correct : False
+atom_res : False
+phonon_res : True
+nwbn : 30
+ph_list :
+  - 5
+  - 2
+T :
+  - 3.0
+  - 0.5
+dt : 0.0007
+temperature :
+  - 10.0
+  - 50.0
+  - 100.0
+  - 150.0

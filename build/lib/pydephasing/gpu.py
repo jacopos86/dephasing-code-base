@@ -52,12 +52,12 @@ class GPU_obj:
                             j = th_y + self.BLOCK_SIZE[1] * bl_y
                             k = th_z
                             idx = i + j * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] + k * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] * self.BLOCK_SIZE[1] * self.GRID_SIZE[1]
-                            tx = th_x + th_y * self.BLOCK_SIZE[0] + th_z * self.BLOCK_SIZE[0] * self.BLOCK_SIZE[1]
+                            xx = th_x + th_y * self.BLOCK_SIZE[0] + th_z * self.BLOCK_SIZE[0] * self.BLOCK_SIZE[1]
                             if idx < data.shape[0]:
-                                arr[tx] += data[idx]
+                                arr[xx] += data[idx]
         return arr
-    def recover_data_from_grid_atr(self, data, na, nt):
-        arr = np.zeros((nt,na), dtype=type(data[0]))
+    def recover_data_from_grid_apr(self, data, n, nx):
+        arr = np.zeros((nx,n), dtype=type(data[0]))
         for th_x in range(self.BLOCK_SIZE[0]):
             for th_y in range(self.BLOCK_SIZE[1]):
                 for th_z in range(self.BLOCK_SIZE[2]):
@@ -67,9 +67,44 @@ class GPU_obj:
                             j = th_y + self.BLOCK_SIZE[1] * bl_y
                             k = th_z
                             idx = i + j * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] + k * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] * self.BLOCK_SIZE[1] * self.GRID_SIZE[1]
-                            tx  = th_x + th_y * self.BLOCK_SIZE[0] + th_z * self.BLOCK_SIZE[0] * self.BLOCK_SIZE[1]
-                            ax  = bl_x + bl_y * self.GRID_SIZE[0]
-                            if tx < nt and ax < na:
-                                arr[tx,ax] = data[idx]
+                            xx  = th_x + th_y * self.BLOCK_SIZE[0] + th_z * self.BLOCK_SIZE[0] * self.BLOCK_SIZE[1]
+                            mx  = bl_x + bl_y * self.GRID_SIZE[0]
+                            if xx < nx and mx < n:
+                                arr[xx,mx] = data[idx]
+        return arr
+    def recover_raman_force_from_grid(self, data, njby, nx):
+        arr = np.zeros((njby,nx), dtype=type(data[0]))
+        for th_x in range(self.BLOCK_SIZE[0]):
+            for th_y in range(self.BLOCK_SIZE[1]):
+                for th_z in range(self.BLOCK_SIZE[2]):
+                    for bl_x in range(self.GRID_SIZE[0]):
+                        for bl_y in range(self.GRID_SIZE[1]):
+                            i = th_x + self.BLOCK_SIZE[0] * bl_x
+                            j = th_y + self.BLOCK_SIZE[1] * bl_y
+                            k = th_z
+                            idx = i + j * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] + k * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] * self.BLOCK_SIZE[1] * self.GRID_SIZE[1]
+                            mx = th_x + th_y * self.BLOCK_SIZE[0] + th_z * self.BLOCK_SIZE[0] * self.BLOCK_SIZE[1]
+                            jx = bl_x + bl_y * self.GRID_SIZE[0]
+                            if jx < njby and mx < nx:
+                                arr[jx,mx] = data[idx]
+        return arr
+    def recover_eff_force_from_grid(self, Flqlqp, Flmqlqp, Flqlmqp, Flmqlmqp, nb, nthr):
+        arr = np.zeros((4,nthr), dtype=np.complex128)
+        for th_x in range(self.BLOCK_SIZE[0]):
+            for th_y in range(self.BLOCK_SIZE[1]):
+                for th_z in range(self.BLOCK_SIZE[2]):
+                    for bl_x in range(self.GRID_SIZE[0]):
+                        for bl_y in range(self.GRID_SIZE[1]):
+                            i = th_x + self.BLOCK_SIZE[0] * bl_x
+                            j = th_y + self.BLOCK_SIZE[1] * bl_y
+                            k = th_z
+                            idx = i + j * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] + k * self.BLOCK_SIZE[0] * self.GRID_SIZE[0] * self.BLOCK_SIZE[1] * self.GRID_SIZE[1]
+                            xx = th_x + th_y * self.BLOCK_SIZE[0] + th_z * self.BLOCK_SIZE[0] * self.BLOCK_SIZE[1]
+                            bx = bl_x + bl_y * self.GRID_SIZE[0]
+                            if xx < nthr and bx < nb:
+                                arr[0,xx] += Flqlqp[idx]
+                                arr[1,xx] += Flmqlqp[idx]
+                                arr[2,xx] += Flqlmqp[idx]
+                                arr[3,xx] += Flmqlmqp[idx]
         return arr
 #

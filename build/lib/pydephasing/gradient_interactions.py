@@ -9,8 +9,8 @@ import os
 import numpy as np
 import yaml
 import logging
-from sklearn.model_selection import train_test_split
-from sklearn.neural_network import MLPRegressor
+from pydephasing.neural_network_class import generate_NN_object
+from pydephasing.utility_functions import print_2D_matrix
 from pydephasing.phys_constants import eps
 from pydephasing.input_parameters import p
 from pydephasing.atomic_list_struct import atoms
@@ -23,17 +23,9 @@ from tqdm import tqdm
 from abc import ABC
 #
 class perturbation_ZFS(ABC):
-	def __init__(self, out_dir, atoms_info):
+	def __init__(self, out_dir):
 		# out dir
-		self.out_dir = out_dir
-		# read atoms info data
-		try:
-			f = open(atoms_info)
-		except:
-			msg = "could not find: " + atoms_info
-			log.error(msg)
-		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
-		f.close()
+		self.out_dir = out_dir	
 	# read outcar file
 	def read_outcar_diag(self, outcar):
 		# read file
@@ -59,7 +51,7 @@ class perturbation_ZFS(ABC):
 				D = np.array([Dxx, Dyy, Dzz])
 		f.close()
 		if D is None:
-			log.error(outcar + " ZFS: not found")
+			log.error("\t " + outcar + " -> ZFS: NOT FOUND")
 		return D
 	# read full tensor from outcar
 	def read_outcar_full(self, outcar):
@@ -91,7 +83,7 @@ class perturbation_ZFS(ABC):
 				D[2,1] = Dyz
 		f.close()
 		if D is None:
-			log.error(outcar + " ZFS: not found")
+			log.error("\t " + outcar + " ZFS -> NOT FOUND")
 		return D
 	# eliminate noise
 	def compute_noise(self, displ_structs):
@@ -117,7 +109,7 @@ class perturbation_ZFS(ABC):
 		self.Dns = np.zeros((3,3))
 		# run over atoms
 		# start from half of list
-		for ia in range(int(2*nat/3)+1, nat):
+		for ia in range(int(p.frac_kept_atoms*nat)+1, nat):
 			iia = at_index[ia]
 			for idx in range(3):
 				pair = '(' + str(iia+1) + ',' + str(idx+1) + ')'
@@ -167,7 +159,15 @@ class perturbation_ZFS(ABC):
 class gradient_ZFS(perturbation_ZFS):
 	# initialization
 	def __init__(self, out_dir, atoms_info):
-		super().__init__(out_dir, atoms_info)
+		super().__init__(out_dir)
+		# read atoms info data
+		try:
+			f = open(atoms_info)
+		except:
+			msg = "\t COULD NOT FIND: " + atoms_info
+			log.error(msg)
+		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
+		f.close()
 		# set other variables
 		self.gradDtensor = None
 		self.U_gradD_U = None
@@ -283,7 +283,7 @@ class gradient_ZFS(perturbation_ZFS):
 				outcar = "{}".format(out_dir_full + file_name)
 				Dc2 = self.read_outcar_full(outcar)
 				#
-				log.info(str(ia+1)+'-'+str(idx+1)+'-> gradD plotted')
+				log.info('\t ' + str(ia+1)+'-'+str(idx+1)+' -> GRAD_D PLOTTED')
 				Dxy = [Dc2[0,1], Dc0[0,1], Dc1[0,1]]
 				Dxz = [Dc2[0,2], Dc0[0,2], Dc1[0,2]]
 				Dyz = [Dc2[1,2], Dc0[1,2], Dc1[1,2]]
@@ -365,11 +365,34 @@ class gradient_ZFS(perturbation_ZFS):
 		#
 		#   (THz/ang) units
 		#
+#  ------------------------------------------------------------------
 #
+#               2nd order gradient classes
+#
+# -------------------------------------------------------------------
+def generate_2nd_order_grad_instance(out_dir, atoms_info):
+	# read atoms info data
+	try:
+		f = open(atoms_info)
+	except:
+		msg = "\t COULD NOT FIND: " + atoms_info
+		log.error(msg)
+	atoms_info_dict = yaml.load(f, Loader=yaml.Loader)
+	f.close()
+	# select model
+	if atoms_info_dict['NN_model'] == "MLP":
+		return gradient_2nd_ZFS_MLP(out_dir, atoms_info_dict)
+	elif atoms_info_dict['NN_model'] == "DNN":
+		return gradient_2nd_ZFS_DNN(out_dir, atoms_info_dict)
+	else:
+		log.error("Wrong neural network model selection : MLP / DNN")
+#
+#   base 2nd order gradient
 class gradient_2nd_ZFS(perturbation_ZFS):
 	# initialization
-	def __init__(self, out_dir, atoms_info):
-		super().__init__(out_dir, atoms_info)
+	def __init__(self, out_dir, atoms_info_dict):
+		super().__init__(out_dir)
+		self.atom_info_dict = atoms_info_dict
 		# set other variables
 		self.grad2Dtensor = None
 		self.U_grad2D_U = None
@@ -390,11 +413,15 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			self.dmax_defect = np.inf
 		else:
 			self.dmax_defect = self.atom_info_dict['max_dist_from_defect']
+		if mpi.rank == mpi.root:
+			log.info("\t Neural network model : " + self.atom_info_dict['NN_model'])
 	#
 	# main driver to compute U grad2D U
 	def compute_2nd_order_gradients(self, displ_structs):
 		# compute noise
 		self.compute_noise(displ_structs)
+		if mpi.rank == mpi.root:
+			print_2D_matrix(self.Dns)
 		# set NN model to find missing terms
 		nat = self.struct_0.nat
 		jax_list = mpi.random_split(range(3*nat))
@@ -449,12 +476,12 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 				if poscar in poscar_files:
 					poscar_files.remove(poscar)
 				else:
-					log.warning(poscar + "not found in" + self.default_poscar_dir)
+					log.warning("\t " + poscar + " FILE NOT FOUND IN " + self.default_poscar_dir)
 				poscar = "POSCAR-" + str(ia+1) + '-' + str(idx+1) + "-2"
 				if poscar in poscar_files:
 					poscar_files.remove(poscar)
 				else:
-					log.warning(poscar + "not found in" + self.default_poscar_dir)
+					log.warning("\t " + poscar + " FILE NOT FOUND IN " + self.default_poscar_dir)
 		# eliminate poscars located on different processor
 		tmp_list = []
 		for poscar in poscar_files:
@@ -495,28 +522,28 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 					outcar = "{}".format(out_dir_full + file_name)
 					isExist = os.path.exists(outcar)
 					if not isExist:
-						log.error(outcar + " not found")
+						log.error("\t " + outcar + " FILE NOT FOUND")
 					Dax1 = self.read_outcar_full(outcar)
 					# first order outcars
 					file_name = str(ia+1) + '-' + str(idx+1) + '-2/OUTCAR'
 					outcar = "{}".format(out_dir_full + file_name)
 					isExist = os.path.exists(outcar)
 					if not isExist:
-						log.error(outcar + " not found")
+						log.error("\t " + outcar + " FILE NOT FOUND")
 					Dax2 = self.read_outcar_full(outcar)
 					# jby first order
 					file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
 					outcar = "{}".format(out_dir_full + file_name)
 					isExist = os.path.exists(outcar)
 					if not isExist:
-						log.error(outcar + " not found")
+						log.error("\t " + outcar + " FILE NOT FOUND")
 					Dby1 = self.read_outcar_full(outcar)
 					# jby first order
 					file_name = str(ib+1) + '-' + str(idy+1) + '-2/OUTCAR'
 					outcar = "{}".format(out_dir_full + file_name)
 					isExist = os.path.exists(outcar)
 					if not isExist:
-						log.error(outcar + " not found")
+						log.error("\t " + outcar + " FILE NOT FOUND")
 					Dby2 = self.read_outcar_full(outcar)
 					# remove file from list
 					poscar = "POSCAR-" + str(ia+1) + '-' + str(idx+1) + '-' + str(ib+1) + '-' + str(idy+1)
@@ -531,7 +558,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 						poscar = "{}".format(self.default_poscar_dir + '/' + poscar)
 						posExist = os.path.exists(poscar)
 						if not outExist and posExist:
-							log.error(outcar + "not found in" + out_dir_full)
+							log.error("\t " + outcar + " FILE NOT FOUND IN : " + out_dir_full)
 						elif outExist and posExist:
 							# 2nd order D
 							Daxby = self.read_outcar_full(outcar)
@@ -554,216 +581,79 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 							pass
 		#
 		if len(poscar_files) != 0:
-			log.warning("poscar list not empty: " + str(len(poscar_files)))
+			log.warning("\t POSCAR LIST NOT EMPTY: " + str(len(poscar_files)))
 		mpi.comm.Barrier()
 		input_data = [input_00, input_01, input_02, input_11, input_12, input_22]
 		output_data = [output_00, output_01, output_02, output_11, output_12, output_22]
 		return input_data, output_data
 	#
-	# learn model MLP network
+	# learn model network
 	def learn_network_model(self, input_data, output_data, write_dir):
+		params = self.atom_info_dict['NN_parameters']
 		# build neural network to learn missing Daxby
 		# given input layer :
 		# 1) Dax(h) 2) Dax(-h) 3) Dby(h) 4) Dby(-h) 4) 1-d/L 5) 1-(d/L)^2
 		# first make training+test set
 		# input data
 		[input_00, input_01, input_02, input_11, input_12, input_22] = input_data
+		params['input_shape'] = np.array(input_00).shape[1]
 		# output data
 		[output_00, output_01, output_02, output_11, output_12, output_22] = output_data
-		# make model
-		X_train, X_test_00, y_train, y_test_00 = train_test_split(input_00,output_00,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_00 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#
-		X_train, X_test_01, y_train, y_test_01 = train_test_split(input_01,output_01,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_01 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#print(self.regr_01.predict(X_test_01[:20]), y_test_01[:20])
-		X_train, X_test_02, y_train, y_test_02 = train_test_split(input_02,output_02,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_02 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#
-		X_train, X_test_11, y_train, y_test_11 = train_test_split(input_11,output_11,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_11 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#
-		X_train, X_test_12, y_train, y_test_12 = train_test_split(input_12,output_12,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_12 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-		#
-		X_train, X_test_22, y_train, y_test_22 = train_test_split(input_22,output_22,random_state=104,test_size=0.25,shuffle=True)
-		self.regr_22 = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
+		# set neural network model - 00 component
+		self.NN_obj_00 = generate_NN_object(self.atom_info_dict['NN_model'])
+		self.NN_obj_00.set_model(params)
+		X_test_00, y_test_00 = self.NN_obj_00.fit(params, input_00, output_00)
+		# set neural network - 01 component
+		self.NN_obj_01 = generate_NN_object(self.atom_info_dict['NN_model'])
+		self.NN_obj_01.set_model(params)
+		X_test_01, y_test_01 = self.NN_obj_01.fit(params, input_01, output_01)
+		# set neural network - 02 component
+		self.NN_obj_02 = generate_NN_object(self.atom_info_dict['NN_model'])
+		self.NN_obj_02.set_model(params)
+		X_test_02, y_test_02 = self.NN_obj_02.fit(params, input_02, output_02)
+		# set neural network - 11 component
+		self.NN_obj_11 = generate_NN_object(self.atom_info_dict['NN_model'])
+		self.NN_obj_11.set_model(params)
+		X_test_11, y_test_11 = self.NN_obj_11.fit(params, input_11, output_11)
+		# set neural network - 12 component
+		self.NN_obj_12 = generate_NN_object(self.atom_info_dict['NN_model'])
+		self.NN_obj_12.set_model(params)
+		X_test_12, y_test_12 = self.NN_obj_12.fit(params, input_12, output_12)
+		# set neural network - 22 component
+		self.NN_obj_22 = generate_NN_object(self.atom_info_dict['NN_model'])
+		self.NN_obj_22.set_model(params)
+		X_test_22, y_test_22 = self.NN_obj_22.fit(params, input_22, output_22)
 		#
 		if mpi.rank == mpi.root:
-			log.info("regr. network score (00 component): " + str(self.regr_00.score(X_test_00, y_test_00)))
-			log.info("regr. network score (01 component): " + str(self.regr_01.score(X_test_01, y_test_01)))
-			log.info("regr. network score (02 component): " + str(self.regr_02.score(X_test_02, y_test_02)))
-			log.info("regr. network score (11 component): " + str(self.regr_11.score(X_test_11, y_test_11)))
-			log.info("regr. network score (12 component): " + str(self.regr_12.score(X_test_12, y_test_12)))
-			log.info("regr. network score (22 component): " + str(self.regr_22.score(X_test_22, y_test_22)))
-			log.info("n. layers multi layer perceptron network component: " + str(self.regr_00.n_layers_))
-			log.info("model shape: " + str(len(self.regr_00.coefs_)))
+			log.info("\n")
+			log.info("\t " + p.sep)
+			log.info("\t REGR. NETWORK SCORE (00 COMPONENT): " + self.NN_obj_00.get_score(X_test_00, y_test_00))
+			log.info("\t REGR. NETWORK SCORE (01 COMPONENT): " + self.NN_obj_01.get_score(X_test_01, y_test_01))
+			log.info("\t REGR. NETWORK SCORE (02 COMPONENT): " + self.NN_obj_02.get_score(X_test_02, y_test_02))
+			log.info("\t REGR. NETWORK SCORE (11 COMPONENT): " + self.NN_obj_11.get_score(X_test_11, y_test_11))
+			log.info("\t REGR. NETWORK SCORE (12 COMPONENT): " + self.NN_obj_12.get_score(X_test_12, y_test_12))
+			log.info("\t REGR. NETWORK SCORE (22 COMPONENT): " + self.NN_obj_22.get_score(X_test_22, y_test_22))
+			log.info("\t " + p.sep)
+			log.info("\n")
 			if log.level <= logging.INFO:
 				file_name = "grad2D_mlp_test.yml"
 				file_name = "{}".format(write_dir + '/' + file_name)
 				data = {'00': [None]*2, '01': [None]*2, '02': [None]*2, '11': [None]*2, '12': [None]*2, '22': [None]*2}
 				data['00'][0] = y_test_00
-				data['00'][1] = self.regr_00.predict(X_test_00)
+				data['00'][1] = self.NN_obj_00.predict(X_test_00)
 				data['01'][0] = y_test_01
-				data['01'][1] = self.regr_01.predict(X_test_01)
+				data['01'][1] = self.NN_obj_01.predict(X_test_01)
 				data['02'][0] = y_test_02
-				data['02'][1] = self.regr_02.predict(X_test_02)
+				data['02'][1] = self.NN_obj_02.predict(X_test_02)
 				data['11'][0] = y_test_11
-				data['11'][1] = self.regr_11.predict(X_test_11)
+				data['11'][1] = self.NN_obj_11.predict(X_test_11)
 				data['12'][0] = y_test_12
-				data['12'][1] = self.regr_12.predict(X_test_12)
+				data['12'][1] = self.NN_obj_12.predict(X_test_12)
 				data['22'][0] = y_test_22
-				data['22'][1] = self.regr_22.predict(X_test_22)
+				data['22'][1] = self.NN_obj_22.predict(X_test_22)
 				with open(file_name, 'w') as out_file:
 					yaml.dump(data, out_file)
 		mpi.comm.Barrier()
-	#
-	# compute tensor 2nd derivative
-	def compute_2nd_derivative_tensor(self, jax_list, displ_structs):
-		# n. atoms
-		nat = self.struct_0.nat
-		# initialize grad ^ 2 D
-		self.grad2Dtensor = np.zeros((3*nat, 3*nat, 3, 3))
-		# set reference ZFS
-		D = self.struct_0.Dtensor
-		# lattice parameters
-		L1, L2, L3 = self.struct_0.struct.lattice.abc
-		L = np.sqrt(L1**2 + L2**2 + L3**2)
-		# dr0
-		out_dir_full = self.out_dir + '/' + self.default_dir
-		for displ_struct in displ_structs:
-			if displ_struct.outcars_dir == out_dir_full:
-				dr0 = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
-				# Ang units
-			else:
-				pass
-		if dr0 is None:
-			log.error("default atomic displacement not found")
-		# run over jax list
-		for jax in tqdm(jax_list):
-			ia = atoms.index_to_ia_map[jax]-1
-			idx= atoms.index_to_idx_map[jax]
-			# distance from defect center
-			da = self.struct_0.struct.get_distance(ia, self.defect_index)
-			for ib in range(ia, nat):
-				# distance from defect center
-				db = self.struct_0.struct.get_distance(ib, self.defect_index)
-				# distance d(a,b)
-				dab= self.struct_0.struct.get_distance(ia, ib)
-				# check distance condition
-				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
-					for idy in range(3):
-						jby = ib*3+idy
-						iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
-						if iaxby in self.atom_info_dict.keys():
-							outcars_dir = self.atom_info_dict[iaxby]
-						else:
-							outcars_dir = self.default_dir
-						out_dir_full = ''
-						out_dir_full = self.out_dir + '/' + outcars_dir
-						# displ. structs
-						for displ_struct in displ_structs:
-							if displ_struct.outcars_dir == out_dir_full:
-								dr = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
-								# ang units
-							else:
-								pass
-						out_dir_full += '/'
-						# first order outcars
-						file_name = str(ia+1) + '-' + str(idx+1) + '-1/OUTCAR'
-						outcar = "{}".format(out_dir_full + file_name)
-						isExist = os.path.exists(outcar)
-						if not isExist:
-							log.error(outcar + " not found")
-						Dax1 = self.read_outcar_full(outcar)
-						# first order outcars
-						file_name = str(ia+1) + '-' + str(idx+1) + '-2/OUTCAR'
-						outcar = "{}".format(out_dir_full + file_name)
-						isExist = os.path.exists(outcar)
-						if not isExist:
-							log.error(outcar + " not found")
-						Dax2 = self.read_outcar_full(outcar)
-						# first order jby
-						file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
-						outcar = "{}".format(out_dir_full + file_name)
-						isExist = os.path.exists(outcar)
-						if not isExist:
-							log.error(outcar + " not found")
-						Dby1 = self.read_outcar_full(outcar)
-						# read outcar
-						file_name = str(ib+1) + '-' + str(idy+1) + '-2/OUTCAR'
-						outcar = "{}".format(out_dir_full + file_name)
-						isExist = os.path.exists(outcar)
-						if not isExist:
-							log.error(outcar + " not found")
-						Dby2 = self.read_outcar_full(outcar)
-						# distances
-						x1 = 1. - dab/L
-						x2 = 1. - (dab/L) ** 2
-						# Daxby calculation
-						Daxby = np.zeros((3,3))
-						input_00 = [x1, x2, Dax1[0,0]-D[0,0], Dax2[0,0]-D[0,0], Dby1[0,0]-D[0,0], Dby2[0,0]-D[0,0]]
-						Daxby[0,0] = D[0,0] + self.regr_00.predict([input_00])
-						#
-						input_01 = [x1, x2, Dax1[0,1]-D[0,1], Dax2[0,1]-D[0,1], Dby1[0,1]-D[0,1], Dby2[0,1]-D[0,1]]
-						Daxby[0,1] = D[0,1] + self.regr_01.predict([input_01])
-						Daxby[1,0] = Daxby[0,1]
-						#
-						input_02 = [x1, x2, Dax1[0,2]-D[0,2], Dax2[0,2]-D[0,2], Dby1[0,2]-D[0,2], Dby2[0,2]-D[0,2]]
-						Daxby[0,2] = D[0,2] + self.regr_02.predict([input_02])
-						Daxby[2,0] = Daxby[0,2]
-						#
-						input_11 = [x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]]
-						Daxby[1,1] = D[1,1] + self.regr_11.predict([input_11])
-						#
-						input_12 = [x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]]
-						Daxby[1,2] = D[1,2] + self.regr_12.predict([input_12])
-						Daxby[2,1] = Daxby[1,2]
-						#
-						input_22 = [x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]]
-						Daxby[2,2] = D[2,2] + self.regr_22.predict([input_22])
-						# subtract noise
-						dDax = np.zeros((3,3))
-						dDax[:,:] = np.abs(Dax1[:,:]-D[:,:])*dr0[idx]/dr[idx]
-						for i1 in range(3):
-							for i2 in range(3):
-								if dDax[i1,i2] <= self.Dns[i1,i2]:
-									Dax1[i1,i2] = D[i1,i2]
-						#
-						dDby = np.zeros((3,3))
-						dDby[:,:] = np.abs(Dby1[:,:]-D[:,:])*dr0[idx]/dr[idx]
-						for i1 in range(3):
-							for i2 in range(3):
-								if dDby[i1,i2] <= self.Dns[i1,i2]:
-									Dby1[i1,i2] = D[i1,i2]
-						# Daxby
-						dDaxby = np.zeros((3,3))
-						dDaxby[:,:] = np.abs(Daxby[:,:]-D[:,:])*dr0[idx]/dr[idx]
-						for i1 in range(3):
-							for i2 in range(3):
-								if dDaxby[i1,i2] <= self.Dns[i1,i2]:
-									Daxby[i1,i2] = D[i1,i2]
-						# grad2 D
-						self.grad2Dtensor[jax,jby,0,0] = (Daxby[0,0] - Dax1[0,0] - Dby1[0,0] + D[0,0]) / (dr[idx] * dr[idy])
-						self.grad2Dtensor[jax,jby,0,1] = (Daxby[0,1] - Dax1[0,1] - Dby1[0,1] + D[0,1]) / (dr[idx] * dr[idy])
-						self.grad2Dtensor[jax,jby,1,0] = self.grad2Dtensor[jax,jby,0,1]
-						self.grad2Dtensor[jax,jby,0,2] = (Daxby[0,2] - Dax1[0,2] - Dby1[0,2] + D[0,2]) / (dr[idx] * dr[idy])
-						self.grad2Dtensor[jax,jby,2,0] = self.grad2Dtensor[jax,jby,0,2]
-						self.grad2Dtensor[jax,jby,1,1] = (Daxby[1,1] - Dax1[1,1] - Dby1[1,1] + D[1,1]) / (dr[idx] * dr[idy])
-						self.grad2Dtensor[jax,jby,1,2] = (Daxby[1,2] - Dax1[1,2] - Dby1[1,2] + D[1,2]) / (dr[idx] * dr[idy])
-						self.grad2Dtensor[jax,jby,2,1] = self.grad2Dtensor[jax,jby,1,2]
-						self.grad2Dtensor[jax,jby,2,2] = (Daxby[2,2] - Dax1[2,2] - Dby1[2,2] + D[2,2]) / (dr[idx] * dr[idy])
-						#
-						if jax != jby:
-							self.grad2Dtensor[jby,jax,:,:] = self.grad2Dtensor[jax,jby,:,:]
-				else:
-					pass
-		#
-		# MHz / ang^2 units
-		#
-		if mpi.rank == mpi.root:
-			log.info("\n")
-			log.info("grad_axby calculation completed")
 	#
 	# set grad_a grad_b D tensor -> quantization coordinate system
 	#
@@ -832,17 +722,384 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 					for idy in range(3):
 						jby = ib*3+idy
 						if np.abs(self.grad2Dtensor[jax,jby,0,0]-g2D00) > 1.E6:
-							log.warning('00 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 00 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,0,1]-g2D01) > 1.E6:
-							log.warning('01 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 01 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,0,2]-g2D02) > 1.E6:
-							log.warning('02 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 02 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,1,1]-g2D11) > 1.E6:
-							log.warning('11 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 11 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,1,2]-g2D12) > 1.E6:
-							log.warning('12 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 12 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
 						if np.abs(self.grad2Dtensor[jax,jby,2,2]-g2D22) > 1.E6:
-							log.warning('22 component :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > average by 1.E+3' )
+							log.warning('\t 22 COMPONENT :' + str(ia) + ' - ' + str(idx) + ' - ' + str(ib) + ' - ' + str(idy) + ' > AVERAGE BY 1.E+3' )
+# 
+#    MLP
+#    2nd order ZFS gradient class
+#    
+class gradient_2nd_ZFS_MLP(gradient_2nd_ZFS):
+	def __init__(self, out_dir, atoms_info_dict):
+		super(gradient_2nd_ZFS_MLP, self).__init__(out_dir, atoms_info_dict)
+	#
+	# compute tensor 2nd derivative
+	def compute_2nd_derivative_tensor(self, jax_list, displ_structs):
+		# n. atoms
+		nat = self.struct_0.nat
+		# initialize grad ^ 2 D
+		self.grad2Dtensor = np.zeros((3*nat, 3*nat, 3, 3))
+		# set reference ZFS
+		D = self.struct_0.Dtensor
+		# lattice parameters
+		L1, L2, L3 = self.struct_0.struct.lattice.abc
+		L = np.sqrt(L1**2 + L2**2 + L3**2)
+		# dr0
+		out_dir_full = self.out_dir + '/' + self.default_dir
+		for displ_struct in displ_structs:
+			if displ_struct.outcars_dir == out_dir_full:
+				dr0 = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
+				# Ang units
+			else:
+				pass
+		if dr0 is None:
+			log.error("\t DEFAULT ATOM DISPLACEMENT NOT FOUND")
+		# run over jax list
+		for jax in tqdm(jax_list):
+			ia = atoms.index_to_ia_map[jax]-1
+			idx= atoms.index_to_idx_map[jax]
+			# distance from defect center
+			da = self.struct_0.struct.get_distance(ia, self.defect_index)
+			for ib in range(ia, nat):
+				# distance from defect center
+				db = self.struct_0.struct.get_distance(ib, self.defect_index)
+				# distance d(a,b)
+				dab= self.struct_0.struct.get_distance(ia, ib)
+				# check distance condition
+				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
+					for idy in range(3):
+						jby = ib*3+idy
+						iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
+						if iaxby in self.atom_info_dict.keys():
+							outcars_dir = self.atom_info_dict[iaxby]
+						else:
+							outcars_dir = self.default_dir
+						out_dir_full = ''
+						out_dir_full = self.out_dir + '/' + outcars_dir
+						# displ. structs
+						for displ_struct in displ_structs:
+							if displ_struct.outcars_dir == out_dir_full:
+								dr = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
+								# ang units
+							else:
+								pass
+						out_dir_full += '/'
+						# first order outcars
+						file_name = str(ia+1) + '-' + str(idx+1) + '-1/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dax1 = self.read_outcar_full(outcar)
+						# first order outcars
+						file_name = str(ia+1) + '-' + str(idx+1) + '-2/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dax2 = self.read_outcar_full(outcar)
+						# first order jby
+						file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dby1 = self.read_outcar_full(outcar)
+						# read outcar
+						file_name = str(ib+1) + '-' + str(idy+1) + '-2/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dby2 = self.read_outcar_full(outcar)
+						# distances
+						x1 = 1. - dab/L
+						x2 = 1. - (dab/L) ** 2
+						# Daxby calculation
+						Daxby = np.zeros((3,3))
+						input_00 = [x1, x2, Dax1[0,0]-D[0,0], Dax2[0,0]-D[0,0], Dby1[0,0]-D[0,0], Dby2[0,0]-D[0,0]]
+						Daxby[0,0] = D[0,0] + self.NN_obj_00.predict([input_00])
+						#
+						input_01 = [x1, x2, Dax1[0,1]-D[0,1], Dax2[0,1]-D[0,1], Dby1[0,1]-D[0,1], Dby2[0,1]-D[0,1]]
+						Daxby[0,1] = D[0,1] + self.NN_obj_01.predict([input_01])
+						Daxby[1,0] = Daxby[0,1]
+						#
+						input_02 = [x1, x2, Dax1[0,2]-D[0,2], Dax2[0,2]-D[0,2], Dby1[0,2]-D[0,2], Dby2[0,2]-D[0,2]]
+						Daxby[0,2] = D[0,2] + self.NN_obj_02.predict([input_02])
+						Daxby[2,0] = Daxby[0,2]
+						#
+						input_11 = [x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]]
+						Daxby[1,1] = D[1,1] + self.NN_obj_11.predict([input_11])
+						#
+						input_12 = [x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]]
+						Daxby[1,2] = D[1,2] + self.NN_obj_12.predict([input_12])
+						Daxby[2,1] = Daxby[1,2]
+						#
+						input_22 = [x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]]
+						Daxby[2,2] = D[2,2] + self.NN_obj_22.predict([input_22])
+						# subtract noise
+						dDax = np.zeros((3,3))
+						dDax[:,:] = np.abs(Dax1[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDax[i1,i2] <= self.Dns[i1,i2]:
+									Dax1[i1,i2] = D[i1,i2]
+						#
+						dDby = np.zeros((3,3))
+						dDby[:,:] = np.abs(Dby1[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDby[i1,i2] <= self.Dns[i1,i2]:
+									Dby1[i1,i2] = D[i1,i2]
+						# Daxby
+						dDaxby = np.zeros((3,3))
+						dDaxby[:,:] = np.abs(Daxby[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDaxby[i1,i2] <= self.Dns[i1,i2]:
+									Daxby[i1,i2] = D[i1,i2]
+						# grad2 D
+						self.grad2Dtensor[jax,jby,0,0] = (Daxby[0,0] - Dax1[0,0] - Dby1[0,0] + D[0,0]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,0,1] = (Daxby[0,1] - Dax1[0,1] - Dby1[0,1] + D[0,1]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,1,0] = self.grad2Dtensor[jax,jby,0,1]
+						self.grad2Dtensor[jax,jby,0,2] = (Daxby[0,2] - Dax1[0,2] - Dby1[0,2] + D[0,2]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,2,0] = self.grad2Dtensor[jax,jby,0,2]
+						self.grad2Dtensor[jax,jby,1,1] = (Daxby[1,1] - Dax1[1,1] - Dby1[1,1] + D[1,1]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,1,2] = (Daxby[1,2] - Dax1[1,2] - Dby1[1,2] + D[1,2]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,2,1] = self.grad2Dtensor[jax,jby,1,2]
+						self.grad2Dtensor[jax,jby,2,2] = (Daxby[2,2] - Dax1[2,2] - Dby1[2,2] + D[2,2]) / (dr[idx] * dr[idy])
+						#
+						if jax != jby:
+							self.grad2Dtensor[jby,jax,:,:] = self.grad2Dtensor[jax,jby,:,:]
+				else:
+					pass
+		#
+		# MHz / ang^2 units
+		#
+		if mpi.rank == mpi.root:
+			log.info("\n")
+			log.info("\t " + p.sep)
+			log.info("\t GRAD_ax;by CALCULATION COMPLETED")
+			log.info("\t " + p.sep)
+			log.info("\n")
+#
+#   DNN
+#   2nd order ZFS gradient class
+#
+class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
+	def __init__(self, out_dir, atoms_info_dict):
+		super(gradient_2nd_ZFS_DNN, self).__init__(out_dir, atoms_info_dict)
+	#
+	# compute tensor 2nd derivative
+	def compute_2nd_derivative_tensor(self, jax_list, displ_structs):
+		# n. atoms
+		nat = self.struct_0.nat
+		# initialize grad^2 D
+		self.grad2Dtensor = np.zeros((3*nat, 3*nat, 3, 3))
+		# reference ZFS
+		D = self.struct_0.Dtensor
+		# lattice parameters
+		L1, L2, L3 = self.struct_0.struct.lattice.abc
+		L = np.sqrt(L1**2 + L2**2 + L3**2)
+		# dr0
+		out_dir_full = self.out_dir + '/' + self.default_dir
+		for displ_struct in displ_structs:
+			if displ_struct.outcars_dir == out_dir_full:
+				dr0 = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
+				# ang units
+			else:
+				pass
+		if dr0 is None:
+			log.error("\t DEFAULT ATOM DISPLACEMENT NOT FOUND")
+		# input lists for NN model
+		input_00 = []
+		input_01 = []
+		input_02 = []
+		input_11 = []
+		input_12 = []
+		input_22 = []
+		Dax1_lst = []
+		Dby1_lst = []
+		# run jax list
+		for jax in tqdm(jax_list):
+			ia = atoms.index_to_ia_map[jax]-1
+			idx= atoms.index_to_idx_map[jax]
+			# distance from defect
+			da = self.struct_0.struct.get_distance(ia, self.defect_index)
+			for ib in range(ia, nat):
+				# distance from defect
+				db = self.struct_0.struct.get_distance(ib, self.defect_index)
+				# distance d(a,b)
+				dab = self.struct_0.struct.get_distance(ia, ib)
+				# check distance
+				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
+					for idy in range(3):
+						iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
+						if iaxby in self.atom_info_dict.keys():
+							outcars_dir = self.atom_info_dict[iaxby]
+						else:
+							outcars_dir = self.default_dir
+						out_dir_full = ''
+						out_dir_full = self.out_dir + '/' + outcars_dir
+						out_dir_full += '/'
+						# first order outcars
+						file_name = str(ia+1) + '-' + str(idx+1) + '-1/OUTCAR'			
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dax1 = self.read_outcar_full(outcar)
+						Dax1_lst.append(Dax1)
+						# first order outcars
+						file_name = str(ia+1) + '-' + str(idx+1) + '-2/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dax2 = self.read_outcar_full(outcar)
+						# first order jby
+						file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dby1 = self.read_outcar_full(outcar)
+						Dby1_lst.append(Dby1)
+						# read outcar
+						file_name = str(ib+1) + '-' + str(idy+1) + '-2/OUTCAR'
+						outcar = "{}".format(out_dir_full + file_name)
+						isExist = os.path.exists(outcar)
+						if not isExist:
+							log.error("\t " + outcar + " FILE NOT FOUND")
+						Dby2 = self.read_outcar_full(outcar)
+						# distances
+						x1 = 1. - dab/L
+						x2 = 1. - (dab/L) ** 2
+						# append data to compute
+						input_00.append([x1, x2, Dax1[0,0]-D[0,0], Dax2[0,0]-D[0,0], Dby1[0,0]-D[0,0], Dby2[0,0]-D[0,0]])
+						input_01.append([x1, x2, Dax1[0,1]-D[0,1], Dax2[0,1]-D[0,1], Dby1[0,1]-D[0,1], Dby2[0,1]-D[0,1]])
+						input_02.append([x1, x2, Dax1[0,2]-D[0,2], Dax2[0,2]-D[0,2], Dby1[0,2]-D[0,2], Dby2[0,2]-D[0,2]])
+						input_11.append([x1, x2, Dax1[1,1]-D[1,1], Dax2[1,1]-D[1,1], Dby1[1,1]-D[1,1], Dby2[1,1]-D[1,1]])
+						input_12.append([x1, x2, Dax1[1,2]-D[1,2], Dax2[1,2]-D[1,2], Dby1[1,2]-D[1,2], Dby2[1,2]-D[1,2]])
+						input_22.append([x1, x2, Dax1[2,2]-D[2,2], Dax2[2,2]-D[2,2], Dby1[2,2]-D[2,2], Dby2[2,2]-D[2,2]])
+		# predict Daxby
+		Daxby_00 = self.NN_obj_00.predict(input_00)
+		if mpi.rank == mpi.root:
+			log.info("\t 00 component computed")
+		Daxby_01 = self.NN_obj_01.predict(input_01)
+		if mpi.rank == mpi.root:
+			log.info("\t 01 component computed")
+		Daxby_02 = self.NN_obj_02.predict(input_02)
+		if mpi.rank == mpi.root:
+			log.info("\t 02 component computed")
+		Daxby_11 = self.NN_obj_11.predict(input_11)
+		if mpi.rank == mpi.root:
+			log.info("\t 11 component computed")
+		Daxby_12 = self.NN_obj_12.predict(input_12)
+		if mpi.rank == mpi.root:
+			log.info("\t 12 component computed")
+		Daxby_22 = self.NN_obj_22.predict(input_22)
+		if mpi.rank == mpi.root:
+			log.info("\t 22 component computed")
+		# compute tensor gradient
+		ii = 0
+		for jax in jax_list:
+			ia = atoms.index_to_ia_map[jax] - 1
+			idx= atoms.index_to_idx_map[jax]
+			# distance from defect
+			da = self.struct_0.struct.get_distance(ia, self.defect_index)
+			for ib in range(ia, nat):
+				# distance from defect center
+				db = self.struct_0.struct.get_distance(ib, self.defect_index)
+				# distance d(a,b)
+				dab= self.struct_0.struct.get_distance(ia, ib)
+				# distance cut-off
+				if dab <= self.d_cutoff and da <= self.dmax_defect and db <= self.dmax_defect:
+					for idy in range(3):
+						jby = ib*3+idy
+						iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
+						if iaxby in self.atom_info_dict.keys():
+							outcars_dir = self.atom_info_dict[iaxby]
+						else:
+							outcars_dir = self.default_dir
+						out_dir_full = ''
+						out_dir_full = self.out_dir + '/' + outcars_dir
+						# displ. structs
+						for displ_struct in displ_structs:
+							if displ_struct.outcars_dir == out_dir_full:
+								dr = np.array([displ_struct.dx, displ_struct.dy, displ_struct.dz])
+								# ang units
+							else:
+								pass
+						# Dax1
+						Dax1 = Dax1_lst[ii]
+						# Dby1
+						Dby1 = Dby1_lst[ii]
+						#  Daxby calculation
+						Daxby = np.zeros((3,3))
+						Daxby[0,0] = Daxby_00[ii]
+						Daxby[0,1] = Daxby_01[ii]
+						Daxby[1,0] = Daxby[0,1]
+						Daxby[0,2] = Daxby_02[ii]
+						Daxby[2,0] = Daxby[0,2]
+						Daxby[1,1] = Daxby_11[ii]
+						Daxby[1,2] = Daxby_12[ii]
+						Daxby[2,1] = Daxby[1,2]
+						Daxby[2,2] = Daxby_22[ii]
+						# subtract noise
+						dDax = np.zeros((3,3))
+						dDax[:,:] = np.abs(Dax1[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDax[i1,i2] <= self.Dns[i1,i2]:
+									Dax1[i1,i2] = D[i1,i2]
+						#
+						dDby = np.zeros((3,3))
+						dDby[:,:] = np.abs(Dby1[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDby[i1,i2] <= self.Dns[i1,i2]:
+									Dby1[i1,i2] = D[i1,i2]
+						# Daxby
+						dDaxby = np.zeros((3,3))
+						dDaxby[:,:] = np.abs(Daxby[:,:]-D[:,:])*dr0[idx]/dr[idx]
+						for i1 in range(3):
+							for i2 in range(3):
+								if dDaxby[i1,i2] <= self.Dns[i1,i2]:
+									Daxby[i1,i2] = D[i1,i2]
+						# grad2 D
+						self.grad2Dtensor[jax,jby,0,0] = (Daxby[0,0] - Dax1[0,0] - Dby1[0,0] + D[0,0]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,0,1] = (Daxby[0,1] - Dax1[0,1] - Dby1[0,1] + D[0,1]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,1,0] = self.grad2Dtensor[jax,jby,0,1]
+						self.grad2Dtensor[jax,jby,0,2] = (Daxby[0,2] - Dax1[0,2] - Dby1[0,2] + D[0,2]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,2,0] = self.grad2Dtensor[jax,jby,0,2]
+						self.grad2Dtensor[jax,jby,1,1] = (Daxby[1,1] - Dax1[1,1] - Dby1[1,1] + D[1,1]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,1,2] = (Daxby[1,2] - Dax1[1,2] - Dby1[1,2] + D[1,2]) / (dr[idx] * dr[idy])
+						self.grad2Dtensor[jax,jby,2,1] = self.grad2Dtensor[jax,jby,1,2]
+						self.grad2Dtensor[jax,jby,2,2] = (Daxby[2,2] - Dax1[2,2] - Dby1[2,2] + D[2,2]) / (dr[idx] * dr[idy])
+						#
+						if jax != jby:
+							self.grad2Dtensor[jby,jax,:,:] = self.grad2Dtensor[jax,jby,:,:]
+						ii += 1
+				else:
+					pass
+		#
+		# MHz / ang^2 units
+		#
+		if mpi.rank == mpi.root:
+			log.info("\n")
+			log.info("\t " + p.sep)
+			log.info("\t GRAD_ax;by CALCULATION COMPLETED")
+			log.info("\t " + p.sep)
+			log.info("\n")
 #
 #   class :
 #   gradient hyperfine interaction
@@ -855,7 +1112,7 @@ class perturbation_HFI(ABC):
 		try:
 			f = open(atoms_info)
 		except:
-			msg = "could not find: " + atoms_info
+			msg = "\t " + atoms_info + " FILE NOT FOUND"
 			log.error(msg)
 		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
 		f.close()
@@ -1136,7 +1393,9 @@ class gradient_2nd_HFI(perturbation_HFI):
 		self.ahf_inp_list = []
 		self.ahf_inp_list = mpi.collect_list(inp_list)
 		if mpi.rank == mpi.root:
-			log.info("data acquisition completed ........")
+			log.info("\t 2ND ORDER GRADIENT ACQUISITION COMPLETED")
+			log.info("\t " + p.sep)
+			log.info("\n")
 		mpi.comm.Barrier()
 	#
 	# set gradients
@@ -1158,12 +1417,12 @@ class gradient_2nd_HFI(perturbation_HFI):
 				if poscar in poscar_files:
 					poscar_files.remove(poscar)
 				else:
-					log.warning(poscar + "not found in" + self.default_poscar_dir)
+					log.warning("\t " + poscar + " FILE NOT FOUND IN " + self.default_poscar_dir)
 				poscar = "POSCAR-" + str(ia+1) + '-' + str(idx+1) + "-2"
 				if poscar in poscar_files:
 					poscar_files.remove(poscar)
 				else:
-					log.warning(poscar + "not found in" + self.default_poscar_dir)
+					log.warning("\t " + poscar + " FILE NOT FOUND IN " + self.default_poscar_dir)
 		# eliminate poscar accessed on different procs
 		tmp_list = []
 		for poscar in poscar_files:
@@ -1206,14 +1465,14 @@ class gradient_2nd_HFI(perturbation_HFI):
 						outcar = "{}".format(out_dir_full + file_name)
 						isExist = os.path.exists(outcar)
 						if not isExist:
-							log.error(outcar + " not found")
+							log.error("\t " + outcar + " FILE NOT FOUND")
 						A_ax1 = self.read_full_hfi(outcar, nat)
 						# jby first order outcar
 						file_name = str(ib+1) + '-' + str(idy+1) + '-1/OUTCAR'
 						outcar = "{}".format(out_dir_full + file_name)
 						isExist = os.path.exists(outcar)
 						if not isExist:
-							log.error(outcar + " not found")
+							log.error("\t " + outcar + " FILE NOT FOUND")
 						A_by1 = self.read_full_hfi(outcar, nat)
 						# remove from list
 						poscar = "POSCAR-" + str(ia+1) + '-' + str(idx+1) + '-' + str(ib+1) + '-' + str(idy+1)
@@ -1226,7 +1485,7 @@ class gradient_2nd_HFI(perturbation_HFI):
 						poscar = "{}".format(self.default_poscar_dir + '/' + poscar)
 						posExist = os.path.exists(poscar)
 						if not outExist and posExist:
-							log.error(outcar + "not found in" + out_dir_full)
+							log.error("\t " + outcar + " FILE NOT FOUND IN " + out_dir_full)
 						elif outExist and posExist:
 							# 2nd order A
 							A_axby = self.read_full_hfi(outcar, nat)
@@ -1254,7 +1513,7 @@ class gradient_2nd_HFI(perturbation_HFI):
 							pass
 		#
 		if len(poscar_files) != 0:
-			log.warning("poscar list not empty: " + str(len(poscar_files)))
+			log.warning("\t POSCAR LIST NOT EMPTY : " + str(len(poscar_files)))
 		mpi.comm.Barrier()
 		#
 		return inp_list, input_data, output_data
@@ -1399,7 +1658,7 @@ class gradient_Eg:
 		try:
 			f = open(atoms_info)
 		except:
-			msg = "could not find: " + atoms_info
+			msg = "\t COULD NOT FIND: " + atoms_info
 			log.error(msg)
 		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
 		f.close()

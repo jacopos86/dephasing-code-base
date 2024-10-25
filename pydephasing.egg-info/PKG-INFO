@@ -8,3 +8,9 @@ Author-email: jsimoni@lbl.gov
 License: gpl-3.0
 Keywords: inhomogeneous dephasing,zero field splitting,excitonic gap,hyperfine interaction,DFT
 License-File: LICENSE.txt
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Requires-Dist: pymatgen
+Requires-Dist: mpi4py
+Requires-Dist: statsmodels
