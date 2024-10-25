@@ -2,3 +2,11 @@ input_files
 config.yml
 TESTS
 ./clean_vers_files/TESTS
+./dist
+./pydephasing.egg-info
+./build
+./OLD_VERS
+*.log
+./examples
+scr.sh
+./pydephasing/__pycache__
