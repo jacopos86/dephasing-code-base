@@ -64,14 +64,6 @@ then
 	read ngy
 	echo "  - $ngy" >> config.yml
 fi
- 
-# fix gpu source files headers path
- 
-wd=$(pwd)
-wd+='/pydephasing/gpu_source'
-sed -i "/extern_func.cuh/c\#include \"$wd/extern_func.cuh\"" $wd/compute_acf_V1.cu
-sed -i "/extern_func.cuh/c\#include \"$wd/extern_func.cuh\"" $wd/compute_acf_V2.cu
-exit
 
 # update input test file paths
  
