@@ -1,7 +1,8 @@
 VENV = pydeph
 PYTHON = $(VENV)/bin/python3
 PIP = $(VENV)/bin/pip
-EXAMPLES_FILE = EXAMPLES.tar.gz
+EXAMPLES_FILE = EXAMPLES
+EXAMPLES_TAR_FILE = EXAMPLES.tar.gz
 EXAMPLES_URL = "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
 
 configure : requirements.txt
@@ -13,6 +14,7 @@ build :
 	if [ ! -f $(EXAMPLES_FILE) ] ; \
 	then \
 		gdown --fuzzy $(EXAMPLES_URL) ; \
+		tar -xvzf $(EXAMPLES_TAR_FILE) ; \
 	fi ; \
 	./build.sh
 install :
