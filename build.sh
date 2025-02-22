@@ -2,6 +2,8 @@
 
 [ -e config2.yml ] && rm config.yml
 
+wd=$(pwd)
+
 # log level
 echo "log level: "
 read log_level
@@ -66,24 +68,51 @@ then
 fi
 
 # update input test file paths
- 
- # test 1 -> init
- cd ./TESTS/1
- wd=$(pwd)
- cp ../../clean_vers_files/TESTS/1/input.yml ${wd}
- DIR=${wd}/"GS"
- if [ ! -d "$DIR" ]; then
- 	cp -r ../../examples/CC-TEST/GS ${wd}
- fi
- DIR=${wd}/"COPY-FOLDER"
- if [ ! -d "$DIR" ]; then
- 	cp -r ../../examples/CC-TEST/COPY-FOLDER ${wd}
- fi
- sed -i "s,LOCAL-PATH,$wd," ./input.yml
- 
- # test 2 -> pydephasing - NV center
- cd ../2
- wd=$(pwd)
+# test 1 -> init
+
+if [ -d TESTS ]
+then
+	rm -r TESTS
+fi
+mkdir TESTS
+mkdir TESTS/1
+cd ./TESTS/1
+wdT1=$(pwd)
+
+cat > input.yml <<EOF
+working_dir : ${wdT1}
+unpert_dir :
+   - GS
+displ_poscar_dir :
+   - DISPLACEMENT-FILES-001
+displ_outcar_dir :
+   - DISPL-001
+copy_files_dir : COPY-FOLDER
+displ_ang :
+   - 0.01
+   - 0.01
+   - 0.01
+max_dab : 2.7
+defect_index : 0
+max_dist_from_defect : 5.0
+EOF
+
+DIR=${wdT1}/"GS"
+if [ ! -d "$DIR" ]; then
+	cp -r ${wd}/EXAMPLES/C-CENTER/GS ${wdT1}
+fi
+DIR=${wdT1}/"COPY-FOLDER"
+if [ ! -d "$DIR" ]; then
+	cp -r ${wd}/EXAMPLES/C-CENTER/COPY-FOLDER ${wdT1}
+fi
+exit
+
+# test 2 -> pydephasing - NV center
+
+cd ../
+mkdir ./2
+cd ./2
+wdT2=$(pwd)
  cp ../../clean_vers_files/TESTS/2/inputA.yml ${wd}
  cp ../../clean_vers_files/TESTS/2/inputB.yml ${wd}
  DIR=${wd}/"DISPLACEMENT-FILES-01"
@@ -110,39 +139,3 @@ fi
  fi
  sed -i "s,LOCAL-PATH,$wd," ./inputA.yml
  sed -i "s,LOCAL-PATH,$wd," ./inputB.yml
- 
- # QE2pydeph
- 
- cd ../../
- cp ./clean_vers_files/Makefile .
- echo "install QE2pydeph? "
- read QE2pydeph
- if [ "$QE2pydeph" = "yes" ] || [ "$QE2pydeph" = "y" ]
- then
- 	echo "local QE path :"
- 	read QEpath
- 	sed -i "s,LOCAL-PATH,$QEpath," ./Makefile
- 	DIR=${QEpath}/"QE2pydeph"
- 	if [ -d "$DIR" ]; then
-  		echo "copy examples? "
- 		read cp_examples
- 		if [ "$cp_examples" = "yes" ] || [ "$cp_examples" = "y" ]
- 		then
- 			cp -r ./clean_vers_files/QE_patch/QE2pydeph/examples ${DIR}
- 		fi
- 		cp -r ./clean_vers_files/QE_patch/QE2pydeph/Doc ${DIR}
- 		cp ./clean_vers_files/QE_patch/QE2pydeph/src/*.f90 ${DIR}/src/
- 		cp ./clean_vers_files/QE_patch/QE2pydeph/Makefile ${DIR}
- 		cp ./clean_vers_files/QE_patch/QE2pydeph/README.md ${DIR}
- 	else
- 		cp -r ./clean_vers_files/QE_patch/QE2pydeph/QE2pydeph ${QEpath}
- 	fi
- elif [ "$QE2pydeph" = "no" ] || [ "$QE2pydeph" = "n" ]
- then
- 	QEpath=""
- 	sed -i "s,LOCAL-PATH,$QEpath," ./Makefile
- else
- 	echo "answer: y or n"
- 	sleep 3
- 	exit 1
- fi
