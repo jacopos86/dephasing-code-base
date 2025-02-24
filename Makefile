@@ -24,13 +24,27 @@ install :
 .PHONY :
 	clean
 clean :
-	deactivate; \
 	rm -rf ./pydephasing/*~ ; \
-	rm -rf ./pydephasing/__pycache__ ; \ 
-	rm -rf ./build ; \
-	rm -rf ./__pycache__ ; \
-	rm -rf $(VENV) ; \
-	rm ./config.yml ; \
+	if [ -d ./pydephasing/__pycache__ ] ; \
+	then \
+		rm -rf ./pydephasing/__pycache__ ; \
+	fi ; \
+	if [ -d ./build ] ; \
+	then \
+		rm -rf ./build ; \
+	fi ; \
+	if [ -d ./__pycache__ ] ; \
+	then \
+		rm -rf ./__pycache__ ; \
+	fi ; \
+	if [ -d $(VENV) ] ; \
+	then \
+		rm -rf $(VENV) ; \
+	fi ; \
+	if [ -f ./config.yml ] ; \
+	then \
+		rm ./config.yml ; \
+	fi ;
 test :
 	cd ./tests 
 	python -m unittest test_unit
