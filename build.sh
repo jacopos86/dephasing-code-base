@@ -105,7 +105,6 @@ DIR=${wdT1}/"COPY-FOLDER"
 if [ ! -d "$DIR" ]; then
 	cp -r ${wd}/EXAMPLES/C-CENTER/COPY-FOLDER ${wdT1}
 fi
-exit
 
 # test 2 -> pydephasing - NV center
 
@@ -113,29 +112,99 @@ cd ../
 mkdir ./2
 cd ./2
 wdT2=$(pwd)
- cp ../../clean_vers_files/TESTS/2/inputA.yml ${wd}
- cp ../../clean_vers_files/TESTS/2/inputB.yml ${wd}
- DIR=${wd}/"DISPLACEMENT-FILES-01"
- if [ ! -d "$DIR" ]; then
- 	cp -r ../../examples/NV-diamond/DISPLACEMENT-FILES-01 ${wd}
- 	cp -r ../../examples/NV-diamond/DISPLACEMENT-FILES-0001 ${wd}
- 	cp -r ../../examples/NV-diamond/DISPLACEMENT-FILES-2NDORDER ${wd}
- fi
- DIR=${wd}/"DISPL-01"
- if [ ! -d "$DIR" ]; then
- 	cp -r ../../examples/NV-diamond/DISPL-01 ${wd}
- 	cp -r ../../examples/NV-diamond/DISPL-0001 ${wd}
- 	cp -r ../../examples/NV-diamond/DISPL-2NDORDER ${wd}
- fi
- DIR=${wd}/"GS"
- if [ ! -d "$DIR" ]; then
- 	cp -r ../../examples/NV-diamond/GS ${wd}
- fi
- FIL=${wd}/"mesh-nosymm_3x3x3.hdf5"
- if [ ! -f "$FIL" ]; then
- 	cp -r ../../examples/NV-diamond/info.yml ${wd}
- 	cp -r ../../examples/NV-diamond/phonopy*.yaml ${wd}
- 	cp -r ../../examples/NV-diamond/mesh-nosymm_3x3x3.hdf5 ${wd}
- fi
- sed -i "s,LOCAL-PATH,$wd," ./inputA.yml
- sed -i "s,LOCAL-PATH,$wd," ./inputB.yml
+
+cat > inputA.yml <<EOF
+working_dir : ${wdT2}
+output_dir : T2-SP-DEPHC_A
+displ_poscar_dir :
+   - DISPLACEMENT-FILES-01
+   - DISPLACEMENT-FILES-0001
+displ_2nd_poscar_dir :
+   - DISPLACEMENT-FILES-2NDORDER
+displ_outcar_dir :
+   - DISPL-01
+   - DISPL-0001
+displ_2nd_outcar_dir :
+   - DISPL-2NDORDER
+grad_info_file : info.yml
+unpert_dir :
+   - GS
+yaml_pos_file : phonopy_disp.yaml
+hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
+2nd_order_correct : True
+atom_res : False
+phonon_res : False
+nwg : 1000
+eta : 6.6E-8
+min_freq : 1.E-2
+temperature :
+   - 1.0
+   - 10.0
+   - 100.0
+   - 200.0
+   - 300.0
+   - 400.0
+EOF
+
+cat > inputB.yml <<EOF
+working_dir : ${wdT2}
+output_dir : T2-SP-DEPHC_B
+displ_poscar_dir :
+   - DISPLACEMENT-FILES-01
+   - DISPLACEMENT-FILES-0001
+displ_2nd_poscar_dir :
+   - DISPLACEMENT-FILES-2NDORDER
+displ_outcar_dir :
+   - DISPL-01
+   - DISPL-0001
+displ_2nd_outcar_dir :
+   - DISPL-2NDORDER
+grad_info_file : info.yml
+unpert_dir :
+   - GS
+yaml_pos_file : phonopy_disp.yaml
+hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
+2nd_order_correct : True
+atom_res : False
+phonon_res : False
+T :
+   - 1.0
+   - 0.5
+dt : 0.0007
+T2_extract_method : fit
+min_freq : 1.0E-2
+eta : 6.6E-8
+lorentz_thres : 1.0E-8
+temperature :
+   - 1.0
+   - 10.0
+   - 100.0
+   - 200.0
+   - 300.0
+   - 400.0
+EOF
+
+DIR=${wdT2}/"DISPLACEMENT-FILES-01"
+if [ ! -d "$DIR" ]; then
+	cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-01 ${wdT2}
+	cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-0001 ${wdT2}
+	cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-2NDORDER ${wdT2}
+fi
+DIR=${wdT2}/"DISPL-01"
+if [ ! -d "$DIR" ]; then
+	cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPL-01 ${wdT2}
+	cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPL-0001 ${wdT2}
+ 	cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPL-2NDORDER ${wdT2}
+fi
+DIR=${wdT2}/"GS"
+if [ ! -d "$DIR" ]; then
+	cp -r ${wd}/EXAMPLES/NV-DIAMOND/GS ${wdT2}
+fi
+FIL=${wdT2}/"mesh-nosymm_3x3x3.hdf5"
+if [ ! -f "$FIL" ]; then
+	cp -r ${wd}/EXAMPLES/NV-DIAMOND/info.yml ${wdT2}
+	cp -r ${wd}/EXAMPLES/NV-DIAMOND/phonopy*.yaml ${wdT2}
+	cp -r ${wd}/EXAMPLES/NV-DIAMOND/mesh-nosymm_3x3x3.hdf5 ${wdT2}
+fi
+
+rm -rf ${wd}/EXAMPLES
