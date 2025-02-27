@@ -21,6 +21,8 @@ build :
 	fi ; \
 	./build.sh
 install :
+	. $(VENV)/bin/activate ; \
+	$(PIP) install .
 .PHONY :
 	clean
 clean :
