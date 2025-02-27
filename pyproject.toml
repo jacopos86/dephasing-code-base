@@ -1,0 +1,28 @@
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["pydeph", "pydephasing"]
+exclude = ["clean_vers_files", "TESTS"]
+
+[project]
+name = "pydephasing"
+version = "1.0.0"
+authors = [
+    { name = "Jacopo Simoni", email="jsimoni@wisc.edu" },
+]
+description = "The PyDephasing code is designed to compute the inhomogeneous pure dephasing time of spin qubits and the excitonic dephasing time. It takes in input data from VASP and phonopy and it works as a post-processing tool for this data."
+readme = "README.md"
+license = {file = "LICENSE.md"}
+classifiers = [
+	"Programming Language :: Python :: 3",
+	"Operating System :: OS Independent",
+]
+dynamic = ["dependencies"]
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
