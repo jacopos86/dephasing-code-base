@@ -89,9 +89,9 @@ displ_outcar_dir :
    - DISPL-001
 copy_files_dir : COPY-FOLDER
 displ_ang :
-   - 0.01
-   - 0.01
-   - 0.01
+   - - 0.01
+     - 0.01
+     - 0.01
 max_dab : 2.7
 defect_index : 0
 max_dist_from_defect : 5.0
