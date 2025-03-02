@@ -3,7 +3,7 @@ import cmath
 import collections
 from pydephasing.phys_constants import hbar, mp, THz_to_ev
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.global_params import GPU_ACTIVE
 from pydephasing.log import log
 from pydephasing.mpi import mpi

@@ -2,7 +2,7 @@ import numpy as np
 import cmath
 import sys
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.mpi import mpi
 from pydephasing.phys_constants import hbar
 from pydephasing.log import log

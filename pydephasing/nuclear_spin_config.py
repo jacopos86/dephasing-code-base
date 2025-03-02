@@ -12,7 +12,7 @@ from pydephasing.utility_functions import set_cross_prod_matrix, norm_realv, ODE
 from pydephasing.phys_constants import gamma_n
 from pydephasing.mpi import mpi
 from pydephasing.log import log
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 import matplotlib.pyplot as plt
 import random
 import logging

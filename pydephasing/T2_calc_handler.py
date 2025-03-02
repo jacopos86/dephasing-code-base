@@ -1,4 +1,4 @@
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.log import log
 from pydephasing.input_parser import parser
 from pydephasing.T2_calc import (T2_eval_freq_homo_class,

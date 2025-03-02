@@ -2,7 +2,7 @@ import numpy as np
 from pydephasing.mpi import mpi
 from pydephasing.phys_constants import hbar
 from pydephasing.extract_ph_data import extract_ph_data
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.log import log
 from pydephasing.input_parser import parser
 import yaml

@@ -6,7 +6,7 @@ import numpy as np
 from mpmath import coth
 from cmath import exp
 from pydephasing.utility_functions import bose_occup
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.phys_constants import hbar, THz_to_ev, mp, kb
 from pydephasing.mpi import mpi

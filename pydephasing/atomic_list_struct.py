@@ -2,7 +2,7 @@ import numpy as np
 import yaml
 import sys
 from pydephasing.log import log
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 # define atomic structure global list
 class AtomicStructureClass:
     # initialization
