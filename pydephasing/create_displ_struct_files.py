@@ -5,7 +5,7 @@ from pydephasing.set_structs import UnpertStruct, DisplacedStructs, DisplacedStr
 import os
 import yaml
 from pydephasing.log import log
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 #
 def gen_poscars(max_dist_from_defect, defect_index):
     log.info("\n")
@@ -18,7 +18,7 @@ def gen_poscars(max_dist_from_defect, defect_index):
     for i in range(len(p.displ_poscar_dir)):
         displ_struct = DisplacedStructs(p.displ_poscar_dir[i])
         # set atoms displacements
-        log.debug("p.atoms_displ: " + str(p.atoms_displ))
+        log.debug("\t p.atoms_displ: " + str(p.atoms_displ))
         displ_struct.atom_displ(p.atoms_displ[i])   # Ang
         # build displaced atomic structures
         displ_struct.build_atom_displ_structs(struct0, max_dist_from_defect, defect_index)
