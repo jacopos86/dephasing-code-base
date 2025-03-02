@@ -2,7 +2,7 @@
 # and return it for processing
 import numpy as np
 import h5py
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.phys_constants import eps, THz_to_ev
 from pydephasing.utility_functions import lorentzian, bose_occup
 from pydephasing.log import log

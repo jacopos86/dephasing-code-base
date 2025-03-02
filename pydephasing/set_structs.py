@@ -11,7 +11,85 @@ import h5py
 import yaml
 from pydephasing.log import log
 from pydephasing.mpi import mpi
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
+#
+#  atom dictionary class
+#
+class AtomListDict:
+	def __init__(self):
+		self.list_dict = None
+		self.species_key = ''
+		self.element_key = ''
+		self.coord_xyz_key = ''
+		self.coord_abc_key = ''
+	def build_list_dict(self, atoms):
+		self.list_dict = list(atoms)
+		self.get_struct_keys()
+	def get_struct_keys(self):
+		log.debug("\t " + str(self.list_dict[0].keys()))
+		keys = self.list_dict[0].keys()
+		for k in keys:
+			if k == "spec" or k == "specie" or k == "species":
+				self.species_key = k
+		if self.species_key == '':
+			log.error("species key not found")
+		spec_keys = self.list_dict[0][self.species_key][0].keys()
+		for k in spec_keys:
+			if k == "element" or k == "Element" or k == "symbol" or k == "Symbol":
+				self.element_key = k
+		if self.element_key == '':
+			log.error("elements key not found")
+		for k in keys:
+			if k == "xyz" or k == "XYZ":
+				self.coord_xyz_key = k
+		if self.coord_xyz_key == '':
+			log.error("xyz coord key not found")
+		for k in keys:
+			if k == "abc" or k == "ABC":
+				self.coord_abc_key = k
+		if self.coord_abc_key == '':
+			log.error("abc coord key not found")
+#
+#  atomic struct dictionary class
+#
+class AtomicStructDict:
+	def __init__(self):
+		self.charge_key = ''
+		self.atoms_key = ''
+		self.lattice_key = ''
+		self.unit_cell_key = ''
+		self.dictionary = None
+	def build_dict(self, struct):
+		self.dictionary = struct.as_dict()
+		self.get_struct_keys()
+		self.get_lattice_keys()
+		self.atoms_dictionary = AtomListDict()
+		self.atoms_dictionary.build_list_dict(self.dictionary[self.atoms_key])
+	def get_struct_keys(self):
+		keys = list(self.dictionary.keys())
+		for k in keys:
+			if k == "atoms" or k == "Atoms" or k == "sites" or k == "Sites":
+				self.atoms_key = k
+		if self.atoms_key == '':
+			log.error("atoms key not found in dict")
+		for k in keys:
+			if k == "lattice" or k == "Lattice" or k == "latt" or k == "Latt":
+				self.lattice_key = k
+		if self.lattice_key == '':
+			log.error("lattice key not found in dict")
+		for k in keys:
+			if k == "charge" or k == "Charge":
+				self.charge_key = k
+		if self.charge_key == '':
+			log.error("charge key not found in dict")
+	def get_lattice_keys(self):
+		keys = list(self.dictionary[self.lattice_key])
+		log.debug("\t lattice keys :" + str(keys))
+		for k in keys:
+			if k == "matrix":
+				self.unit_cell_key = k
+		if self.unit_cell_key == '':
+			log.error("unit cell key not found")
 #
 #  ground state structure
 #  acquires ground state data
@@ -25,9 +103,11 @@ class UnpertStruct:
 		struct = poscar.structure
 		self.struct = struct
 		# set number of atoms
-		struct_dict = struct.as_dict()
-		atoms_key = list(struct_dict.keys())[4]
-		self.nat = len(list(struct_dict[atoms_key]))
+		struct_dict = AtomicStructDict()
+		struct_dict.build_dict(struct)
+		atoms_key = struct_dict.atoms_key
+		self.nat = len(list(struct_dict.dictionary[atoms_key]))
+		log.debug("\t n. atoms: " + str(self.nat))
 	### read ZFS from OUTCAR
 	def read_zfs(self):
 		# read file
@@ -235,33 +315,33 @@ class DisplacedStructs:
 	# generate new displaced structures
 	def build_atom_displ_structs(self, struct_unprt, max_d_from_defect, defect_index):
 		# struct -> unperturbed atomic structure
-		struct_dict = struct_unprt.struct.as_dict()
-		atoms_key = list(struct_dict.keys())[4]
-		lattice_key = list(struct_dict.keys())[3]
-		charge_key = list(struct_dict.keys())[2]
-		unit_cell_key = list(struct_dict[lattice_key].keys())[0]
+		struct_dict = AtomicStructDict()
+		struct_dict.build_dict(struct_unprt.struct)
 		# unit cell -> angstrom units
-		self.unit_cell = np.array(struct_dict[lattice_key][unit_cell_key])
+		lattice_key = struct_dict.lattice_key
+		unit_cell_key = struct_dict.unit_cell_key
+		self.unit_cell = np.array(struct_dict.dictionary[lattice_key][unit_cell_key])
 		# charge
-		self.charge = struct_dict[charge_key]
-		# list of atoms dictionary
-		atoms = list(struct_dict[atoms_key])
+		charge_key = struct_dict.charge_key
+		self.charge = struct_dict.dictionary[charge_key]
 		# set species list
 		self.species = []
-		species_key = list(atoms[0].keys())[0]
-		element_key = list(atoms[0][species_key][0].keys())[0]
+		species_key = struct_dict.atoms_dictionary.species_key
+		element_key = struct_dict.atoms_dictionary.element_key
+		atoms = struct_dict.atoms_dictionary.list_dict
 		for ia in range(struct_unprt.nat):
 			self.species.append(atoms[ia][species_key][0][element_key])
+		log.debug("\t " + str(self.species))
 		# extract atomic cartesian coordinates
-		coord_xyz_keys = list(atoms[0].keys())[2]
-		coord_abc_keys = list(atoms[0].keys())[1]
-		atoms_cart_coords = np.zeros((struct_unprt.nat, 3))
+		coord_xyz_keys = struct_dict.atoms_dictionary.coord_xyz_key
+		coord_abc_keys = struct_dict.atoms_dictionary.coord_abc_key
+		atoms_xyz_coords = np.zeros((struct_unprt.nat, 3))
 		atoms_abc_coords = np.zeros((struct_unprt.nat, 3))
 		for ia in range(struct_unprt.nat):
 			abc_coord_ia = atoms[ia][coord_abc_keys]
 			atoms_abc_coords[ia,:] = abc_coord_ia[:]
-			cart_coord_ia = atoms[ia][coord_xyz_keys]
-			atoms_cart_coords[ia,:] = cart_coord_ia[:]
+			xyz_coord_ia = atoms[ia][coord_xyz_keys]
+			atoms_xyz_coords[ia,:] = xyz_coord_ia[:]
 		# build perturbed structures
 		displ_struct_list = []
 		for ia in range(struct_unprt.nat):
@@ -269,45 +349,45 @@ class DisplacedStructs:
 			dd = struct_unprt.struct.get_distance(ia, defect_index)
 			if dd <= max_d_from_defect:
 				# x - displ 1
-				atoms_cart_displ = np.zeros((struct_unprt.nat,3))
-				atoms_cart_displ[:,:] = atoms_cart_coords[:,:]
-				atoms_cart_displ[ia,0] = atoms_cart_coords[ia,0] + self.dx
-				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_cart_displ,
+				atoms_xyz_displ = np.zeros((struct_unprt.nat,3))
+				atoms_xyz_displ[:,:] = atoms_xyz_coords[:,:]
+				atoms_xyz_displ[ia,0] = atoms_xyz_coords[ia,0] + self.dx
+				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_xyz_displ,
 					charge=self.charge, validate_proximity=True, to_unit_cell=True, coords_are_cartesian=True)
 				displ_struct_list.append([str(ia+1), '1', '1', struct])
 				# x - displ 2
-				atoms_cart_displ = np.zeros((struct_unprt.nat,3))
-				atoms_cart_displ[:,:] = atoms_cart_coords[:,:]
-				atoms_cart_displ[ia,0] = atoms_cart_coords[ia,0] - self.dx
-				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_cart_displ,
+				atoms_xyz_displ = np.zeros((struct_unprt.nat,3))
+				atoms_xyz_displ[:,:] = atoms_xyz_coords[:,:]
+				atoms_xyz_displ[ia,0] = atoms_xyz_coords[ia,0] - self.dx
+				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_xyz_displ,
 					charge=self.charge, validate_proximity=True, to_unit_cell=True, coords_are_cartesian=True)
 				displ_struct_list.append([str(ia+1), '1', '2', struct])
 				# y - displ 1
-				atoms_cart_displ = np.zeros((struct_unprt.nat,3))
-				atoms_cart_displ[:,:] = atoms_cart_coords[:,:]
-				atoms_cart_displ[ia,1] = atoms_cart_coords[ia,1] + self.dy
-				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_cart_displ,
+				atoms_xyz_displ = np.zeros((struct_unprt.nat,3))
+				atoms_xyz_displ[:,:] = atoms_xyz_coords[:,:]
+				atoms_xyz_displ[ia,1] = atoms_xyz_coords[ia,1] + self.dy
+				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_xyz_displ,
 					charge=self.charge, validate_proximity=True, to_unit_cell=True, coords_are_cartesian=True)
 				displ_struct_list.append([str(ia+1), '2', '1', struct])
 				# y - displ 2
-				atoms_cart_displ = np.zeros((struct_unprt.nat,3))
-				atoms_cart_displ[:,:] = atoms_cart_coords[:,:]
-				atoms_cart_displ[ia,1] = atoms_cart_coords[ia,1] - self.dy
-				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_cart_displ,
+				atoms_xyz_displ = np.zeros((struct_unprt.nat,3))
+				atoms_xyz_displ[:,:] = atoms_xyz_coords[:,:]
+				atoms_xyz_displ[ia,1] = atoms_xyz_coords[ia,1] - self.dy
+				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_xyz_displ,
 					charge=self.charge, validate_proximity=True, to_unit_cell=True, coords_are_cartesian=True)
 				displ_struct_list.append([str(ia+1), '2', '2', struct])
 				# z - displ 1
-				atoms_cart_displ = np.zeros((struct_unprt.nat,3))
-				atoms_cart_displ[:,:] = atoms_cart_coords[:,:]
-				atoms_cart_displ[ia,2] = atoms_cart_coords[ia,2] + self.dz
-				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_cart_displ,
+				atoms_xyz_displ = np.zeros((struct_unprt.nat,3))
+				atoms_xyz_displ[:,:] = atoms_xyz_coords[:,:]
+				atoms_xyz_displ[ia,2] = atoms_xyz_coords[ia,2] + self.dz
+				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_xyz_displ,
 					charge=self.charge, validate_proximity=True, to_unit_cell=True, coords_are_cartesian=True)
 				displ_struct_list.append([str(ia+1), '3', '1', struct])
 				# z - displ 2
-				atoms_cart_displ = np.zeros((struct_unprt.nat,3))
-				atoms_cart_displ[:,:] = atoms_cart_coords[:,:]
-				atoms_cart_displ[ia,2] = atoms_cart_coords[ia,2] - self.dz
-				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_cart_displ,
+				atoms_xyz_displ = np.zeros((struct_unprt.nat,3))
+				atoms_xyz_displ[:,:] = atoms_xyz_coords[:,:]
+				atoms_xyz_displ[ia,2] = atoms_xyz_coords[ia,2] - self.dz
+				struct = Structure(lattice=self.unit_cell, species=self.species, coords=atoms_xyz_displ,
 					charge=self.charge, validate_proximity=True, to_unit_cell=True, coords_are_cartesian=True)
 				displ_struct_list.append([str(ia+1), '3', '2', struct])
 		# set up dictionary

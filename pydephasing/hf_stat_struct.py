@@ -2,7 +2,7 @@ import yaml
 import numpy as np
 from pydephasing.log import log
 from pydephasing.set_structs import UnpertStruct
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 #
 #  ground state structure for static HFI
 #

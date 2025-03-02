@@ -4,7 +4,7 @@
 # and it returns it for further processing
 import numpy as np
 import logging
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.spin_hamiltonian import spin_hamiltonian
 from pydephasing.nuclear_spin_config import nuclear_spins_config
 from pydephasing.mpi import mpi

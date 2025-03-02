@@ -12,7 +12,7 @@ import logging
 from pydephasing.neural_network_class import generate_NN_object
 from pydephasing.utility_functions import print_2D_matrix
 from pydephasing.phys_constants import eps
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 import matplotlib.pyplot as plt
 import math

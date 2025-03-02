@@ -1,5 +1,5 @@
+from pydephasing.set_param_object import p
 from pydephasing.create_displ_struct_files import gen_poscars, gen_2ndorder_poscar
-from pydephasing.input_parameters import p
 from pydephasing.compute_zfs_hfi_dephas import compute_full_dephas
 from pydephasing.compute_zfs_dephas import compute_homo_dephas
 from pydephasing.compute_exc_dephas import compute_homo_exc_dephas

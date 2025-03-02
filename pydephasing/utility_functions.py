@@ -2,7 +2,7 @@ import numpy as np
 from math import exp
 from pydephasing.phys_constants import eps, kb, hbar
 from pydephasing.log import log
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 import yaml
 #
 # utility functions module

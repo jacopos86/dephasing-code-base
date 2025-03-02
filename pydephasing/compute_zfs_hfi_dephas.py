@@ -3,7 +3,7 @@
 # it computes the energy autocorrelation function
 # and return it for further processing
 import numpy as np
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
 from pydephasing.gradient_interactions import gradient_ZFS, gradient_HFI, gradient_2nd_ZFS, gradient_2nd_HFI
 from pydephasing.spin_hamiltonian import spin_hamiltonian

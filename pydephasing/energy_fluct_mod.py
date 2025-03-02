@@ -6,7 +6,7 @@ import numpy as np
 import cmath
 from pydephasing.mpi import mpi
 from pydephasing.log import log
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.phys_constants import THz_to_ev, mp
 from pydephasing.utility_functions import bose_occup
 from pydephasing.extract_ph_data import set_q_to_mq_list

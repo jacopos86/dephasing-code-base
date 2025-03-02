@@ -31,6 +31,8 @@ class data_input(ABC):
         self.deph = False
         # dynamical decoupling F by default
         self.dyndec = False
+        # sep.
+        self.sep = ''
         #######################################
         # physical common parameters
         # time
@@ -233,9 +235,9 @@ class dynamical_data_input(data_input):
             self.at_resolved = data['atom_res']
             if self.at_resolved and mpi.rank == mpi.root:
                 log.info("\n")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.info("\t ATOM RESOLVED CALCULATION")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.info("\n")
         #
         #  phonon resolved
@@ -243,9 +245,9 @@ class dynamical_data_input(data_input):
             self.ph_resolved = data['phonon_res']
             if self.ph_resolved and mpi.rank == mpi.root:
                 log.info("\n")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.info("\t PHONON RESOLVED CALCULATION")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.info("\n")
             if 'ph_list' in data:
                 stph = data['ph_list'][0]
@@ -333,9 +335,9 @@ class dynamical_data_input(data_input):
         if mpi.rank == mpi.root:
             if np.abs(self.min_freq) < 1.E-7:
                 log.info("\n")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.info("\n")
         #
         # read displ. atoms data
@@ -535,16 +537,3 @@ class preproc_data_input():
         # index defect
         if 'defect_index' in data:
             self.defect_index = data['defect_index']
-
-# input parameters object
-calc_type1 = parser.parse_args().ct1[0]
-if calc_type1 == "init":
-    p = preproc_data_input()
-else:
-    deph_type = parser.parse_args().typ
-    if deph_type == "stat" or deph_type == "statdd":
-        p = static_data_input()
-    elif deph_type == "relax" or deph_type == "deph":
-        p = dynamical_data_input()
-
-p.sep = "*"*94

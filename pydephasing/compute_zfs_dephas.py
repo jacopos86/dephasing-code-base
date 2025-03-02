@@ -6,7 +6,7 @@ import logging
 import numpy as np
 from pydephasing.mpi import mpi
 from pydephasing.log import log
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
 from pydephasing.gradient_interactions import gradient_ZFS, generate_2nd_order_grad_instance
 from pydephasing.atomic_list_struct import atoms
