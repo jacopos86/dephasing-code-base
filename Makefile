@@ -1,9 +1,12 @@
 VENV = pydeph
 PYTHON = $(VENV)/bin/python3
 PIP = $(VENV)/bin/pip
+ROOT = $(shell pwd)
 EXAMPLES_DIR = EXAMPLES
 EXAMPLES_TAR_FILE = EXAMPLES.tar.gz
 EXAMPLES_URL = "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
+UNIT_TEST_DIR = pydephasing/unit_tests
+TESTS_DIR = TESTS
 
 configure : requirements.txt
 	python3 -m venv $(VENV); \
@@ -39,6 +42,10 @@ clean :
 	then \
 		rm -rf ./__pycache__ ; \
 	fi ; \
+	if [ -d ./pydephasing/unit_tests/__pycache__ ] ; \
+	then \
+		rm -rf ./pydephasing/unit_tests/__pycache__ ; \
+	fi ; \
 	if [ -d $(VENV) ] ; \
 	then \
 		rm -rf $(VENV) ; \
@@ -48,5 +55,6 @@ clean :
 		rm ./config.yml ; \
 	fi ;
 test :
-	cd ./tests 
-	python -m unittest test_unit
+	. $(VENV)/bin/activate ; \
+	export TESTS=$(ROOT)/$(TESTS_DIR) ; \
+	$(PYTHON) -m unittest -v $(UNIT_TEST_DIR)/unit_test1.py
