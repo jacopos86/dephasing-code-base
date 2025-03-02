@@ -10,6 +10,7 @@ OLD_VERS
 examples
 scr.sh
 pydephasing/__pycache__
+pydephasing/unit_tests/__pycache__
 pydeph
 EXAMPLES.tar.gz
 EXAMPLES
