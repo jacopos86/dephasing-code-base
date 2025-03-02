@@ -380,6 +380,7 @@ def generate_2nd_order_grad_instance(out_dir, atoms_info):
 	atoms_info_dict = yaml.load(f, Loader=yaml.Loader)
 	f.close()
 	# select model
+	log.debug("\t " + str(atoms_info_dict.keys()))
 	if atoms_info_dict['NN_model'] == "MLP":
 		return gradient_2nd_ZFS_MLP(out_dir, atoms_info_dict)
 	elif atoms_info_dict['NN_model'] == "DNN":
