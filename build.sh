@@ -207,4 +207,6 @@ if [ ! -f "$FIL" ]; then
 	cp -r ${wd}/EXAMPLES/NV-DIAMOND/mesh-nosymm_3x3x3.hdf5 ${wdT2}
 fi
 
+echo -e "\nNN_model : MLP" >> ${wdT2}/info.yml
+
 rm -rf ${wd}/EXAMPLES
