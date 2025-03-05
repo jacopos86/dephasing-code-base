@@ -2,6 +2,7 @@ VENV = pydeph
 PYTHON = $(VENV)/bin/python3
 PIP = $(VENV)/bin/pip
 ROOT = $(shell pwd)
+DOC_DIR = doc
 EXAMPLES_DIR = EXAMPLES
 EXAMPLES_TAR_FILE = EXAMPLES.tar.gz
 EXAMPLES_URL = "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
@@ -53,6 +54,18 @@ clean :
 	if [ -f ./config.yml ] ; \
 	then \
 		rm ./config.yml ; \
+	fi ; \
+	if [ -d $(ROOT)/$(DOC_DIR)/_build ] ; \
+	then \
+		rm -rf $(ROOT)/$(DOC_DIR)/_build ; \
+	fi ; \
+	if [ -d $(ROOT)/$(DOC_DIR)/_templates ] ; \
+	then \
+		rm -rf $(ROOT)/$(DOC_DIR)/_templates ; \
+	fi ; \
+	if [ -d $(ROOT)/$(DOC_DIR)/_static ] ; \
+	then \
+		rm -rf $(ROOT)/$(DOC_DIR)/_static ; \
 	fi ;
 test :
 	. $(VENV)/bin/activate ; \
