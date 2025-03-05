@@ -14,3 +14,6 @@ pydephasing/unit_tests/__pycache__
 pydeph
 EXAMPLES.tar.gz
 EXAMPLES
+doc/_build
+doc/_static
+doc/_templates
