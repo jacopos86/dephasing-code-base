@@ -210,3 +210,14 @@ fi
 echo -e "\nNN_model : MLP" >> ${wdT2}/info.yml
 
 rm -rf ${wd}/EXAMPLES
+
+# make documentation
+
+cd ${wd}/doc
+if [ ! -d "_static" ]; then
+	mkdir _static
+fi
+if [ ! -d "_templates" ]; then
+	mkdir _templates
+fi
+make html
