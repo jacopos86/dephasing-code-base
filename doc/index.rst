@@ -15,3 +15,9 @@ documentation for details.
    :maxdepth: 2
    :caption: Contents:
 
+   prerequisites.rst
+
+   running.rst
+
+   theory.rst
+
