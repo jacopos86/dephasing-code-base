@@ -449,6 +449,10 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		if fil.exists():
 			with open(file_name, 'r') as f:
 				data = yaml.load(f, Loader=yaml.Loader)
+				self.grad2Dtensor = data['grad2D']['coeffs']
+				self.U_grad2D_U = data['Ugrad2DU']['coeffs']
+				log.debug("grad2D tensor shape: " + str(self.grad2Dtensor.shape))
+				return
 		# set NN model to find missing terms
 		nat = self.struct_0.nat
 		jax_list = mpi.random_split(range(3*nat))
