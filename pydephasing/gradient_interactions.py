@@ -9,6 +9,7 @@ import os
 import numpy as np
 import yaml
 import logging
+from pathlib import Path
 from pydephasing.neural_network_class import generate_NN_object
 from pydephasing.utility_functions import print_2D_matrix
 from pydephasing.phys_constants import eps
@@ -182,6 +183,14 @@ class gradient_ZFS(perturbation_ZFS):
 	# set ZFS gradients
 	#
 	def set_tensor_gradient(self, displ_structs):
+		file_name = "{}".format(p.work_dir + '/restart/grad_Dtensor.yml')
+		fil = Path(file_name)
+		if fil.exists():
+			with open(file_name, 'r') as f:
+				data = yaml.load(f, Loader=yaml.Loader)
+				self.gradDtensor = data['gradD']['coeffs']
+				log.debug("\t gradD tensor shape: " + str(self.gradDtensor.shape))
+				return
 		# D0
 		D0 = self.struct_0.Dtensor
 		# initialize tensor gradient
@@ -315,10 +324,12 @@ class gradient_ZFS(perturbation_ZFS):
 		# write data on file
 		file_name = "grad_Dtensor.yml"
 		file_name = "{}".format(write_dir + '/' + file_name)
-		data = {'gradD' : {'coeffs' : self.gradDtensor, 'units' : 'MHz/ang' }, 'UgradDU' : { 'coeffs' : self.U_gradD_U, 'units' : 'THz/ang' } }
-		# THz / ang
-		with open(file_name, 'w') as out_file:
-			yaml.dump(data, out_file)
+		fil = Path(file_name)
+		if not fil.exists():
+			data = {'gradD' : {'coeffs' : self.gradDtensor, 'units' : 'MHz/ang' }, 'UgradDU' : { 'coeffs' : self.U_gradD_U, 'units' : 'THz/ang' } }
+			# THz / ang
+			with open(file_name, 'w') as out_file:
+				yaml.dump(data, out_file)
 	#
 	# method
 	# set grad D
@@ -347,6 +358,14 @@ class gradient_ZFS(perturbation_ZFS):
 		#
 	# set grad D tensor
 	def set_UgradDU_tensor(self):
+		file_name = "{}".format(p.work_dir + '/restart/grad_Dtensor.yml')
+		fil = Path(file_name)
+		if fil.exists():
+			with open(file_name, 'r') as f:
+				data = yaml.load(f, Loader=yaml.Loader)
+				self.U_gradD_U = data['UgradDU']['coeffs']
+				log.debug("\t U_gradD_U tensor shape: " + str(self.U_gradD_U.shape))
+				return
 		nat = self.struct_0.nat
 		# gradD = U^+ gD U
 		self.U_gradD_U = np.zeros((3*nat, 3, 3))
@@ -423,6 +442,13 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		self.compute_noise(displ_structs)
 		if mpi.rank == mpi.root:
 			print_2D_matrix(self.Dns)
+		mpi.comm.Barrier()
+		# read restart file if available
+		file_name = "{}".format(p.work_dir + '/restart/grad2_Dtensor.yml')
+		fil = Path(file_name)
+		if fil.exists():
+			with open(file_name, 'r') as f:
+				data = yaml.load(f, Loader=yaml.Loader)
 		# set NN model to find missing terms
 		nat = self.struct_0.nat
 		jax_list = mpi.random_split(range(3*nat))
@@ -685,10 +711,12 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		# write data on file
 		file_name = "grad2_Dtensor.yml"
 		file_name = "{}".format(write_dir + '/' + file_name)
-		data = {'grad2D': {'coeffs' : self.grad2Dtensor, 'units' : 'MHz/ang^2'}, 'Ugrad2DU' : {'coeffs' : self.U_grad2D_U, 'units' : 'THz/ang^2'} }
-		# write data
-		with open(file_name, 'w') as out_file:
-			yaml.dump(data, out_file)
+		fil = Path(file_name)
+		if not fil.exists():
+			data = {'grad2D': {'coeffs' : self.grad2Dtensor, 'units' : 'MHz/ang^2'}, 'Ugrad2DU' : {'coeffs' : self.U_grad2D_U, 'units' : 'THz/ang^2'} }
+			# write data
+			with open(file_name, 'w') as out_file:
+				yaml.dump(data, out_file)
 	#
 	# check size of tensor coefficients
 	#
