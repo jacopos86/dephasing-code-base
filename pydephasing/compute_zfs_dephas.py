@@ -4,6 +4,7 @@
 # and return it for further processing
 import logging
 import numpy as np
+import os
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
@@ -39,6 +40,11 @@ def compute_homo_dephas():
             displ_struct.atom_displ(p.atoms_2nd_displ[i]) # Ang
             # append to list
             struct_list_2nd.append(displ_struct)
+    # check restart exist otherwise create
+    if not os.path.isdir(p.work_dir+'/restart'):
+        if mpi.rank == mpi.root:
+            os.mkdir(p.work_dir+'/restart')
+        mpi.comm.Barrier()
     # set ZFS gradient
     gradZFS = gradient_ZFS(p.work_dir, p.grad_info)
     gradZFS.set_gs_zfs_tensor()
@@ -47,6 +53,11 @@ def compute_homo_dephas():
     gradZFS.set_tensor_gradient(struct_list)
     # set ZFS gradient in quant. axis coordinates
     gradZFS.set_UgradDU_tensor()
+    mpi.comm.Barrier()
+    # save data to restart
+    if mpi.rank == mpi.root:
+        gradZFS.write_gradDtensor_to_file(p.work_dir+'/restart')
+    mpi.comm.Barrier()
     # n. atoms
     nat = gradZFS.struct_0.nat
     # compute index maps
@@ -62,6 +73,10 @@ def compute_homo_dephas():
         grad2ZFS.set_gs_zfs_tensor()
         # set secon order grad
         grad2ZFS.compute_2nd_order_gradients(struct_list_2nd)
+        # save data to restart
+        if mpi.rank == mpi.root:
+            grad2ZFS.write_gradDtensor_to_file(p.work_dir+'/restart')
+        mpi.comm.Barrier()
     # debug mode
     if mpi.rank == mpi.root:
         if log.level <= logging.DEBUG:
@@ -69,12 +84,12 @@ def compute_homo_dephas():
             gradZFS.plot_tensor_grad_component(struct_list)
         # print data
         if log.level <= logging.INFO:
-            gradZFS.write_gradDtensor_to_file(p.write_dir)
             if p.order_2_correct:
                 grad2ZFS.write_grad2Dtensor_to_file(p.write_dir)
         if log.level <= logging.DEBUG and p.order_2_correct:
             grad2ZFS.check_tensor_coefficients()
     mpi.comm.Barrier()
+    exit()
     # set up the spin Hamiltonian
     Hsp = spin_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
