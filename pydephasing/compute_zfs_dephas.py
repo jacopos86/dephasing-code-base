@@ -73,6 +73,7 @@ def compute_homo_dephas():
         grad2ZFS.set_gs_zfs_tensor()
         # set secon order grad
         grad2ZFS.compute_2nd_order_gradients(struct_list_2nd)
+        mpi.comm.Barrier()
         # save data to restart
         if mpi.rank == mpi.root:
             grad2ZFS.write_gradDtensor_to_file(p.work_dir+'/restart')
