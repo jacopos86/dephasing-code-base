@@ -76,19 +76,15 @@ def compute_homo_dephas():
         mpi.comm.Barrier()
         # save data to restart
         if mpi.rank == mpi.root:
-            grad2ZFS.write_gradDtensor_to_file(p.work_dir+'/restart')
+            grad2ZFS.write_grad2Dtensor_to_file(p.work_dir+'/restart')
         mpi.comm.Barrier()
     # debug mode
     if mpi.rank == mpi.root:
         if log.level <= logging.DEBUG:
             log.debug(" checking ZFS gradients")
             gradZFS.plot_tensor_grad_component(struct_list)
-        # print data
-        if log.level <= logging.INFO:
             if p.order_2_correct:
-                grad2ZFS.write_grad2Dtensor_to_file(p.write_dir)
-        if log.level <= logging.DEBUG and p.order_2_correct:
-            grad2ZFS.check_tensor_coefficients()
+                grad2ZFS.check_tensor_coefficients()
     mpi.comm.Barrier()
     exit()
     # set up the spin Hamiltonian
