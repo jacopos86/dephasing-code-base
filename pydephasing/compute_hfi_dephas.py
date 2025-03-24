@@ -5,7 +5,7 @@
 # and returns it for further processing
 from pydephasing.set_param_object import p
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
-from pydephasing.spin_hamiltonian import spin_hamiltonian
+from pydephasing.spin_hamiltonian import spin_triplet_hamiltonian
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.gradient_interactions import gradient_HFI, gradient_2nd_HFI
 from pydephasing.nuclear_spin_config import nuclear_spins_config
