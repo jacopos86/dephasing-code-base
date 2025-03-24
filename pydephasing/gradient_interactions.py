@@ -414,7 +414,6 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		super().__init__(out_dir)
 		self.atom_info_dict = atoms_info_dict
 		# set other variables
-		log.debug("\t OK1")
 		self.grad2Dtensor = None
 		self.U_grad2D_U = None
 		# default dir
