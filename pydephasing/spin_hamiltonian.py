@@ -9,13 +9,13 @@ import numpy as np
 from numpy import linalg as LA
 import yaml
 from pydephasing.utility_functions import delta
-from pydephasing.phys_constants import hbar, gamma_e, eps
+from pydephasing.phys_constants import hbar, mu_B, eps, THz_to_ev
 from pydephasing.utility_functions import triplet_evolution
 from pydephasing.log import log
 import logging
 import matplotlib.pyplot as plt
 #
-class spin_hamiltonian:
+class spin_triplet_hamiltonian:
 	#
 	def __init__(self):
 		self.s = 1.
@@ -85,9 +85,11 @@ class spin_hamiltonian:
 		self.SDS = self.SDS + Ddiag[2]*np.matmul(self.Sz, self.Sz)
 	# set ZFS energy levels
 	def set_zfs_levels(self, unprt_struct, B):
-		Ddiag = unprt_struct.Ddiag*2.*np.pi*1.E-6
-		# THz units
-		assert np.abs(np.sum(Ddiag)/Ddiag[2]) < 1.E-3
+		#Ddiag = unprt_struct.Ddiag*2.*np.pi*1.E-6
+		Ddiag = unprt_struct.Ddiag*1.E-6
+		Ddiag = Ddiag * THz_to_ev
+		# eV units
+		print(B)
 		# D = 3./2 Dz
 		D = 3./2 * Ddiag[2]
 		# E = (Dx - Dy)/2
@@ -95,12 +97,14 @@ class spin_hamiltonian:
 		# unperturbed H0 = D[Sz^2 - s(s+1)/3] + E(Sx^2 - Sy^2) + mu_B B Sz
 		H0 = D * (np.matmul(self.Sz, self.Sz) - self.Ssq / 3.) 
 		H0 +=E * (np.matmul(self.Sx, self.Sx) - np.matmul(self.Sy, self.Sy))
-		H0 +=gamma_e * (B[0] * self.Sx + B[1] * self.Sy + B[2] * self.Sz)
+		H0 +=mu_B * 2.0 * (B[0] * self.Sx + B[1] * self.Sy + B[2] * self.Sz)
 		eig, eigv = LA.eig(H0)
-		# eig (eV)
-		self.eig = eig[:] * hbar
+		self.eig = eig
 		self.qs = np.zeros((3,3), dtype=np.complex128)
 		self.qs[:,:] = eigv
+		print(self.eig, self.qs[2,:])
+		r = np.matmul(self.Sz, self.qs[2,:])
+		print(np.dot(self.qs[2,:].conj(), r))
 	#
 	# set time array
 	def set_time(self, dt, T):
