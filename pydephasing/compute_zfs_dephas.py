@@ -11,7 +11,7 @@ from pydephasing.set_param_object import p
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
 from pydephasing.gradient_interactions import gradient_ZFS, generate_2nd_order_grad_instance
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.spin_hamiltonian import spin_hamiltonian
+from pydephasing.spin_hamiltonian import spin_triplet_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.ph_ampl_module import PhononAmplitude
@@ -77,7 +77,7 @@ def compute_homo_dephas():
         # save data to restart
         if mpi.rank == mpi.root:
             grad2ZFS.write_grad2Dtensor_to_file(p.work_dir+'/restart')
-        mpi.comm.Barrier()
+    mpi.comm.Barrier()
     # debug mode
     if mpi.rank == mpi.root:
         if log.level <= logging.DEBUG:
@@ -86,13 +86,14 @@ def compute_homo_dephas():
             if p.order_2_correct:
                 grad2ZFS.check_tensor_coefficients()
     mpi.comm.Barrier()
-    exit()
     # set up the spin Hamiltonian
-    Hsp = spin_hamiltonian()
+    Hsp = spin_triplet_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
+    exit()
     # set up spin phonon interaction class
     sp_ph_inter = SpinPhononClass().generate_instance()
     sp_ph_inter.set_quantum_states(Hsp)
+    exit()
     #
     # extract phonon data
     #
