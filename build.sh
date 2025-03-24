@@ -144,6 +144,10 @@ temperature :
    - 200.0
    - 300.0
    - 400.0
+B0 :
+   - 0.0
+   - 0.0
+   - 1.0
 EOF
 
 cat > inputB.yml <<EOF
@@ -208,5 +212,14 @@ if [ ! -f "$FIL" ]; then
 fi
 
 echo -e "\nNN_model : MLP" >> ${wdT2}/info.yml
+echo -e "NN_parameters :" >> ${wdT2}/info.yml
+echo -e "  n_hidden_layers : !!python/tuple [100,]" >> ${wdT2}/info.yml
+echo -e "  solver : adam" >> ${wdT2}/info.yml
+echo -e "  activation : relu" >> ${wdT2}/info.yml
+echo -e "  alpha : 0.1" >> ${wdT2}/info.yml
+echo -e "  max_iter : 100" >> ${wdT2}/info.yml
+echo -e "  random_state : 1" >> ${wdT2}/info.yml
+echo -e "  test_size : 0.25" >> ${wdT2}/info.yml
+echo -e "  shuffle : True" >> ${wdT2}/info.yml
 
 rm -rf ${wd}/EXAMPLES
