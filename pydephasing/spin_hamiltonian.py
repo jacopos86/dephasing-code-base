@@ -1,9 +1,6 @@
 #
 #   This module defines
-#   the spin Hamiltonian for spin triplet
-#   ground states
-#   
-#   Hss = D [Sz^2 - S(S+1)/3] + E (Sx^2 - Sy^2) + \sum_i^N I_i Ahfi(i) S
+#   the spin Hamiltonian 
 #
 import numpy as np
 from numpy import linalg as LA
@@ -13,25 +10,12 @@ from pydephasing.phys_constants import hbar, mu_B, eps, THz_to_ev
 from pydephasing.utility_functions import triplet_evolution
 from pydephasing.log import log
 import logging
+from abc import ABC
 import matplotlib.pyplot as plt
 #
-class spin_triplet_hamiltonian:
-	#
+class spin_hamiltonian(ABC):
 	def __init__(self):
-		self.s = 1.
-		self.basis_vectors = [[self.s,1.], [self.s,0.], [self.s,-1.]]
-		self.Splus = np.zeros((3,3), dtype=np.complex128)
-		self.Sminus = np.zeros((3,3), dtype=np.complex128)
-		self.Sx = np.zeros((3,3), dtype=np.complex128)
-		self.Sy = np.zeros((3,3), dtype=np.complex128)
-		self.Sz = np.zeros((3,3), dtype=np.complex128)
-		# set spin matrices
-		self.set_Sz()
-		self.set_Splus()
-		self.set_Sminus()
-		self.set_Sx()
-		self.set_Sy()
-		self.set_Ssq()
+		pass
 	def Splus_mtxel(self, j1, m1, j2, m2):
 		r = np.sqrt((j2 - m2) * (j2 + m2 + 1)) * delta(j1, j2) * delta(m1, m2+1)
 		return r
@@ -62,19 +46,47 @@ class spin_triplet_hamiltonian:
 				[j1, m1] = v1
 				[j2, m2] = v2
 				self.Sminus[r,c] = self.Sminus_mtxel(j1, m1, j2, m2)
-	def set_Sz(self):
-		self.Sz[0,0] = 1.
-		self.Sz[2,2] = -1.
 	def set_Sx(self):
 		self.Sx[:,:] = (self.Splus[:,:] + self.Sminus[:,:]) / 2.
 	def set_Sy(self):
 		self.Sy[:,:] = (self.Splus[:,:] - self.Sminus[:,:]) / (2.*1j)
 	def set_Ssq(self):
 		self.Ssq = np.matmul(self.Sx, self.Sx) + np.matmul(self.Sy, self.Sy) + np.matmul(self.Sz, self.Sz)
-		assert np.abs(self.Ssq[0,0] - self.s*(self.s+1.)) < 1.e-7
-		assert np.abs(self.Ssq[1,1] - self.s*(self.s+1.)) < 1.e-7
-		assert np.abs(self.Ssq[2,2] - self.s*(self.s+1.)) < 1.e-7
-	#
+		assert np.abs(self.Ssq[0,0] - self.s*(self.s+1.)) < eps
+		assert np.abs(self.Ssq[1,1] - self.s*(self.s+1.)) < eps
+		assert np.abs(self.Ssq[2,2] - self.s*(self.s+1.)) < eps
+
+#
+#   spin triplet Hamiltonian class
+#
+#   for spin triplet ground states
+#   
+#   Hss = D [Sz^2 - S(S+1)/3] + E (Sx^2 - Sy^2) + \sum_i^N I_i Ahfi(i) S
+#
+
+class spin_triplet_hamiltonian(spin_hamiltonian):
+	def __init__(self):
+		super().__init__()
+		self.s = 1.
+		self.basis_vectors = [[self.s,1.], [self.s,0.], [self.s,-1.]]
+		self.Splus = np.zeros((3,3), dtype=np.complex128)
+		self.Sminus = np.zeros((3,3), dtype=np.complex128)
+		self.Sx = np.zeros((3,3), dtype=np.complex128)
+		self.Sy = np.zeros((3,3), dtype=np.complex128)
+		self.Sz = np.zeros((3,3), dtype=np.complex128)
+		self.qs = []
+		# set spin matrices
+		self.set_Sz()
+		self.set_Splus()
+		self.set_Sminus()
+		self.set_Sx()
+		self.set_Sy()
+		self.set_Ssq()
+	#   Sz
+	def set_Sz(self):
+		self.Sz[0,0] = 1.
+		self.Sz[2,2] = -1.
+	#   SDS
 	def set_SDS(self, unprt_struct):
 		Ddiag = unprt_struct.Ddiag*2.*np.pi*1.E-6
 		#
@@ -85,27 +97,20 @@ class spin_triplet_hamiltonian:
 		self.SDS = self.SDS + Ddiag[2]*np.matmul(self.Sz, self.Sz)
 	# set ZFS energy levels
 	def set_zfs_levels(self, unprt_struct, B):
-		#Ddiag = unprt_struct.Ddiag*2.*np.pi*1.E-6
 		Ddiag = unprt_struct.Ddiag*1.E-6
-		Ddiag = Ddiag * THz_to_ev
-		# eV units
-		print(B)
+		Ddiag = Ddiag * THz_to_ev        # eV units
 		# D = 3./2 Dz
 		D = 3./2 * Ddiag[2]
 		# E = (Dx - Dy)/2
 		E = (Ddiag[0] - Ddiag[1]) / 2.
-		# unperturbed H0 = D[Sz^2 - s(s+1)/3] + E(Sx^2 - Sy^2) + mu_B B Sz
+		# unperturbed H0 = D[Sz^2 - s(s+1)/3] + E(Sx^2 - Sy^2) - mu_B B Sz
 		H0 = D * (np.matmul(self.Sz, self.Sz) - self.Ssq / 3.) 
 		H0 +=E * (np.matmul(self.Sx, self.Sx) - np.matmul(self.Sy, self.Sy))
-		H0 +=mu_B * 2.0 * (B[0] * self.Sx + B[1] * self.Sy + B[2] * self.Sz)
+		H0 -=mu_B * 2.0 * (B[0] * self.Sx + B[1] * self.Sy + B[2] * self.Sz)
+		# store eigenstates
 		eig, eigv = LA.eig(H0)
-		self.eig = eig
-		self.qs = np.zeros((3,3), dtype=np.complex128)
-		self.qs[:,:] = eigv
-		print(self.eig, self.qs[2,:])
-		r = np.matmul(self.Sz, self.qs[2,:])
-		print(np.dot(self.qs[2,:].conj(), r))
-	#
+		for s in range(3):
+			self.qs.append({'eig':eig[s], 'eigv':eigv[:,s]})
 	# set time array
 	def set_time(self, dt, T):
 		# set time in ps units
@@ -188,3 +193,27 @@ class spin_triplet_hamiltonian:
 		# save data
 		with open(namef, 'w') as out_file:
 			yaml.dump(dict2, out_file)
+
+#
+#   spin doublet 
+#   Hamiltonian class
+#
+
+class spin_doublet_hamiltonian(spin_hamiltonian):
+	def __init__(self):
+		super().__init__()
+		self.s = 0.5
+		self.basis_vectors = [[self.s, 0.5], [self.s, -0.5]]
+		self.Splus = np.zeros((2,2), dtype=np.complex128)
+		self.Sminus = np.zeros((2,2), dtype=np.complex128)
+		self.Sx = np.zeros((2,2), dtype=np.complex128)
+		self.Sy = np.zeros((2,2), dtype=np.complex128)
+		self.Sz = np.zeros((2,2), dtype=np.complex128)
+		self.qs = []
+		# set spin matrices
+		self.set_Sz()
+		self.set_Splus()
+		self.set_Sminus()
+		self.set_Sx()
+		self.set_Sy()
+		self.set_Ssq()
