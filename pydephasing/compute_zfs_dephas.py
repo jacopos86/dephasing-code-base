@@ -89,7 +89,6 @@ def compute_homo_dephas():
     # set up the spin Hamiltonian
     Hsp = spin_triplet_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
-    exit()
     # set up spin phonon interaction class
     sp_ph_inter = SpinPhononClass().generate_instance()
     sp_ph_inter.set_quantum_states(Hsp)
