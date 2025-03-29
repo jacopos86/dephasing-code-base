@@ -14,40 +14,13 @@ class SpinPhononClass:
     def __init__(self):
         # <qs1|S grad_ax D S|qs2> -> (3,3,3*nat) matrix
         self.Fzfs_ax = None
-        # <qs1| grad_ax grad_a'x' D S|qs2> -> (3*nat,3*nat) matrix
-        self.Fzfs_axby = None
         # Hf coupling tensor force
         self.Fhf_ax = None
-        # Hf coupling 2nd order gradient
-        self.Fhf_axby = None
-        # quantum basis spin triplet
-        self.qs0 = np.zeros(3, dtype=np.complex128)
-        # | 1 >
-        self.qs1 = np.zeros(3, dtype=np.complex128)
-    def generate_instance(self):
-        if p.deph:
-            return SpinPhononDephClass()
-        elif p.relax:
-            return SpinPhononRelaxClass()
+    def generate_instance(self, order2):
+        if not order2:
+            return SpinPhononFirstOrder()
         else:
-            log.info("\n")
-            log.error("\t either relax or deph calculation")
-    def set_quantum_states(self, Hsp):
-        expv = np.zeros(3)
-        for j in range(3):
-            expv[j] = self.compute_matr_elements(Hsp.Sz, Hsp.qs[:,j], Hsp.qs[:,j])
-        index = np.argsort(expv)
-        self.qs1[:] = Hsp.qs[:,index[2]]
-        self.qs0[:] = Hsp.qs[:,index[1]]
-        # index quantum states
-        p.index_qs1 = index[2]
-        p.index_qs0 = index[1]
-    # compute matrix elements
-    # <qs1|A|qs2>
-    def compute_matr_elements(self, A, qs1, qs2):
-        r = np.einsum("ij,j->i", A, qs2)
-        expv = np.einsum("i,i", qs1.conjugate(), r)
-        return expv
+            return SpinPhononSecndOrder()
     # set up < qs | S grad_ax D S | qs > coefficients
     # 3 X 3 matrix
     def set_gaxD_force(self, gradZFS, Hsp):
@@ -149,6 +122,24 @@ class SpinPhononClass:
         # collect data
         self.Fhf_ax = mpi.collect_array(Fax) * 2.*np.pi * hbar
         # eV / ang
+
+#
+# first order spin-phonon coupling class
+#
+class SpinPhononFirstOrder(SpinPhononClass):
+    def __init__(self):
+        super(SpinPhononFirstOrder, self).__init__()
+
+#
+# second order spin-phonon coupling class
+#
+class SpinPhononSecndOrder(SpinPhononClass):
+    def __init__(self):
+        super(SpinPhononSecndOrder, self).__init__()
+        # <qs1| grad_ax grad_a'x' D S|qs2> -> (3*nat,3*nat) matrix
+        self.Fzfs_axby = None
+        # Hf coupling 2nd order gradient
+        self.Fhf_axby = None
     #
     # set ZFS 2nd order gradient force
     def set_Faxby_zfs(self, grad2ZFS, Hsp):
@@ -180,7 +171,7 @@ class SpinPhononClass:
         # collect data
         self.Fhf_axby = mpi.collect_array(Faxby) * 2.*np.pi * hbar
         # eV / ang^2
-#
+
 class SpinPhononRelaxClass(SpinPhononClass):
     def __init__(self):
         super(SpinPhononRelaxClass, self).__init__()
