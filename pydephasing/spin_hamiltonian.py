@@ -217,3 +217,7 @@ class spin_doublet_hamiltonian(spin_hamiltonian):
 		self.set_Sx()
 		self.set_Sy()
 		self.set_Ssq()
+	#   Sz
+	def set_Sz(self):
+		self.Sz[0,0] = 0.5
+		self.Sz[1,1] =-0.5
