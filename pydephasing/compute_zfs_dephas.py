@@ -18,6 +18,8 @@ from pydephasing.ph_ampl_module import PhononAmplitude
 from pydephasing.auto_correlation_spph_mod import acf_sp_ph
 from pydephasing.T2_calc_handler import set_T2_calc_handler
 from pydephasing.energy_fluct_mod import ZFS_ph_fluctuations
+from pydephasing.phonons_module import PhononsClass
+from pydephasing.q_grid import qgridClass
 #
 def compute_homo_dephas():
     # main driver code for the calculation of dephasing time
@@ -90,13 +92,18 @@ def compute_homo_dephas():
     Hsp = spin_triplet_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
     # set up spin phonon interaction class
-    sp_ph_inter = SpinPhononClass().generate_instance()
-    sp_ph_inter.set_quantum_states(Hsp)
-    exit()
+    sp_ph_inter = SpinPhononClass().generate_instance(p.order_2_correct)
+    # set q grid
+    qgr = qgridClass()
+    qgr.set_qgrid()
     #
     # extract phonon data
     #
+    ph = PhononsClass()
+    ph.set_ph_data(qgr)
+    exit()
     u, wu, nq, qpts, wq, mesh = extract_ph_data()
+    exit()
     #
     # compute ZFS fluctuations
     if p.deph:
