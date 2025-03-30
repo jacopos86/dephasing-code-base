@@ -3,8 +3,8 @@
 import numpy as np
 import h5py
 from pydephasing.set_param_object import p
-from pydephasing.phys_constants import eps, THz_to_ev
-from pydephasing.utility_functions import lorentzian, bose_occup
+from common.phys_constants import eps, THz_to_ev
+from common.special_functions import lorentzian
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 import logging
