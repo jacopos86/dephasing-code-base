@@ -4,7 +4,8 @@ import sys
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
 from pydephasing.mpi import mpi
-from pydephasing.phys_constants import hbar
+from common.phys_constants import hbar, THz_to_ev
+from common.matrix_operations import compute_matr_elements
 from pydephasing.log import log
 #
 # set of routines 
@@ -21,17 +22,18 @@ class SpinPhononClass:
             return SpinPhononFirstOrder()
         else:
             return SpinPhononSecndOrder()
-    # set up < qs | S grad_ax D S | qs > coefficients
-    # 3 X 3 matrix
+    # set up < qs1 | S grad_ax D S | qs2 > coefficients
+    # n X n matrix -> n: number states Hsp
     def set_gaxD_force(self, gradZFS, Hsp):
+        n = len(Hsp.basis_vectors)
         nat = gradZFS.struct_0.nat
         # Hsp = S D S
-        Fax = np.zeros((3, 3, 3*nat), dtype=np.complex128)
+        Fax = np.zeros((n, n, 3*nat), dtype=np.complex128)
         # jax list
         jax_list = mpi.split_list(range(3*nat))
         # run over jax index
         for jax in jax_list:
-            SgDS = np.zeros((3,3), dtype=np.complex128)
+            SgDS = np.zeros((n,n), dtype=np.complex128)
             gD = np.zeros((3,3))
             gD[:,:] = gradZFS.U_gradD_U[jax,:,:]
             SgDS =  gD[0,0] * np.matmul(Hsp.Sx, Hsp.Sx)
@@ -43,22 +45,13 @@ class SpinPhononClass:
             SgDS += gD[1,2] * np.matmul(Hsp.Sy, Hsp.Sz)
             SgDS += gD[2,1] * np.matmul(Hsp.Sz, Hsp.Sy)
             SgDS += gD[2,2] * np.matmul(Hsp.Sz, Hsp.Sz)
-            # compute matrix elements 
-            # <qs0|SgDS|qs0>
-            Fax[0,0,jax] = self.compute_matr_elements(SgDS, Hsp.qs[:,0], Hsp.qs[:,0])
-			# <qs1|SgDS|qs1>
-            Fax[1,1,jax] = self.compute_matr_elements(SgDS, Hsp.qs[:,1], Hsp.qs[:,1])
-            # <qs0|SgDS|qs1>
-            Fax[0,1,jax] = self.compute_matr_elements(SgDS, Hsp.qs[:,0], Hsp.qs[:,1])
-            Fax[1,0,jax] = self.compute_matr_elements(SgDS, Hsp.qs[:,0], Hsp.qs[:,1]).conjugate()
-            # <qs0|SgDS|qs2>
-            Fax[0,2,jax] = self.compute_matr_elements(SgDS, Hsp.qs[:,0], Hsp.qs[:,2])
-            Fax[2,0,jax] = self.compute_matr_elements(SgDS, Hsp.qs[:,0], Hsp.qs[:,2]).conjugate()
-            #
-            Fax[1,2,jax] = self.compute_matr_elements(SgDS, Hsp.qs[:,1], Hsp.qs[:,2])
-            Fax[2,1,jax] = self.compute_matr_elements(SgDS, Hsp.qs[:,1], Hsp.qs[:,2]).conjugate()
-            #
-            Fax[2,2,jax] = self.compute_matr_elements(SgDS, Hsp.qs[:,2], Hsp.qs[:,2])
+            # compute matrix elements
+            for i1 in range(len(Hsp.qs)):
+                qs1 = Hsp.qs[i1]['eigv']
+                for i2 in range(len(Hsp.qs)):
+                    qs2 = Hsp.qs[i2]['eigv']
+                    # <qs1|SgDS|qs2>
+                    Fax[i1,i2,jax] = compute_matr_elements(SgDS, qs1, qs2)
         mpi.comm.Barrier()
         Fax = mpi.collect_array(Fax)
         # THz / Ang units
@@ -92,17 +85,13 @@ class SpinPhononClass:
     #
     # set ZFS energy gradient 1st order -> spin dephasing
     def set_Fax_zfs(self, gradZFS, Hsp):
-        nat = gradZFS.struct_0.nat
-        # compute grad delta Ezfs
-        # gradient of the spin state energy difference
-        self.Fzfs_ax = np.zeros((3, 3, 3*nat), dtype=np.complex128)
         #
-        # compute : < qs1 | S gradD S | qs1 > - < qs2 | S gradD S | qs2 >
+        # compute : < qs1 | S gradD S | qs2 >
         #
         Fax = self.set_gaxD_force(gradZFS, Hsp)
         # eV / Ang units (energy)
         # add 2pi factor
-        self.Fzfs_ax[:,:,:] = Fax[:,:,:] * 2.*np.pi * hbar
+        self.Fzfs_ax = Fax * 2.*np.pi * hbar
     # set hyperfine dephasing
     # effective force
     def set_Fax_hfi(self, gradHFI, Hsp, sp_config):
