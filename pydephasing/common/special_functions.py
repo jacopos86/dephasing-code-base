@@ -1,19 +1,17 @@
 import numpy as np
 from math import exp
-from pydephasing.phys_constants import eps, kb, hbar
 from pydephasing.log import log
 from pydephasing.set_param_object import p
 import yaml
 #
-# utility functions module
+# special functions module
 #
-# 1) function computing the norm of a vector
-#    input : n-dimensional vector
-# 2) function computing the bose occupation number
-#    input : energy (eV), temperature (K)
-# 3) delta function
+
+# 1) delta function
 #    input : x, y
-# 4) lorentzian
+# 2) lorentzian
+#    input : x, eta
+# 3) gaussian
 #    input : x, eta
 # 5) solve ODE dy/dt = Fy
 #    input : y0, F, dt
@@ -29,14 +27,9 @@ import yaml
 # 9) print matrix as string
 #    input : matrix
 #    output : string
+
 #
 #  function 1)
-#
-def norm_realv(v):
-	nrm = np.sqrt(sum(v[:]*v[:]))
-	return nrm
-#
-#  function 3)
 #
 def delta(x, y):
 	if x == y:
@@ -44,30 +37,18 @@ def delta(x, y):
 	else:
 		return 0.
 #
-#  function 4)
+#  function 2)
 #
 def lorentzian(x, eta):
 	ltz = eta/2. / (x ** 2 + (eta/2.) ** 2) * 1./np.pi
 	return ltz
 
 #
-#   function 5)
+#   function 3)
 #
 def gaussian():
 	pass
 
-#
-#   function 6)
-#
-def set_cross_prod_matrix(a):
-	A = np.zeros((3,3))
-	A[0,1] = -a[2]
-	A[0,2] =  a[1]
-	A[1,0] =  a[2]
-	A[1,2] = -a[0]
-	A[2,0] = -a[1]
-	A[2,1] =  a[0]
-	return A
 #
 #   function 7)
 #
