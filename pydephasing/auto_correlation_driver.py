@@ -5,7 +5,7 @@
 #
 import numpy as np
 import logging
-from pydephasing.phys_constants import eps
+from common.phys_constants import eps
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.set_param_object import p

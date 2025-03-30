@@ -11,8 +11,8 @@ import yaml
 import logging
 from pathlib import Path
 from pydephasing.neural_network_class import generate_NN_object
-from pydephasing.utility_functions import print_2D_matrix
-from pydephasing.phys_constants import eps
+from common.special_functions import print_2D_matrix
+from common.phys_constants import eps
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 import matplotlib.pyplot as plt
@@ -449,6 +449,10 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		if fil.exists():
 			with open(file_name, 'r') as f:
 				data = yaml.load(f, Loader=yaml.Loader)
+				self.grad2Dtensor = data['grad2D']['coeffs']
+				self.U_grad2D_U = data['Ugrad2DU']['coeffs']
+				log.debug("grad2D tensor shape: " + str(self.grad2Dtensor.shape))
+				return
 		# set NN model to find missing terms
 		nat = self.struct_0.nat
 		jax_list = mpi.random_split(range(3*nat))

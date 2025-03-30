@@ -9,7 +9,7 @@ import yaml
 from abc import ABC
 from pydephasing.log import log
 from pydephasing.mpi import mpi
-from pydephasing.phys_constants import THz_to_ev
+from common.phys_constants import THz_to_ev
 from pydephasing.input_parser import parser
 #
 class data_input(ABC):
@@ -89,6 +89,13 @@ class data_input(ABC):
         if 'dt' in data:
             self.dt = float(data['dt'])
             # ps units
+        # applied static magnetic field
+        # magnitude -> aligned along spin quant. axis
+        if 'B0' in data:
+            self.B0 = np.array(data['B0'])
+        else:
+            self.B0 = np.array([0., 0., 0.])
+        # Gauss units
         # ---------------------------------------
         #    HFI calculation parameters
         # ---------------------------------------
@@ -269,10 +276,6 @@ class dynamical_data_input(data_input):
         if 'temperature' in data:
             Tlist = data['temperature']
             self.set_temperatures(Tlist)
-        # applied static magnetic field
-        if 'B0' in data:
-            self.B0 = np.array(data['B0'])
-            # Gauss units
         # --------------------------------------------------------------
         #
         #    time variables
@@ -455,11 +458,6 @@ class static_data_input(data_input):
             self.T_mus = float(data['T_nuc'])
         if 'dt_nuc' in data:
             self.dt_mus = float(data['dt_nuc'])
-        # static magnetic field
-        # magnitude -> aligned along spin quant. axis
-        if 'B0' in data:
-            self.B0 = data['B0']
-            # Gauss units
         # taylor exp. order
         if 'order_taylor_exp' in data:
             self.order_exp = data['order_taylor_exp']

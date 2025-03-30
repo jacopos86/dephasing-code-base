@@ -1,19 +1,17 @@
 import numpy as np
 from math import exp
-from pydephasing.phys_constants import eps, kb, hbar
 from pydephasing.log import log
 from pydephasing.set_param_object import p
 import yaml
 #
-# utility functions module
+# special functions module
 #
-# 1) function computing the norm of a vector
-#    input : n-dimensional vector
-# 2) function computing the bose occupation number
-#    input : energy (eV), temperature (K)
-# 3) delta function
+
+# 1) delta function
 #    input : x, y
-# 4) lorentzian
+# 2) lorentzian
+#    input : x, eta
+# 3) gaussian
 #    input : x, eta
 # 5) solve ODE dy/dt = Fy
 #    input : y0, F, dt
@@ -29,27 +27,9 @@ import yaml
 # 9) print matrix as string
 #    input : matrix
 #    output : string
+
 #
 #  function 1)
-#
-def norm_realv(v):
-	nrm = np.sqrt(sum(v[:]*v[:]))
-	return nrm
-#
-#  function 2)
-#
-def bose_occup(E, T):
-	if T < eps:
-		n = 0.
-	else:
-		x = E / (kb*T)
-		if x > 100.:
-			n = 0.
-		else:
-			n = 1./(exp(E / (kb * T)) - 1.)
-	return n
-#
-#  function 3)
 #
 def delta(x, y):
 	if x == y:
@@ -57,52 +37,18 @@ def delta(x, y):
 	else:
 		return 0.
 #
-#  function 4)
+#  function 2)
 #
 def lorentzian(x, eta):
 	ltz = eta/2. / (x ** 2 + (eta/2.) ** 2) * 1./np.pi
 	return ltz
+
 #
-#  function 5)
+#   function 3)
 #
-def ODE_solver(y0, F, dt):
-	# this routine solves
-	# dy/dt = F(t) y -> y real 3d vector
-	# F(t) is 3 x 3 matrix
-	# using RK4 algorithm
-	nt = F.shape[2]
-	yt = np.zeros((3,int(nt/2)))
-	yt[:,0] = y0[:]
-	# iterate over t
-	for i in range(int(nt/2)-1):
-		y = np.zeros(3)
-		y[:] = yt[:,i]
-		# K1
-		K1 = dt * np.matmul(F[:,:,2*i], y)
-		y1 = y + K1 / 2.
-		# K2
-		K2 = dt * np.matmul(F[:,:,2*i+1], y1)
-		y2 = y + K2 / 2.
-		# K3
-		K3 = dt * np.matmul(F[:,:,2*i+1], y2)
-		y3 = y + K3
-		# K4
-		K4 = dt * np.matmul(F[:,:,2*i+2], y3)
-		#
-		yt[:,i+1] = y[:] + (K1[:] + 2.*K2[:] + 2.*K3[:] + K4[:]) / 6.
-	return yt
-#
-#   function 6)
-#
-def set_cross_prod_matrix(a):
-	A = np.zeros((3,3))
-	A[0,1] = -a[2]
-	A[0,2] =  a[1]
-	A[1,0] =  a[2]
-	A[1,2] = -a[0]
-	A[2,0] = -a[1]
-	A[2,1] =  a[0]
-	return A
+def gaussian():
+	pass
+
 #
 #   function 7)
 #

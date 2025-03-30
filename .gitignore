@@ -11,6 +11,7 @@ examples
 scr.sh
 pydephasing/__pycache__
 pydephasing/unit_tests/__pycache__
+pydephasing/common/__pycache__
 pydeph
 EXAMPLES.tar.gz
 EXAMPLES

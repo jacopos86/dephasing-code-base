@@ -2,7 +2,6 @@ VENV = pydeph
 PYTHON = $(VENV)/bin/python3
 PIP = $(VENV)/bin/pip
 ROOT = $(shell pwd)
-EXAMPLES_DIR = EXAMPLES
 EXAMPLES_TAR_FILE = EXAMPLES.tar.gz
 EXAMPLES_URL = "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
 UNIT_TEST_DIR = pydephasing/unit_tests
@@ -17,10 +16,6 @@ build :
 	if [ ! -f $(EXAMPLES_TAR_FILE) ] ; \
 	then \
 		gdown --fuzzy $(EXAMPLES_URL) ; \
-	fi ; \
-	if [ ! -d $(EXAMPLES_DIR) ] ; \
-	then \
-		tar -xvzf $(EXAMPLES_TAR_FILE) ; \
 	fi ; \
 	./build.sh
 install :
@@ -45,6 +40,10 @@ clean :
 	if [ -d ./pydephasing/unit_tests/__pycache__ ] ; \
 	then \
 		rm -rf ./pydephasing/unit_tests/__pycache__ ; \
+	fi ; \
+	if [ -d ./pydephasing/common/__pycache__ ] ; \
+	then \
+		rm -rf ./pydephasing/common/__pycache__ ; \
 	fi ; \
 	if [ -d $(VENV) ] ; \
 	then \

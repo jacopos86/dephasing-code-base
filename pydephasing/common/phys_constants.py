@@ -1,6 +1,5 @@
 from scipy.constants import physical_constants
 from scipy.constants import electron_volt
-import numpy as np
 #
 # physical constants module
 #
@@ -23,11 +22,10 @@ hbar = hbar / electron_volt * 1.E12  # eV ps
 #
 eps = 1.E-7
 #
-# electron gyromagnetic ratio : gamma_e / 2pi
+# Bohr magneton (eV/G)
 #
-gamma_e = physical_constants["electron gyromag. ratio"][0]
-gamma_e = gamma_e * 1.E-12 * 1.E-4 
-gamma_e = gamma_e / (2.*np.pi)       # THz / G
+mu_B = physical_constants["Bohr magneton in eV/T"][0]  # eV T^-1
+mu_B = mu_B * 1.E-4                                    # eV G^-1
 #
 # nuclear gyromagnetic ratio  : gamma_n / 2pi
 #
