@@ -222,15 +222,6 @@ class SpinPhononRelaxClass(SpinPhononClass):
 class SpinPhononDephClass(SpinPhononClass):
     def __init__(self):
         super(SpinPhononDephClass, self).__init__()
-    # compute <qs1|A|qs1> - <qs2|A|qs2>
-    def compute_deph_matr_elem_difference(self, A, qs1, qs2):
-        r1 = np.einsum("ij,j->i", A, qs1)
-        expv1 = np.einsum("i,i", qs1.conjugate(), r1)
-        #
-        r2 = np.einsum("ij,j->i", A, qs2)
-        expv2 = np.einsum("i,i", qs2.conjugate(), r2)
-        r = expv1 - expv2
-        return r
     # set up < 0 | S grad_axby D S | 0 > - < 1 | S grad_axby D S | 1 > coefficients
     # 2nd order spin phonon dephasing matrix elements
     def set_gaxbyD_force(self, grad2ZFS, Hsp):
