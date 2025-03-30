@@ -5,9 +5,8 @@
 import numpy as np
 from numpy import linalg as LA
 import yaml
-from pydephasing.utility_functions import delta
-from pydephasing.phys_constants import hbar, mu_B, eps, THz_to_ev
-from pydephasing.utility_functions import triplet_evolution
+from common.special_functions import delta, triplet_evolution
+from common.phys_constants import hbar, mu_B, eps, THz_to_ev
 from pydephasing.log import log
 import logging
 from abc import ABC
