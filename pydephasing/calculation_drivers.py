@@ -5,6 +5,7 @@ from pydephasing.set_param_object import p
 from pydephasing.compute_LR_spin_decoher import compute_spin_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
 from pydephasing.compute_zfs_hfi_dephas import compute_full_dephas
+from pydephasing.non_markov_dephas import compute_nmark_dephas
 
 #
 #   different calculation drivers
@@ -181,22 +182,11 @@ def spin_qubit_driver(yml_file):
     #
     # --------------------------------------------------------------
     elif calc_type1 == "LBLD":
-        assert(calc_type2 == "full")
-        if calc_type2 == "full":
-            if mpi.rank == mpi.root:
-                log.info("\t T2 CALCULATION -> STARTING")
-                log.info("\t FULL HOMOGENEOUS SPIN - DEPHASING")
-                log.info("\t LINDBLAD DYNAMICS")
-                log.info("\n")
-                log.info("\t " + p.sep)
-        else:
-            if mpi.rank == mpi.root:
-                log.info("\n")
-                log.info("\t " + p.sep)
-                log.warning("\t CODE USAGE: \n")
-                log.warning("\t -> python pydephasing -ct1 [LR, LBLD, NMARK, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
-                log.info("\t " + p.sep)
-            log.error("\t calc_type2 wrong: " + calc_type2)
+        if mpi.rank == mpi.root:
+            log.info("\t T2 CALCULATION -> STARTING")
+            log.info("\t LINDBLAD DYNAMICS")
+            log.info("\n")
+            log.info("\t " + p.sep)
         # read input file
         p.read_yml_data(yml_file)
         # compute auto correl. function first
@@ -213,10 +203,15 @@ def spin_qubit_driver(yml_file):
         mpi.comm.Barrier()
         # full spin branch -> END
     elif calc_type1 == "NMARK":
-        assert(calc_type2 == "full")
-        '''
-        NOT IMPLEMENTED
-        '''
+        if mpi.rank == mpi.root:
+            log.info("\t T2 CALCULATION -> STARTING")
+            log.info("\t NON MARKOVIAN DYNAMICS")
+            log.info("\n")
+            log.info("\t " + p.sep)
+        # read input file
+        p.read_yml_data(yml_file)
+        # compute dephas
+        T2_calc_handler = compute_nmark_dephas()
     else:
         if mpi.rank == mpi.root:
             log.info("\n")
