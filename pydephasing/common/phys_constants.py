@@ -1,6 +1,5 @@
 from scipy.constants import physical_constants
 from scipy.constants import electron_volt
-import numpy as np
 #
 # physical constants module
 #
