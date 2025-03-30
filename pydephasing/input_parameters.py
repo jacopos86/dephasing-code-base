@@ -9,7 +9,7 @@ import yaml
 from abc import ABC
 from pydephasing.log import log
 from pydephasing.mpi import mpi
-from pydephasing.phys_constants import THz_to_ev
+from common.phys_constants import THz_to_ev
 from pydephasing.input_parser import parser
 #
 class data_input(ABC):

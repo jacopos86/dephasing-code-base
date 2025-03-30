@@ -9,7 +9,6 @@ from pydephasing.gradient_interactions import gradient_ZFS, gradient_HFI, gradie
 from pydephasing.spin_hamiltonian import spin_triplet_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.auto_correl_inhom_driver import acf_sp_ph_inhom
 from pydephasing.nuclear_spin_config import nuclear_spins_config
 from pydephasing.mpi import mpi

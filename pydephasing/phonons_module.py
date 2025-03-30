@@ -2,7 +2,7 @@ import h5py
 import logging
 import numpy as np
 from pydephasing.mpi import mpi
-from pydephasing.phys_constants import eps, kb
+from common.phys_constants import eps, kb
 from pydephasing.set_param_object import p
 from pydephasing.log import log
 from math import exp

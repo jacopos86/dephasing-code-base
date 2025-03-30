@@ -11,8 +11,8 @@ import yaml
 import logging
 from pathlib import Path
 from pydephasing.neural_network_class import generate_NN_object
-from pydephasing.utility_functions import print_2D_matrix
-from pydephasing.phys_constants import eps
+from common.special_functions import print_2D_matrix
+from common.phys_constants import eps
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 import matplotlib.pyplot as plt

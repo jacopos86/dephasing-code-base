@@ -5,7 +5,7 @@ import logging
 from pydephasing.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.log import log
-from pydephasing.phys_constants import eps
+from common.phys_constants import eps
 #
 #   q grid class
 #

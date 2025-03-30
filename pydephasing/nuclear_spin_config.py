@@ -8,8 +8,7 @@
 import numpy as np
 from scipy import integrate
 import yaml
-from pydephasing.utility_functions import set_cross_prod_matrix, norm_realv, ODE_solver
-from pydephasing.phys_constants import gamma_n
+from common.phys_constants import gamma_n
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p

@@ -6,10 +6,10 @@
 import numpy as np
 import cmath
 import math
-from pydephasing.phys_constants import THz_to_ev, eps, kb, hbar
+from common.phys_constants import THz_to_ev, eps, kb, hbar
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.utility_functions import bose_occup, lorentzian
+from common.special_functions import lorentzian
 from tqdm import tqdm
 from pydephasing.global_params import GPU_ACTIVE
 from pathlib import Path
