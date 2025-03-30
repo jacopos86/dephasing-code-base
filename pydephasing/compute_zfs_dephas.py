@@ -13,8 +13,7 @@ from pydephasing.gradient_interactions import gradient_ZFS, generate_2nd_order_g
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.spin_hamiltonian import spin_triplet_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
-from pydephasing.extract_ph_data import extract_ph_data
-from pydephasing.ph_ampl_module import PhononAmplitude
+from pydephasing.ph_amplitude_module import PhononAmplitude
 from pydephasing.auto_correlation_spph_mod import acf_sp_ph
 from pydephasing.T2_calc_handler import set_T2_calc_handler
 from pydephasing.energy_fluct_mod import ZFS_ph_fluctuations
@@ -96,57 +95,60 @@ def compute_homo_dephas():
     # set q grid
     qgr = qgridClass()
     qgr.set_qgrid()
-    #
-    # extract phonon data
-    #
-    ph = PhononsClass()
-    ph.set_ph_data(qgr)
-    exit()
-    u, wu, nq, qpts, wq, mesh = extract_ph_data()
-    exit()
-    #
-    # compute ZFS fluctuations
-    if p.deph:
-        if mpi.rank == mpi.root:
-            log.info("\n")
-            log.info("\t " + p.sep)
-            log.info("\t START ENERGY FLUCTUATIONS CALC.")
-        ZFS_fluct = ZFS_ph_fluctuations()
-        ZFS_fluct.compute_fluctuations(wq, qpts, nat, wu, u)
-        ZFS_fluct.collect_acf_from_processes()
-        if mpi.rank == mpi.root:
-            log.info("\n")
-            log.info("\t ENERGY FLUCTUATIONS CALC. CONCLUDED")
-            log.info("\t " + p.sep)
-    #
     if mpi.rank == 0:
         log.info("\n")
         log.info("\t " + p.sep)
         log.info("\t Q MESH INFORMATION")
         log.info("\n")
         log.info("\n")
-        log.info("\t nq: " + str(nq))
-        log.info("\t mesh: " + str(mesh))
-        if nq > 10:
+        log.info("\t nq: " + str(qgr.nq))
+        log.info("\t grid size: " + str(qgr.grid_size))
+        if qgr.nq > 10:
             for iq in range(10):
-                log.info("\t wq[" + str(iq+1) + "]: " + str(wq[iq]))
+                log.info("\t wq[" + str(iq+1) + "]: " + str(qgr.wq[iq]))
             log.info("\t ...")
         else:
-            for iq in range(nq):
-                log.info("\t wq[" + str(iq+1) + "]: " + str(wq[iq]))
+            for iq in range(qgr.nq):
+                log.info("\t wq[" + str(iq+1) + "]: " + str(qgr.wq[iq]))
         log.info("\n")
         log.info("\t " + p.sep)
         log.info("\n")
-    assert len(qpts) == nq
-    assert len(u) == nq
     mpi.comm.Barrier()
+    #
+    # extract phonon data
+    #
+    ph = PhononsClass()
+    ph.set_ph_data(qgr)
+    #
+    # set spin-phonon matrix
+    # in eV/ang units
+    if mpi.rank == mpi.root:
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t START SPIN-PHONON COUPLING CALCULATION")
+    sp_ph_inter.set_Fax_zfs(gradZFS, Hsp)
+    if mpi.rank == mpi.root:
+        log.info("\n")
+        log.info("\t END SPIN-PHONON COUPLING CALCULATION")
+        log.info("\t " + p.sep)
+    exit()
+    #
+    # compute ZFS fluctuations
+    if mpi.rank == mpi.root:
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t START ENERGY FLUCTUATIONS CALC.")
+    ZFS_fluct = ZFS_ph_fluctuations()
+    ZFS_fluct.compute_fluctuations(wq, qpts, nat, wu, u)
+    ZFS_fluct.collect_acf_from_processes()
+    if mpi.rank == mpi.root:
+        log.info("\n")
+        log.info("\t ENERGY FLUCTUATIONS CALC. CONCLUDED")
+        log.info("\t " + p.sep)
+    #
     # if w_resolved define freq. grid
     if p.w_resolved:
         p.set_w_grid(wu)
-    # set the effective phonon forces
-    # F_ax = <1|S Grad_ax D S|1> - <0|S Grad_ax D S|0>
-    # F should be in eV/ang units
-    sp_ph_inter.set_Fax_zfs(gradZFS, Hsp)
     Fax = sp_ph_inter.Fzfs_ax
     print(max(Fax))
     import sys
