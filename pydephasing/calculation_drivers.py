@@ -211,7 +211,12 @@ def spin_qubit_driver(yml_file):
         # read input file
         p.read_yml_data(yml_file)
         # compute dephas
-        T2_calc_handler = compute_nmark_dephas()
+        if calc_type2 == "homo" or calc_type2 == "inhomo":
+            T2_calc_handler = compute_nmark_dephas()
+        else:
+            if mpi.rank == mpi.root:
+                log.warning("\t NON MARKOVIAN DYNAMICS -> calc_type2 : homo/inhomo")
+            log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
     else:
         if mpi.rank == mpi.root:
             log.info("\n")
