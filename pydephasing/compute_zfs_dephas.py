@@ -91,8 +91,12 @@ def compute_homo_dephas():
     Hsp = spin_triplet_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
     # set up spin phonon interaction class
-    sp_ph_inter = SpinPhononClass().generate_instance(p.order_2_correct)
+    sp_ph_inter = SpinPhononClass(True, False).generate_instance(p.order_2_correct)
+    if mpi.rank == mpi.root:
+        log.info("\t ZFS_CALC: " + str(sp_ph_inter.ZFS_CALC))
+        log.info("\t HFI_CALC: " + str(sp_ph_inter.HFI_CALC))
     # set q grid
+    exit()
     qgr = qgridClass()
     qgr.set_qgrid()
     if mpi.rank == 0:
