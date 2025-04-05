@@ -12,14 +12,14 @@ from pydephasing.log import log
 # for spin phonon dephasing class
 #
 class SpinPhononClass:
-    def __init__(self, ZFS_CALC=False, HFI_CALC=False):
+    def __init__(self):
         # add HFI contribution to the spin-phonon coupl
-        self.HFI_CALC = HFI_CALC
+        self.HFI_CALC = None
         # add ZFS contribution to the spin-phonon coupl.
-        self.ZFS_CALC = ZFS_CALC
-    def generate_instance(self, order2):
+        self.ZFS_CALC = None
+    def generate_instance(self, order2, ZFS_CALC, HFI_CALC):
         if not order2:
-            return SpinPhononFirstOrder(self.ZFS_CALC, self.HFI_CALC)
+            return SpinPhononFirstOrder(ZFS_CALC, HFI_CALC)
         else:
             return SpinPhononSecndOrder()
     # set up < qs1 | S grad_ax D S | qs2 > coefficients
@@ -106,10 +106,27 @@ class SpinPhononClass:
         self.Fhf_ax = mpi.collect_array(Fax) * 2.*np.pi * hbar
         # eV / ang
     #
+    # compute g_{ab}(q,l)
+    # = \sum_{n;s} Aq e^{iq Rn}e_q(s) <a|g_(ns)H|b>
+    #
+    def compute_gql(self, nat, ql_list, ph, Hsp, Fax):
+        n = len(Hsp.basis_vectors)
+        g_ql = np.zeros((n, n, len(ql_list)), dtype=np.complex128)
+        # ph. amplitude
+        A_ql = ph.compute_ph_amplitude_q(nat, ql_list)
+        iql = 0
+        for iq, il in ql_list:
+            for n in range(atoms.supercell_size):
+                for jax in range(3*nat):
+                    ia = atoms.index_to_ia_map[jax] - 1
+                    eq = ph.eql[iq]
+            iql += 1
+        return g_ql
+    #
     # compute spin phonon coupling
     # at first order
     # g_ql = <s1|gX Hsp|s2> e_ql(X)
-    def compute_spin_ph_coupl(self, nat, Hsp, gradZFS=None, sp_config=None, gradHFI=None):
+    def compute_spin_ph_coupl(self, nat, Hsp, ph, qgr, gradZFS=None, sp_config=None, gradHFI=None):
         #
         # compute : < qs1 | S gradD S | qs2 >
         #
@@ -122,16 +139,18 @@ class SpinPhononClass:
         if self.HFI_CALC:
             Fax += self.set_Fax_hfi(self, gradHFI, Hsp, sp_config)
         # build ql_list
+        ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
-        self.g_ql = self.compute_gql(ql_list, ph, Fax)
+        self.g_ql = self.compute_gql(nat, ql_list, ph, Fax)
         
-
 #
 # first order spin-phonon coupling class
 #
 class SpinPhononFirstOrder(SpinPhononClass):
-    def __init__(self):
+    def __init__(self, ZFS_CALC, HFI_CALC):
         super(SpinPhononFirstOrder, self).__init__()
+        self.ZFS_CALC = ZFS_CALC
+        self.HFI_CALC = HFI_CALC
 
 #
 # second order spin-phonon coupling class
