@@ -1,6 +1,5 @@
 import numpy as np
 import cmath
-import sys
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
 from pydephasing.mpi import mpi
@@ -109,17 +108,25 @@ class SpinPhononClass:
     # compute g_{ab}(q,l)
     # = \sum_{n;s} Aq e^{iq Rn}e_q(s) <a|g_(ns)H|b>
     #
-    def compute_gql(self, nat, ql_list, ph, Hsp, Fax):
+    def compute_gql(self, nat, ql_list, qgr, ph, Hsp, Fax):
         n = len(Hsp.basis_vectors)
         g_ql = np.zeros((n, n, len(ql_list)), dtype=np.complex128)
         # ph. amplitude
         A_ql = ph.compute_ph_amplitude_q(nat, ql_list)
         iql = 0
         for iq, il in ql_list:
+            qv = qgr.qpts[iq]
             for n in range(atoms.supercell_size):
+                Rn = atoms.supercell_grid[n]
                 for jax in range(3*nat):
-                    ia = atoms.index_to_ia_map[jax] - 1
-                    eq = ph.eql[iq]
+                    ia = atoms.index_to_ia_map[jax]
+                    m_ia = atoms.atoms_mass[ia]             
+                    # eV ps^2/A^2
+                    eq = ph.eql[iq][jax,il] / np.sqrt(m_ia)
+                    eiqRn = cmath.exp(1j*2.*np.pi*np.dot(qv, Rn))
+                    g_ql[:,:,iql] += A_ql[iql] * eiqRn * eq * Fax[:,:,jax]
+                    # [eV/ang * ang/eV^1/2 *ps^-1 * eV^1/2 ps]
+                    # = eV
             iql += 1
         return g_ql
     #
@@ -141,7 +148,9 @@ class SpinPhononClass:
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
-        self.g_ql = self.compute_gql(nat, ql_list, ph, Fax)
+        self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
+        nan_indices = np.isnan(self.g_ql)
+        assert nan_indices.any() == False
         
 #
 # first order spin-phonon coupling class
