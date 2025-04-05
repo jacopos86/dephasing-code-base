@@ -2,7 +2,7 @@ import h5py
 import logging
 import numpy as np
 from pydephasing.mpi import mpi
-from common.phys_constants import eps, kb
+from common.phys_constants import eps, kb, hbar
 from pydephasing.set_param_object import p
 from pydephasing.log import log
 from math import exp
@@ -17,6 +17,8 @@ class PhononsClass:
         self.uq_key = ''
         self.uql = None
         #  phonon eigenvalues
+        self.nmodes = None
+        # n. of ph. modes
     #
     #  get phonon keys
     def get_phonon_keys(self):
@@ -55,6 +57,9 @@ class PhononsClass:
         with h5py.File(p.hd5_eigen_file, 'r') as f:
             # ph. frequency
             self.uql = list(f[self.uq_key])
+            self.nmodes = len(self.uql[0])
+            if mpi.rank == mpi.root:
+                log.info("\t number phonon modes: " + str(self.nmodes))
             # ph. eigenvectors
             # Eigenvectors is a numpy array of three dimension.
             # The first index runs through q-points.
@@ -66,6 +71,26 @@ class PhononsClass:
         if log.level <= logging.INFO:
             self.check_eq_data(qgr)
             self.check_uq_data(qgr)
+    #
+    # phonons amplitudes
+    def compute_ph_amplitude_q(self, nat, ql_list):
+        # A_lq = [hbar/(2*N*w_lq)]^1/2
+        # at a given q vector
+        # [eV^1/2 ps]
+        A_ql = np.zeros(len(ql_list))
+        # run over ph. modes
+        # run over local (q,l) list
+        iql = 0
+        for iq, il in ql_list:
+            # freq.
+            wuq = self.uql[iq]
+            # amplitude
+            if wuq[il] > p.min_freq:
+                A_ql[iql] = np.sqrt(hbar / (4.*np.pi*wuq[il]*nat))
+                # eV^0.5*ps
+            iql += 1
+        #
+        return A_ql
     #
     # check eigenv data
     def check_eq_data(self, qgr):
