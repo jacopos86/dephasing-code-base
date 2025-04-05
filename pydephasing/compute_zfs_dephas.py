@@ -62,11 +62,13 @@ def compute_homo_dephas():
     # n. atoms
     nat = gradZFS.struct_0.nat
     # compute index maps
+    atoms.set_atoms_data()
     atoms.compute_index_to_ia_map(nat)
     atoms.compute_index_to_idx_map(nat)
     # set atoms dict
     atoms.extract_atoms_coords(nat)
     atoms.set_supercell_coords(nat)
+    exit()
     # zfs 2nd order
     if p.order_2_correct:
         # set 2nd order tensor
@@ -91,12 +93,11 @@ def compute_homo_dephas():
     Hsp = spin_triplet_hamiltonian()
     Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
     # set up spin phonon interaction class
-    sp_ph_inter = SpinPhononClass(True, False).generate_instance(p.order_2_correct)
+    sp_ph_inter = SpinPhononClass().generate_instance(p.order_2_correct, True, False)
     if mpi.rank == mpi.root:
         log.info("\t ZFS_CALC: " + str(sp_ph_inter.ZFS_CALC))
         log.info("\t HFI_CALC: " + str(sp_ph_inter.HFI_CALC))
     # set q grid
-    exit()
     qgr = qgridClass()
     qgr.set_qgrid()
     if mpi.rank == 0:
@@ -130,7 +131,7 @@ def compute_homo_dephas():
         log.info("\n")
         log.info("\t " + p.sep)
         log.info("\t START SPIN-PHONON COUPLING CALCULATION")
-    sp_ph_inter.set_Fax_zfs(gradZFS, Hsp)
+    sp_ph_inter.compute_spin_ph_coupl(nat, Hsp, ph, qgr, gradZFS)
     if mpi.rank == mpi.root:
         log.info("\n")
         log.info("\t END SPIN-PHONON COUPLING CALCULATION")
