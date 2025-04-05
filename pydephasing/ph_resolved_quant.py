@@ -8,24 +8,7 @@ from pydephasing.global_params import GPU_ACTIVE
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 #
-def compute_ph_amplitude_q(wu, nat, ql_list):
-    # A_lq = [hbar/(2*N*w_lq)]^1/2
-    # at a given q vector
-    # [eV^1/2 ps]
-    A_lq = np.zeros(len(ql_list))
-    # run over ph. modes
-    # run over local (q,l) list
-    iql = 0
-    for iq, il in ql_list:
-        # freq.
-        wuq = wu[iq]
-        # amplitude
-        if wuq[il] > p.min_freq:
-            A_lq[iql] = np.sqrt(hbar / (4.*np.pi*wuq[il]*nat))
-        # eV^0.5*ps
-        iql += 1
-    #
-    return A_lq
+
 #
 # set ZFS gradient (lambda,q)
 def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
