@@ -20,7 +20,7 @@ from pydephasing.energy_fluct_mod import ZFS_ph_fluctuations
 from pydephasing.phonons_module import PhononsClass
 from pydephasing.q_grid import qgridClass
 #
-def compute_homo_dephas():
+def compute_homo_dephas(ZFS_CALC, HFI_CALC):
     # main driver code for the calculation of dephasing time
     # in homogeneous spin systems
     #
@@ -45,7 +45,7 @@ def compute_homo_dephas():
     if not os.path.isdir(p.work_dir+'/restart'):
         if mpi.rank == mpi.root:
             os.mkdir(p.work_dir+'/restart')
-        mpi.comm.Barrier()
+    mpi.comm.Barrier()
     # set ZFS gradient
     gradZFS = gradient_ZFS(p.work_dir, p.grad_info)
     gradZFS.set_gs_zfs_tensor()
@@ -62,13 +62,7 @@ def compute_homo_dephas():
     # n. atoms
     nat = gradZFS.struct_0.nat
     # compute index maps
-    atoms.set_atoms_data()
-    atoms.compute_index_to_ia_map(nat)
-    atoms.compute_index_to_idx_map(nat)
-    # set atoms dict
-    atoms.extract_atoms_coords(nat)
-    atoms.set_supercell_coords(nat)
-    exit()
+    atoms.set_atoms_data(nat)
     # zfs 2nd order
     if p.order_2_correct:
         # set 2nd order tensor
