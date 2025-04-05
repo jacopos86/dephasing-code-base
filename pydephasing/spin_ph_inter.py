@@ -12,14 +12,14 @@ from pydephasing.log import log
 # for spin phonon dephasing class
 #
 class SpinPhononClass:
-    def __init__(self):
-        # <qs1|S grad_ax D S|qs2> -> (3,3,3*nat) matrix
-        self.Fzfs_ax = None
-        # Hf coupling tensor force
-        self.Fhf_ax = None
+    def __init__(self, ZFS_CALC=False, HFI_CALC=False):
+        # add HFI contribution to the spin-phonon coupl
+        self.HFI_CALC = HFI_CALC
+        # add ZFS contribution to the spin-phonon coupl.
+        self.ZFS_CALC = ZFS_CALC
     def generate_instance(self, order2):
         if not order2:
-            return SpinPhononFirstOrder()
+            return SpinPhononFirstOrder(self.ZFS_CALC, self.HFI_CALC)
         else:
             return SpinPhononSecndOrder()
     # set up < qs1 | S grad_ax D S | qs2 > coefficients
@@ -55,6 +55,9 @@ class SpinPhononClass:
         mpi.comm.Barrier()
         Fax = mpi.collect_array(Fax)
         # THz / Ang units
+        Fax = Fax * 2.*np.pi * hbar
+        # eV / Ang units (energy)
+        # add 2pi factor
         return Fax
     # set < qs | I(aa) grad_ax Ahf(aa) S | qs > coefficients
     def set_gaxA_force(self, aa, gradHFI, Hsp, Iaa):
@@ -83,17 +86,8 @@ class SpinPhononClass:
             Fax[:,:,iax] = I_gA[0] * sx[:,:] + I_gA[1] * sy[:,:] + I_gA[2] * sz[:,:]
         return Fax
     #
-    # set ZFS energy gradient 1st order -> spin dephasing
-    def set_Fax_zfs(self, gradZFS, Hsp):
-        #
-        # compute : < qs1 | S gradD S | qs2 >
-        #
-        Fax = self.set_gaxD_force(gradZFS, Hsp)
-        # eV / Ang units (energy)
-        # add 2pi factor
-        self.Fzfs_ax = Fax * 2.*np.pi * hbar
-    # set hyperfine dephasing
-    # effective force
+    #  set hyperfine effective force from
+    #  nuclear spins
     def set_Fax_hfi(self, gradHFI, Hsp, sp_config):
         nat = gradHFI.struct_0.nat
         # effective force
@@ -111,6 +105,26 @@ class SpinPhononClass:
         # collect data
         self.Fhf_ax = mpi.collect_array(Fax) * 2.*np.pi * hbar
         # eV / ang
+    #
+    # compute spin phonon coupling
+    # at first order
+    # g_ql = <s1|gX Hsp|s2> e_ql(X)
+    def compute_spin_ph_coupl(self, nat, Hsp, gradZFS=None, sp_config=None, gradHFI=None):
+        #
+        # compute : < qs1 | S gradD S | qs2 >
+        #
+        n = len(Hsp.basis_vectors)
+        Fax = np.zeros((n, n, 3*nat), dtype=np.complex128)
+        # ZFS call
+        if self.ZFS_CALC:
+            Fax += self.set_gaxD_force(gradZFS, Hsp)
+        # HFI call
+        if self.HFI_CALC:
+            Fax += self.set_Fax_hfi(self, gradHFI, Hsp, sp_config)
+        # build ql_list
+        # compute g_ql
+        self.g_ql = self.compute_gql(ql_list, ph, Fax)
+        
 
 #
 # first order spin-phonon coupling class
