@@ -532,7 +532,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		# run over displ.
 		# ia/idx
 		for jax in tqdm(jax_list):
-			ia = atoms.index_to_ia_map[jax]-1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			da = self.struct_0.struct.get_distance(ia,self.defect_index)
 			for ib in range(ia, nat):
@@ -797,7 +797,7 @@ class gradient_2nd_ZFS_MLP(gradient_2nd_ZFS):
 			log.error("\t DEFAULT ATOM DISPLACEMENT NOT FOUND")
 		# run over jax list
 		for jax in tqdm(jax_list):
-			ia = atoms.index_to_ia_map[jax]-1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			# distance from defect center
 			da = self.struct_0.struct.get_distance(ia, self.defect_index)
@@ -963,7 +963,7 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 		Dby1_lst = []
 		# run jax list
 		for jax in tqdm(jax_list):
-			ia = atoms.index_to_ia_map[jax]-1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			# distance from defect
 			da = self.struct_0.struct.get_distance(ia, self.defect_index)
@@ -1045,7 +1045,7 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 		# compute tensor gradient
 		ii = 0
 		for jax in jax_list:
-			ia = atoms.index_to_ia_map[jax] - 1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			# distance from defect
 			da = self.struct_0.struct.get_distance(ia, self.defect_index)
@@ -1474,7 +1474,7 @@ class gradient_2nd_HFI(perturbation_HFI):
 		mpi.comm.Barrier()
 		# run over displ. ia/idx
 		for jax in tqdm(jax_list):
-			ia = atoms.index_to_ia_map[jax] - 1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			da = self.struct_0.struct.get_distance(ia,self.defect_index)
 			for ib in range(ia, nat):
@@ -1576,11 +1576,11 @@ class gradient_2nd_HFI(perturbation_HFI):
 		assert len(ind) == len(oud)
 		# run over d.o.f.
 		for iiax in range(3*nat):
-			ia = atoms.index_to_ia_map[iiax]-1
+			ia = atoms.index_to_ia_map[iiax]
 			idx= atoms.index_to_idx_map[iiax]
 			# iiby index
 			for iiby in [3*aa, 3*aa+1, 3*aa+2]:
-				ib = atoms.index_to_ia_map[iiby]-1
+				ib = atoms.index_to_ia_map[iiby]
 				idy= atoms.index_to_idx_map[iiby]
 				# extract atomic displ.
 				iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
@@ -1757,10 +1757,10 @@ class gradient_Eg:
 		self.force_const = np.zeros((3*nat, 3*nat))
 		# iterate over atomic index
 		for jax in range(3*nat):
-			ia = atoms.index_to_ia_map[jax]-1
+			ia = atoms.index_to_ia_map[jax]
 			ix = atoms.index_to_idx_map[jax]
 			for jby in range(3*nat):
-				ib = atoms.index_to_ia_map[jby]-1
+				ib = atoms.index_to_ia_map[jby]
 				iy = atoms.index_to_idx_map[jby]
 				self.force_const[jax,jby] = Fc[ia,ib,ix,iy]
 		# eV / ang^2
