@@ -89,7 +89,6 @@ class PhononsClass:
                 A_ql[iql] = np.sqrt(hbar / (4.*np.pi*wuq[il]*nat))
                 # eV^0.5*ps
             iql += 1
-        #
         return A_ql
     #
     # check eigenv data
