@@ -2,7 +2,7 @@ from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.input_parser import parser
 from pydephasing.set_param_object import p
-from pydephasing.compute_zfs_dephas import compute_homo_dephas
+from pydephasing.compute_LR_spin_decoher import compute_spin_dephas
 from pydephasing.compute_hfi_dephas import compute_hfi_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
 from pydephasing.compute_zfs_hfi_dephas import compute_full_dephas
@@ -107,15 +107,19 @@ def spin_qubit_driver(yml_file):
         #
         # --------------------------------------------------------------
         if calc_type2 == "homo":
+            ZFS_CALC = True
+            HFI_CALC = False
             if mpi.rank == mpi.root:
                 log.info("\t T2 CALCULATION -> STARTING")
                 log.info("\t HOMOGENEOUS SPIN - DEPHASING")
+                log.info("\t ZFS_CALC: " + str(ZFS_CALC))
+                log.info("\t HFI_CALC: " + str(HFI_CALC))
                 log.info("\n")
                 log.info("\t " + p.sep)
             # read input file
             p.read_yml_data(yml_file)
             # compute auto correl. function first
-            T2_calc_handler = compute_homo_dephas()
+            T2_calc_handler = compute_spin_dephas(ZFS_CALC, HFI_CALC)
             # finalize calculation
             if mpi.rank == mpi.root:
                 log.info("-----------                   PRINT DATA ON FILES         --------------")
