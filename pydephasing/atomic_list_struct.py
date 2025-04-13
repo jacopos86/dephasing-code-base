@@ -8,6 +8,7 @@ from common.phys_constants import mp
 class AtomicStructureClass:
     # initialization
     def __init__(self):
+        self.nat = None
         # keys
         self.supercell_key = ''
         self.unitcell_key = ''
@@ -66,19 +67,26 @@ class AtomicStructureClass:
                     self.coords_key = k
             if self.coords_key == '':
                 log.error("coordinates key not found")
+    def set_number_of_atoms(self):
+        with open(p.yaml_pos_file) as f:
+            data = yaml.full_load(f)
+            self.nat = len(list(data[self.unitcell_key][self.atoms_pos_key]))
+            if mpi.rank == mpi.root:
+                log.info("\t n. of atoms: " + str(self.nat))
     # set atoms data
-    def set_atoms_data(self, nat):
+    def set_atoms_data(self):
         self.get_atoms_keys()
-        self.compute_index_to_ia_map(nat)
-        self.compute_index_to_idx_map(nat)
+        self.set_number_of_atoms()
+        self.compute_index_to_ia_map()
+        self.compute_index_to_idx_map()
         # extract atoms coordinate
-        self.extract_atoms_coords(nat)
+        self.extract_atoms_coords()
         # set atoms mass
-        self.set_atoms_mass(nat)
+        self.set_atoms_mass()
         # set lattice and super cell
         self.set_supercell_grid()
     # set atoms dict
-    def extract_atoms_coords(self, nat):
+    def extract_atoms_coords(self):
         # read from yaml file
         # direct atoms positions
         with open(p.yaml_pos_file) as f:
@@ -86,7 +94,7 @@ class AtomicStructureClass:
             key = self.unitcell_key
             self.atoms_dict = list(data[key][self.atoms_pos_key])
         # check length
-        assert len(self.atoms_dict) == nat
+        assert len(self.atoms_dict) == self.nat
     # set supercell coordinates
     # with respect to unit cell lattice vectors
     def set_supercell_grid(self):
@@ -107,19 +115,19 @@ class AtomicStructureClass:
                 log.info("\t n. supercell grid points: " + str(self.supercell_size))
                 log.info("\t supercell grid: " + str(self.supercell_grid))
     # set index_to_ia_map
-    def compute_index_to_ia_map(self, nat):
-        self.index_to_ia_map = np.zeros(3*nat, dtype=int)
-        for jax in range(3*nat):
+    def compute_index_to_ia_map(self):
+        self.index_to_ia_map = np.zeros(3*self.nat, dtype=int)
+        for jax in range(3*self.nat):
             self.index_to_ia_map[jax] = int(jax/3)
     # set index to idx map
-    def compute_index_to_idx_map(self, nat):
-        self.index_to_idx_map = np.zeros(3*nat, dtype=int)
-        for jax in range(3*nat):
+    def compute_index_to_idx_map(self):
+        self.index_to_idx_map = np.zeros(3*self.nat, dtype=int)
+        for jax in range(3*self.nat):
             self.index_to_idx_map[jax] = jax%3
     # set atoms mass
-    def set_atoms_mass(self, nat):
-        self.atoms_mass = np.zeros(nat)
-        for ia in range(len(self.atoms_dict)):
+    def set_atoms_mass(self):
+        self.atoms_mass = np.zeros(self.nat)
+        for ia in range(self.nat):
             m_ia = self.atoms_dict[ia][self.mass_key]
             self.atoms_mass[ia] = m_ia * mp
             # eV ps^2 / ang^2
