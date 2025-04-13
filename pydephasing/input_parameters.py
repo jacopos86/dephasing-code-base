@@ -23,12 +23,10 @@ class data_input(ABC):
         self.write_dir = ''
         # unperturbed directory
         self.unpert_dirs = []
+        # general GS directory - no for grads
+        self.gs_data_dir = ''
         # grad info file
         self.grad_info = ''
-        # relax. type calculation
-        self.relax = False
-        # dephasing type calculation
-        self.deph = False
         # dynamical decoupling F by default
         self.dyndec = False
         # sep.
@@ -74,6 +72,8 @@ class data_input(ABC):
                     # create new dir.
                     os.makedirs(self.write_dir)
             mpi.comm.Barrier()
+        if 'unpert_dir' in data:
+            self.gs_data_dir = self.work_dir + '/' + data['unpert_dir']
         # grad info file
         if 'grad_info_file' in data:
             self.grad_info = self.work_dir + '/' + data['grad_info_file']
@@ -174,11 +174,7 @@ class dynamical_data_input(data_input):
         # in gradient calculation
         self.frac_kept_atoms = 1.
         ####################################
-        # physical parameters : deph - relax
-        self.index_qs0 = None
-        self.index_qs1 = None
-        # index of states |0> and |1> in the 
-        # spin eigenvectors matrix
+        # physical parameters
         # n. temperatures
         self.ntmp = 0
         # time ph / at resolved
