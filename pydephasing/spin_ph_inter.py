@@ -133,7 +133,7 @@ class SpinPhononClass:
     # compute spin phonon coupling
     # at first order
     # g_ql = <s1|gX Hsp|s2> e_ql(X)
-    def compute_spin_ph_coupl(self, nat, Hsp, ph, qgr, gradZFS=None, sp_config=None, gradHFI=None):
+    def compute_spin_ph_coupl(self, nat, Hsp, ph, qgr, interact_dict, sp_config=None):
         #
         # compute : < qs1 | S gradD S | qs2 >
         #
@@ -141,9 +141,11 @@ class SpinPhononClass:
         Fax = np.zeros((n, n, 3*nat), dtype=np.complex128)
         # ZFS call
         if self.ZFS_CALC:
+            gradZFS = interact_dict['gradZFS']
             Fax += self.set_gaxD_force(gradZFS, Hsp)
         # HFI call
         if self.HFI_CALC:
+            gradHFI = interact_dict['gradHFI']
             Fax += self.set_Fax_hfi(self, gradHFI, Hsp, sp_config)
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
