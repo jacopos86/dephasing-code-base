@@ -12,6 +12,7 @@ import yaml
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.set_param_object import p
+from pydephasing.atomic_list_struct import atoms
 #
 #  atom dictionary class
 #
@@ -107,6 +108,7 @@ class UnpertStruct:
 		struct_dict.build_dict(struct)
 		atoms_key = struct_dict.atoms_key
 		self.nat = len(list(struct_dict.dictionary[atoms_key]))
+		assert self.nat == atoms.nat
 		log.debug("\t n. atoms: " + str(self.nat))
 	### read ZFS from OUTCAR
 	def read_zfs(self):
