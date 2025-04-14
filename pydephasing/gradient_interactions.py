@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import math
 from pydephasing.log import log
 from pydephasing.mpi import mpi
-from pydephasing.set_structs import UnpertStruct
+from pydephasing.build_unpert_struct import build_gs_struct_base
 from tqdm import tqdm
 from abc import ABC
 #
@@ -150,9 +150,8 @@ class perturbation_ZFS(ABC):
 							self.Dns[i1,i2] = dD2[i1,i2]
 	#
 	# set local unperturbed structure
-	def set_gs_zfs_tensor(self):
-		self.struct_0 = UnpertStruct(self.gs_data_dir)
-		self.struct_0.read_poscar()
+	def build_gs_struct(self):
+		self.struct_0 = build_gs_struct_base(self.gs_data_dir)
 		# get ZFS tensor
 		self.struct_0.read_zfs_tensor()
 #
@@ -177,8 +176,10 @@ class gradient_ZFS(perturbation_ZFS):
 		self.gradE = None
 		# default dir
 		self.default_dir = self.atom_info_dict['(0,0)'][0]
-		# GS data dir
+		# GS data dir + unpert. struct.
 		self.gs_data_dir = self.out_dir + '/' + self.atom_info_dict['(0,0)'][1]
+		self.build_gs_struct()
+
 	#
 	# set ZFS gradients
 	#
@@ -422,6 +423,8 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		self.default_poscar_dir = self.out_dir + '/' + self.atom_info_dict['(0,0,0,0)'][1]
 		# GS data dir
 		self.gs_data_dir = self.out_dir + '/' + self.atom_info_dict['(0,0,0,0)'][2]
+		# build local unperturbed structure
+		self.build_gs_struct()
 		# cutoff distance between two atoms
 		if self.atom_info_dict['cutoff_dist'] == "inf":
 			self.d_cutoff = np.inf
@@ -1255,9 +1258,8 @@ class perturbation_HFI(ABC):
 						if dA2[aa,ix] > self.Ahf_ns[aa,ix]:
 							self.Ahf_ns[aa,ix] = dA2[aa,ix]
 	# set HFI GS tensor
-	def set_gs_hfi_tensor(self):
-		self.struct_0 = UnpertStruct(self.gs_data_dir)
-		self.struct_0.read_poscar()
+	def build_gs_struct(self):
+		self.struct_0 = build_gs_struct_base(self.gs_data_dir)
 		# get zfs tensor
 		self.struct_0.read_zfs_tensor()
 		# set HFI tensor
@@ -1279,6 +1281,8 @@ class gradient_HFI(perturbation_HFI):
 		self.default_dir = self.atom_info_dict['(0,0)'][0]
 		# GS data dir
 		self.gs_data_dir = self.out_dir + '/' + self.atom_info_dict['(0,0)'][1]
+		# set unpert. struct.
+		self.build_gs_struct()
 	#
 	# set Ahfi tensor gradient
 	#
@@ -1397,6 +1401,8 @@ class gradient_2nd_HFI(perturbation_HFI):
 		self.default_poscar_dir = self.out_dir + '/' + self.atom_info_dict['(0,0,0,0)'][1]
 		# GS data dir
 		self.gs_data_dir = self.out_dir + '/' + self.atom_info_dict['(0,0,0,0)'][2]
+		# set unpert. struct.
+		self.build_gs_struct()
 		# cut off distance
 		if self.atom_info_dict['cutoff_dist'] == 'inf':
 			self.d_cutoff = np.inf
@@ -1696,10 +1702,12 @@ class gradient_Eg:
 		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
 		f.close()
 		# unpert dir
-		self.unpert_dir = self.atom_info_dict[dict_key]['unpert_dir']
-		self.unpert_dir = p.work_dir + '/' + self.unpert_dir
+		self.gs_data_dir = self.atom_info_dict[dict_key]['unpert_dir']
+		self.gs_data_dir = p.work_dir + '/' + self.gs_data_dir
 		self.hess_file  = self.atom_info_dict[dict_key]['hess_file']
 		self.hess_file  = p.work_dir + '/' + self.hess_file
+		# set unpert. struct.
+		self.build_gs_struct()
 	# read outcar file
 	def read_outcar(self, outcar):
 		# read file
@@ -1766,8 +1774,7 @@ class gradient_Eg:
 		# eV / ang^2
 		# units
 	# set HFI GS tensor
-	def set_unpert_struct(self):
-		self.struct_0 = UnpertStruct(self.unpert_dir)
-		self.struct_0.read_poscar()
+	def build_gs_struct(self):
+		self.struct_0 = build_gs_struct_base(self.gs_data_dir)
 		# get energy
 		self.struct_0.read_free_energy()
