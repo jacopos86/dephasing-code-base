@@ -9,7 +9,7 @@ from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.spin_hamiltonian import spin_triplet_hamiltonian
+from pydephasing.spin_hamiltonian import set_spin_hamiltonian
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.ph_amplitude_module import PhononAmplitude
 from pydephasing.auto_correlation_spph_mod import acf_sp_ph
@@ -18,6 +18,7 @@ from pydephasing.energy_fluct_mod import ZFS_ph_fluctuations
 from pydephasing.phonons_module import PhononsClass
 from pydephasing.q_grid import qgridClass
 from pydephasing.build_interact_grad import calc_interaction_grad
+from pydephasing.build_unpert_struct import build_gs_struct_base
 #
 def compute_spin_dephas(ZFS_CALC, HFI_CALC):
     # main driver code for the calculation of dephasing time
@@ -36,12 +37,14 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC):
     mpi.comm.Barrier()
     # n. atoms
     nat = atoms.nat
-    # extract unperturbed struct.
-    if interact_dict['gradZFS'] is not None:
-        struct_0 = interact_dict['gradZFS'].struct_0
+    # extract unperturbed struct. ZFS levels
+    if mpi.rank == mpi.root:
+        log.info("\t GS DATA DIR: " + p.gs_data_dir)
+    struct_0 = build_gs_struct_base(p.gs_data_dir)
+    if ZFS_CALC:
+        struct_0.read_zfs_tensor()
     # set up the spin Hamiltonian
-    Hsp = spin_triplet_hamiltonian()
-    Hsp.set_zfs_levels(struct_0, p.B0)
+    Hsp = set_spin_hamiltonian(struct_0, p.B0)
     # set up spin phonon interaction class
     sp_ph_inter = SpinPhononClass().generate_instance(p.order_2_correct, ZFS_CALC, HFI_CALC)
     if mpi.rank == mpi.root:
@@ -86,6 +89,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC):
         log.info("\n")
         log.info("\t END SPIN-PHONON COUPLING CALCULATION")
         log.info("\t " + p.sep)
+    print(np.max(sp_ph_inter.g_ql.real))
     exit()
     #
     # compute ZFS fluctuations
