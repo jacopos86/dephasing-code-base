@@ -504,10 +504,7 @@ class preproc_data_input():
             self.work_dir = data['working_dir']
         # unpert. data directory
         if 'unpert_dir' in data:
-            if len(data['unpert_dir']) == 1:
-                self.unpert_dir = self.work_dir + '/' + data['unpert_dir'][0]
-            else:
-                log.error("\t ONLY ONE UNPERTURBED DIRECTORY")
+            self.unpert_dir = self.work_dir + '/' + data['unpert_dir']
         # displ. POSCAR dir.
         if 'displ_poscar_dir' in data:
             for d in data['displ_poscar_dir']:
