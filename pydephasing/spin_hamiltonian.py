@@ -8,10 +8,33 @@ import yaml
 from common.special_functions import delta, triplet_evolution
 from common.phys_constants import hbar, mu_B, eps, THz_to_ev
 from pydephasing.log import log
+from pydephasing.mpi import mpi
 import logging
 from abc import ABC
 import matplotlib.pyplot as plt
+
 #
+#   function : set spin Hamiltonian
+#
+
+def set_spin_hamiltonian(struct0, B0):
+	# extract spin configuration
+	struct0.extract_spin_state()
+	# spin mult.
+	if int(struct0.spin_multiplicity) == 3:
+		if mpi.rank == mpi.root:
+			log.info("\t SPIN TRIPLET CALCULATION")
+		spin_hamilt = spin_triplet_hamiltonian()
+	elif int(struct0.spin_multiplicity) == 2:
+		if mpi.rank == mpi.root:
+			log.info("\t SPIN DOUBLET CALCULATION")
+		spin_hamilt = spin_doublet_hamiltonian()
+	else:
+		log.error("Wrong spin multiplicity : " + str(struct0.spin_multiplicity))
+	spin_hamilt.set_zfs_levels(struct0, B0)
+	return spin_hamilt
+#
+
 class spin_hamiltonian(ABC):
 	def __init__(self):
 		pass
