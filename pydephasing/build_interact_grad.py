@@ -33,7 +33,6 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
     if ZFS_CALC:
         # set ZFS gradient
         gradZFS = gradient_ZFS(p.work_dir, p.grad_info)
-        gradZFS.set_gs_zfs_tensor()
         # compute tensor gradient
         gradZFS.compute_noise(struct_list)
         gradZFS.set_tensor_gradient(struct_list)
