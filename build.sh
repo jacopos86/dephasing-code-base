@@ -149,7 +149,7 @@ grad_info_file : info.yml
 unpert_dir : GS
 yaml_pos_file : phonopy_disp.yaml
 hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
-2nd_order_correct : True
+2nd_order_correct : False
 atom_res : False
 phonon_res : False
 nwg : 1000
