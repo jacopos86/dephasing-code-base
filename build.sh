@@ -101,8 +101,7 @@ then
 
 	cat > input.yml <<EOF
 working_dir : ${wdT1}
-unpert_dir :
-   - GS
+unpert_dir : GS
 displ_poscar_dir :
    - DISPLACEMENT-FILES-001
 displ_outcar_dir :
@@ -147,8 +146,7 @@ displ_outcar_dir :
 displ_2nd_outcar_dir :
    - DISPL-2NDORDER
 grad_info_file : info.yml
-unpert_dir :
-   - GS
+unpert_dir : GS
 yaml_pos_file : phonopy_disp.yaml
 hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
 2nd_order_correct : True
@@ -184,8 +182,7 @@ displ_outcar_dir :
 displ_2nd_outcar_dir :
    - DISPL-2NDORDER
 grad_info_file : info.yml
-unpert_dir :
-   - GS
+unpert_dir : GS
 yaml_pos_file : phonopy_disp.yaml
 hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
 2nd_order_correct : True
