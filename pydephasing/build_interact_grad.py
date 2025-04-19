@@ -44,7 +44,7 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
             gradZFS.write_gradDtensor_to_file(p.work_dir+'/restart')
         mpi.comm.Barrier()
         # zfs 2nd order
-        if p.order_2_correct:
+        if p.hessian:
             # set 2nd order tensor
             grad2ZFS = generate_2nd_order_grad_instance(p.work_dir, p.grad_info)
             grad2ZFS.set_gs_zfs_tensor()
@@ -60,7 +60,8 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
             if log.level <= logging.DEBUG:
                 log.debug(" checking ZFS gradients")
                 gradZFS.plot_tensor_grad_component(struct_list)
-                if p.order_2_correct:
+                if p.hessian:
+                    log.debug(" checking ZFS hessian")
                     grad2ZFS.check_tensor_coefficients()
     #
     # build interaction dictionary
