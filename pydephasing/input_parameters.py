@@ -169,7 +169,7 @@ class dynamical_data_input(data_input):
         #
         # zfs/hfi 2nd order correction grad.
         self.order_2_correct = False
-        self.raman_correct = False
+        self.hessian = False
         # fraction of atoms preserved
         # in gradient calculation
         self.frac_kept_atoms = 1.
@@ -262,8 +262,8 @@ class dynamical_data_input(data_input):
         # 2nd order ZFS / HFI corrections
         if '2nd_order_correct' in data:
             self.order_2_correct = data['2nd_order_correct']
-            if 'raman' in data:
-                self.raman_correct = data['raman']
+            if 'hessian' in data:
+                self.hessian = data['hessian']
         # fraction atoms to be used in the gradient calculation
         # starting from the farthest away from defect
         if 'frac_kept_atoms' in data:
