@@ -1,5 +1,6 @@
 import numpy as np
 import cmath
+from abc import ABC
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
 from pydephasing.mpi import mpi
@@ -10,17 +11,12 @@ from pydephasing.log import log
 # set of routines 
 # for spin phonon dephasing class
 #
-class SpinPhononClass:
+class SpinPhononClass(ABC):
     def __init__(self):
         # add HFI contribution to the spin-phonon coupl
         self.HFI_CALC = None
         # add ZFS contribution to the spin-phonon coupl.
         self.ZFS_CALC = None
-    def generate_instance(self, order2, ZFS_CALC, HFI_CALC):
-        if not order2:
-            return SpinPhononFirstOrder(ZFS_CALC, HFI_CALC)
-        else:
-            return SpinPhononSecndOrder()
     # set up < qs1 | S grad_ax D S | qs2 > coefficients
     # n X n matrix -> n: number states Hsp
     def set_gaxD_force(self, gradZFS, Hsp):
@@ -129,14 +125,21 @@ class SpinPhononClass:
                     # = eV
             iql += 1
         return g_ql
+        
+#
+# first order spin-phonon coupling class
+#
+class SpinPhononFirstOrder(SpinPhononClass):
+    def __init__(self, ZFS_CALC, HFI_CALC):
+        super(SpinPhononFirstOrder, self).__init__()
+        self.ZFS_CALC = ZFS_CALC
+        self.HFI_CALC = HFI_CALC
     #
     # compute spin phonon coupling
     # at first order
     # g_ql = <s1|gX Hsp|s2> e_ql(X)
     def compute_spin_ph_coupl(self, nat, Hsp, ph, qgr, interact_dict, sp_config=None):
-        #
-        # compute : < qs1 | S gradD S | qs2 >
-        #
+        # n. spin states
         n = len(Hsp.basis_vectors)
         Fax = np.zeros((n, n, 3*nat), dtype=np.complex128)
         # ZFS call
@@ -153,22 +156,13 @@ class SpinPhononClass:
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
         nan_indices = np.isnan(self.g_ql)
         assert nan_indices.any() == False
-        
-#
-# first order spin-phonon coupling class
-#
-class SpinPhononFirstOrder(SpinPhononClass):
-    def __init__(self, ZFS_CALC, HFI_CALC):
-        super(SpinPhononFirstOrder, self).__init__()
-        self.ZFS_CALC = ZFS_CALC
-        self.HFI_CALC = HFI_CALC
 
 #
 # second order spin-phonon coupling class
 #
-class SpinPhononSecndOrder(SpinPhononClass):
+class SpinPhononSecndOrder00(SpinPhononClass):
     def __init__(self):
-        super(SpinPhononSecndOrder, self).__init__()
+        super(SpinPhononSecndOrder00, self).__init__()
         # <qs1| grad_ax grad_a'x' D S|qs2> -> (3*nat,3*nat) matrix
         self.Fzfs_axby = None
         # Hf coupling 2nd order gradient
