@@ -10,7 +10,7 @@ from pydephasing.log import log
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.spin_hamiltonian import set_spin_hamiltonian
-from pydephasing.spin_ph_inter import SpinPhononClass
+from pydephasing.spin_ph_handler import spin_ph_handler
 from pydephasing.ph_amplitude_module import PhononAmplitude
 from pydephasing.auto_correlation_spph_mod import acf_sp_ph
 from pydephasing.T2_calc_handler import set_T2_calc_handler
@@ -46,7 +46,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC):
     # set up the spin Hamiltonian
     Hsp = set_spin_hamiltonian(struct_0, p.B0)
     # set up spin phonon interaction class
-    sp_ph_inter = SpinPhononClass().generate_instance(p.order_2_correct, ZFS_CALC, HFI_CALC)
+    sp_ph_inter = spin_ph_handler(p.order_2_correct, ZFS_CALC, HFI_CALC, p.hessian)
     if mpi.rank == mpi.root:
         log.debug("\t ZFS_CALC: " + str(sp_ph_inter.ZFS_CALC))
         log.debug("\t HFI_CALC: " + str(sp_ph_inter.HFI_CALC))
