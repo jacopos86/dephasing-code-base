@@ -77,6 +77,8 @@ class spin_hamiltonian(ABC):
 		assert np.abs(self.Ssq[0,0] - self.s*(self.s+1.)) < eps
 		assert np.abs(self.Ssq[1,1] - self.s*(self.s+1.)) < eps
 		assert np.abs(self.Ssq[2,2] - self.s*(self.s+1.)) < eps
+	def check_degeneracy(self):
+		return False
 
 #
 #   spin triplet Hamiltonian class
