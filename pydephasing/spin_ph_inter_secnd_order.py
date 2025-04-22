@@ -9,7 +9,6 @@ from pydephasing.global_params import GPU_ACTIVE
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.log import log
 from pydephasing.mpi import mpi
-#
 
 #
 # set ZFS gradient (lambda,q)
