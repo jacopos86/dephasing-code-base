@@ -122,9 +122,13 @@ def spin_qubit_driver(yml_file):
             T2_calc_handler = compute_spin_dephas(ZFS_CALC, HFI_CALC)
             # finalize calculation
             if mpi.rank == mpi.root:
-                log.info("-----------                   PRINT DATA ON FILES         --------------")
+                log.info("\n")
+                log.info("\t" + p.sep)
+                log.info("\t PRINT DATA ON FILES")
                 # write T2 yaml files
                 T2_calc_handler.print_decoherence_times()
+                log.info("\t" + p.sep)
+                log.info("\n")
             mpi.comm.Barrier()
             # homo spin branch -> END
         # --------------------------------------------------------------
@@ -133,15 +137,19 @@ def spin_qubit_driver(yml_file):
         #
         # --------------------------------------------------------------
         elif calc_type2 == "inhomo":
-            # read file
-            p.read_yml_data(yml_file)
+            ZFS_CALC = False
+            HFI_CALC = True
             if mpi.rank == mpi.root:
                 log.info("\t T2 CALCULATION -> STARTING")
                 log.info("\t INHOMOGENEOUS SPIN - DEPHASING")
+                log.info("\t ZFS_CALC: " + str(ZFS_CALC))
+                log.info("\t HFI_CALC: " + str(HFI_CALC))
                 log.info("\n")
                 log.info("\t " + p.sep)
+            # read file
+            p.read_yml_data(yml_file)
             # compute the dephas. time
-            T2_calc_handler = compute_hfi_dephas()
+            T2_calc_handler = compute_spin_dephas(ZFS_CALC, HFI_CALC)
             # finalize calculation
             if mpi.rank == mpi.root:
                 log.info("\n")
@@ -153,6 +161,20 @@ def spin_qubit_driver(yml_file):
                 log.info("\n")
             mpi.comm.Barrier()
             # inhomo spin branch -> END
+        elif calc_type2 == "homo+inhomo" or calc_type2 == "inhomo+homo":
+            ZFS_CALC = True
+            HFI_CALC = True
+            if mpi.rank == mpi.root:
+                log.info("\t T2 CALCULATION -> STARTING")
+                log.info("\t INHOMOGENEOUS + HOMOGENEOUS SPIN - DEPHASING")
+                log.info("\t ZFS_CALC: " + str(ZFS_CALC))
+                log.info("\t HFI_CALC: " + str(HFI_CALC))
+                log.info("\n")
+                log.info("\t " + p.sep)
+            # read file
+            p.read_yml_data(yml_file)
+            # compute the dephas. time
+            T2_calc_handler = compute_spin_dephas(ZFS_CALC, HFI_CALC)
         elif calc_type2 == "stat" or calc_type2 == "statdd":
             if calc_type2 == "statdd":
                 p.dyndec = True
