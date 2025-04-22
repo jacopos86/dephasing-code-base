@@ -41,8 +41,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC):
     if mpi.rank == mpi.root:
         log.info("\t GS DATA DIR: " + p.gs_data_dir)
     struct_0 = build_gs_struct_base(p.gs_data_dir)
-    if ZFS_CALC:
-        struct_0.read_zfs_tensor()
+    struct_0.read_zfs_tensor()
     # set up the spin Hamiltonian
     Hsp = set_spin_hamiltonian(struct_0, p.B0)
     # set up spin phonon interaction class
