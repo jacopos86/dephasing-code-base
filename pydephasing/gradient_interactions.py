@@ -390,7 +390,7 @@ class gradient_ZFS(perturbation_ZFS):
 #               2nd order gradient classes
 #
 # -------------------------------------------------------------------
-def generate_2nd_order_grad_instance(out_dir, atoms_info):
+def generate_2nd_orderZFS_grad_instance(out_dir, atoms_info):
 	# read atoms info data
 	try:
 		f = open(atoms_info)
