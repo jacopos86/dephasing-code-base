@@ -85,21 +85,22 @@ class SpinPhononClass(ABC):
     #  nuclear spins
     def set_Fax_hfi(self, gradHFI, Hsp, sp_config):
         nat = gradHFI.struct_0.nat
-        # effective force
-        self.Fhf_ax = np.zeros((3, 3, 3*nat), dtype=np.complex128)
-        Fax = np.zeros((3, 3, 3*nat), dtype=np.complex128)
+        n = len(Hsp.basis_vectors)
+        # effective : S gA S
+        Fax = np.zeros((n, n, 3*nat), dtype=np.complex128)
         isp_list = mpi.split_list(range(p.nsp))
         # run over spin index
         for isp in isp_list:
             # spin site
-            aa = sp_config.nuclear_spins[isp]['site']-1
+            aa = sp_config.nuclear_spins[isp]['site']
             Iaa= sp_config.nuclear_spins[isp]['I']
             # compute effective force
             # spin site number 1 - nat
             Fax += self.set_gaxA_force(aa, gradHFI, Hsp, Iaa)
         # collect data
-        self.Fhf_ax = mpi.collect_array(Fax) * 2.*np.pi * hbar
+        Fax = mpi.collect_array(Fax) * 2.*np.pi * hbar
         # eV / ang
+        return Fax
     #
     # compute g_{ab}(q,l)
     # = \sum_{n;s} Aq e^{iq Rn}e_q(s) <a|g_(ns)H|b>
@@ -255,63 +256,4 @@ class SpinPhononRelaxClass(SpinPhononClass):
                 # THz / ang^2
                 I_g2A = np.einsum("i,ij->j", Iaa, gaxby_ahf)
                 Faxby[jax,jby] = np.dot(I_g2A, sv)
-        return Faxby
-#
-class SpinPhononDephClass(SpinPhononClass):
-    def __init__(self):
-        super(SpinPhononDephClass, self).__init__()
-    # set up < 0 | S grad_axby D S | 0 > - < 1 | S grad_axby D S | 1 > coefficients
-    # 2nd order spin phonon dephasing matrix elements
-    def set_gaxbyD_force(self, grad2ZFS, Hsp):
-        nat = grad2ZFS.struct_0.nat
-        # partition jax between proc.
-        jax_list = mpi.random_split(range(3*nat))
-        # S g^2D S matrix elements
-        Faxby = np.zeros((3*nat, 3*nat), dtype=np.complex128)
-        for jax in jax_list:
-            for jby in range(jax, 3*nat):
-                SggDS = np.zeros((3,3), dtype=np.complex128)
-                g2D = np.zeros((3,3))
-                g2D[:,:] = grad2ZFS.U_grad2D_U[jax,jby,:,:]
-                # THz / ang^2
-                SggDS =  g2D[0,0] * np.matmul(Hsp.Sx, Hsp.Sx)
-                SggDS += g2D[0,1] * np.matmul(Hsp.Sx, Hsp.Sy)
-                SggDS += g2D[1,0] * np.matmul(Hsp.Sy, Hsp.Sx)
-                SggDS += g2D[1,1] * np.matmul(Hsp.Sy, Hsp.Sy)
-                SggDS += g2D[0,2] * np.matmul(Hsp.Sx, Hsp.Sz)
-                SggDS += g2D[2,0] * np.matmul(Hsp.Sz, Hsp.Sx)
-                SggDS += g2D[1,2] * np.matmul(Hsp.Sy, Hsp.Sz)
-                SggDS += g2D[2,1] * np.matmul(Hsp.Sz, Hsp.Sy)
-                SggDS += g2D[2,2] * np.matmul(Hsp.Sz, Hsp.Sz)
-                #
-                r = self.compute_deph_matr_elem_difference(SggDS, self.qs0, self.qs1)
-                Faxby[jax,jby] = r
-                if jby != jax:
-                    Faxby[jby,jax] = Faxby[jax,jby]
-        # THz / ang^2 units
-        # collect into single proc.
-        mpi.comm.Barrier()
-        Faxby = mpi.collect_array(Faxby)
-        return Faxby
-    # set < 0 | I(aa) grad_axby Ahf(aa) S | 0 > - < 1 | I(aa) grad_axby Ahf(aa) S | 1 >
-    def set_gaxbyA_force(self, aa, grad2HFI, Hsp, Iaa, displ_structs):
-        # nat
-        nat = grad2HFI.struct_0.nat
-        # eff. force
-        Faxby = np.zeros((3*nat, 3*nat), dtype=np.complex128)
-        # compute gaxby_Ahf
-        U_grad2_ahf_U = grad2HFI.evaluate_at_resolved_U_grad2ahf_U(aa, nat, displ_structs)
-        # spin vector
-        Dsv = np.zeros(3, dtype=np.complex128)
-        Dsv[0] = self.compute_deph_matr_elem_difference(Hsp.Sx, self.qs0, self.qs1)
-        Dsv[1] = self.compute_deph_matr_elem_difference(Hsp.Sy, self.qs0, self.qs1)
-        Dsv[2] = self.compute_deph_matr_elem_difference(Hsp.Sz, self.qs0, self.qs1)
-        # iterate (jax,jby)
-        for jax in range(3*nat):
-            for jby in range(3*nat):
-                gaxby_ahf = np.zeros((3,3))
-                gaxby_ahf[:,:] = U_grad2_ahf_U[jax,jby,:,:]
-                # THz / ang^2
-                I_g2A = np.einsum("i,ij->j", Iaa, gaxby_ahf)
-                Faxby[jax,jby] = np.dot(I_g2A, Dsv)
         return Faxby
