@@ -1382,6 +1382,17 @@ class gradient_HFI(perturbation_HFI):
 		#  THz / Ang units
 		#
 		self.gradAhfi[:,:,:,:] = self.gradAhfi[:,:,:,:] * 1.E-6
+	# write tensor to file
+	def write_gradHtensor_to_file(self, write_dir):
+		# write data on file
+		file_name = "grad_Htensor.yml"
+		file_name = "{}".format(write_dir + '/' + file_name)
+		fil = Path(file_name)
+		if not fil.exists():
+			data = {'UgradHU' : {'coeffs' : self.self.gradAhfi, 'units' : 'THz/ang'} }
+			# write data
+			with open(file_name, 'w') as out_file:
+				yaml.dump(data, out_file)
 #
 # 2nd order HFI
 class gradient_2nd_HFI(perturbation_HFI):
