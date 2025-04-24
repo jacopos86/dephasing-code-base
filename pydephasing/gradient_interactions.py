@@ -1219,7 +1219,8 @@ class perturbation_HFI(ABC):
 		at_index = np.argsort(d)
 		self.Ahf_ns = np.zeros((nat,6))
 		# run over atoms
-		for ia in range(int(2*nat/3)+1, nat):
+		# look at fraction of atoms that can be modified -> by default 1 : all atoms
+		for ia in range(int(p.frac_kept_atoms*nat)+1, nat):
 			iia = at_index[ia]
 			for idx in range(3):
 				pair = '(' + str(ia+1) + ',' + str(idx+1) + ')'
@@ -1257,6 +1258,10 @@ class perturbation_HFI(ABC):
 					for ix in range(6):
 						if dA2[aa,ix] > self.Ahf_ns[aa,ix]:
 							self.Ahf_ns[aa,ix] = dA2[aa,ix]
+		if mpi.rank == mpi.root:
+			log.info("\t " + p.sep)
+			log.info("\t max noise value: " + str(self.Ahf_ns))
+			log.info("\t " + p.sep)
 	# set HFI GS tensor
 	def build_gs_struct(self):
 		self.struct_0 = build_gs_struct_base(self.gs_data_dir)
@@ -1389,7 +1394,7 @@ class gradient_HFI(perturbation_HFI):
 		file_name = "{}".format(write_dir + '/' + file_name)
 		fil = Path(file_name)
 		if not fil.exists():
-			data = {'UgradHU' : {'coeffs' : self.self.gradAhfi, 'units' : 'THz/ang'} }
+			data = {'UgradHU' : {'coeffs' : self.gradAhfi, 'units' : 'THz/ang'} }
 			# write data
 			with open(file_name, 'w') as out_file:
 				yaml.dump(data, out_file)
