@@ -78,6 +78,12 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
             log.info("\t " + p.sep)
             log.info("\n")
         gradHFI = gradient_HFI(p.work_dir, p.grad_info, p.fc_core)
+
+        mpi.comm.Barrier()
+        # save data to restart
+        if mpi.rank == mpi.root:
+            gradHFI.write_gradHtensor_to_file(p.work_dir+'/restart')
+        mpi.comm.Barrier()
         # hfi 2nd order
         if p.hessian:
             # set 2nd order tensor
