@@ -78,7 +78,11 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
             log.info("\t " + p.sep)
             log.info("\n")
         gradHFI = gradient_HFI(p.work_dir, p.grad_info, p.fc_core)
-
+        # compute tensor gradient
+        gradHFI.compute_noise(struct_list)
+        gradHFI.set_tensor_gradient(struct_list)
+        # set gradient in quant. vector basis
+        gradHFI.set_U_gradAhfi_U_tensor()
         mpi.comm.Barrier()
         # save data to restart
         if mpi.rank == mpi.root:
