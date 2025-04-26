@@ -124,7 +124,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         # HFI call
         if self.HFI_CALC:
             gradHFI = interact_dict['gradHFI']
-            Fax += self.set_Fax_hfi(self, gradHFI, Hsp, sp_config)
+            Fax += self.set_Fax_hfi(gradHFI, Hsp, sp_config)
         # compute Hessian
         if self.hessian:
             self.compute_hessian_term(interact_dict, Hsp)
