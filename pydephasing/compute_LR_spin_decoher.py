@@ -18,9 +18,10 @@ from pydephasing.energy_fluct_mod import ZFS_ph_fluctuations
 from pydephasing.phonons_module import PhononsClass
 from pydephasing.q_grid import qgridClass
 from pydephasing.build_interact_grad import calc_interaction_grad
-from pydephasing.build_unpert_struct import build_gs_struct_base
+from pydephasing.build_unpert_struct import build_gs_spin_struct
+from pydephasing.nuclear_spin_config import nuclear_spins_config
 #
-def compute_spin_dephas(ZFS_CALC, HFI_CALC):
+def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # main driver code for the calculation of dephasing time
     # in homogeneous spin systems
     #
@@ -37,13 +38,25 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC):
     mpi.comm.Barrier()
     # n. atoms
     nat = atoms.nat
-    # extract unperturbed struct. ZFS levels
+    # extract unperturbed struct.
     if mpi.rank == mpi.root:
         log.info("\t GS DATA DIR: " + p.gs_data_dir)
-    struct_0 = build_gs_struct_base(p.gs_data_dir)
-    struct_0.read_zfs_tensor()
+    struct_0 = build_gs_spin_struct(p.gs_data_dir, HFI_CALC)
+    # set nuclear spin configuration
+    nuclear_config = None
+    if HFI_CALC:
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t number nuclear spins: " + str(p.nsp))
+            log.info("\t nuclear config. index: " + str(config_index))
+            log.info("\t " + p.sep)
+            log.info("\n")
+        # set spin config.
+        nuclear_config = nuclear_spins_config(p.nsp, p.B0)
+        nuclear_config.set_nuclear_spins(nat, config_index)
     # set up the spin Hamiltonian
-    Hsp = set_spin_hamiltonian(struct_0, p.B0)
+    Hsp = set_spin_hamiltonian(struct_0, p.B0, nuclear_config)
     # set up spin phonon interaction class
     sp_ph_inter = spin_ph_handler(p.order_2_correct, ZFS_CALC, HFI_CALC, p.hessian)
     if mpi.rank == mpi.root:
@@ -83,7 +96,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC):
         log.info("\n")
         log.info("\t " + p.sep)
         log.info("\t START SPIN-PHONON COUPLING CALCULATION")
-    sp_ph_inter.compute_spin_ph_coupl(nat, Hsp, ph, qgr, interact_dict)
+    sp_ph_inter.compute_spin_ph_coupl(nat, Hsp, ph, qgr, interact_dict, nuclear_config)
     if mpi.rank == mpi.root:
         log.info("\n")
         log.info("\t END SPIN-PHONON COUPLING CALCULATION")
