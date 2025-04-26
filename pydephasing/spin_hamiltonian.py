@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 #   function : set spin Hamiltonian
 #
 
-def set_spin_hamiltonian(struct0, B0):
+def set_spin_hamiltonian(struct0, B0, nuclear_config=None):
 	# extract spin configuration
 	struct0.extract_spin_state()
 	# spin mult.
@@ -31,7 +31,7 @@ def set_spin_hamiltonian(struct0, B0):
 		spin_hamilt = spin_doublet_hamiltonian()
 	else:
 		log.error("Wrong spin multiplicity : " + str(struct0.spin_multiplicity))
-	spin_hamilt.set_zfs_levels(struct0, B0)
+	spin_hamilt.set_zfs_levels(struct0, B0, nuclear_config)
 	return spin_hamilt
 #
 
@@ -119,10 +119,17 @@ class spin_triplet_hamiltonian(spin_hamiltonian):
 		self.SDS = Ddiag[0]*np.matmul(self.Sx, self.Sx)
 		self.SDS = self.SDS + Ddiag[1]*np.matmul(self.Sy, self.Sy)
 		self.SDS = self.SDS + Ddiag[2]*np.matmul(self.Sz, self.Sz)
+	# hyperfine interaction
+	def hperfine_coupl(self, site, I, Ahfi):
+		# hyperfine coupl. in eV from MHz
+		Ahfi_ev = Ahfi * 1.E-6 * THz_to_ev
+		I_Ahf = np.einsum("i,ij->j", I, Ahfi_ev[site,:,:])
+		Hhf = I_Ahf[0] * self.Sx + I_Ahf[1] * self.Sy + I_Ahf[2] * self.Sz
+		return Hhf
 	# set ZFS energy levels
-	def set_zfs_levels(self, unprt_struct, B):
-		Ddiag = unprt_struct.Ddiag*1.E-6
-		Ddiag = Ddiag * THz_to_ev        # eV units
+	def set_zfs_levels(self, unprt_struct, B, nuclear_config=None):
+		Ddiag = unprt_struct.Ddiag*1.E-6  # THz
+		Ddiag = Ddiag * THz_to_ev         # eV units
 		# D = 3./2 Dz
 		D = 3./2 * Ddiag[2]
 		# E = (Dx - Dy)/2
@@ -131,6 +138,11 @@ class spin_triplet_hamiltonian(spin_hamiltonian):
 		H0 = D * (np.matmul(self.Sz, self.Sz) - self.Ssq / 3.) 
 		H0 +=E * (np.matmul(self.Sx, self.Sx) - np.matmul(self.Sy, self.Sy))
 		H0 -=mu_B * 2.0 * (B[0] * self.Sx + B[1] * self.Sy + B[2] * self.Sz)
+		if nuclear_config is not None:
+			for isp in range(nuclear_config.nsp):
+				I = nuclear_config.nuclear_spins[isp]['I']
+				site = nuclear_config.nuclear_spins[isp]['site']
+				H0 += self.hperfine_coupl(site, I, unprt_struct.Ahfi)
 		# store eigenstates
 		eig, eigv = LA.eig(H0)
 		for s in range(3):
