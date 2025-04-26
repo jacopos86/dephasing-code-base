@@ -55,26 +55,27 @@ class SpinPhononClass(ABC):
         # add 2pi factor
         return Fax
     # set < qs | I(aa) grad_ax Ahf(aa) S | qs > coefficients
-    def set_gaxA_force(self, aa, gradHFI, Hsp, Iaa):
+    def set_gaxAhf(self, aa, gradHFI, Hsp, Iaa):
         # nat
         nat = gradHFI.struct_0.nat
+        n = len(Hsp.basis_vectors)
         # eff. force
-        Fax = np.zeros((3, 3, 3*nat), dtype=np.complex128)
+        Fax = np.zeros((n, n, 3*nat), dtype=np.complex128)
+        exit()
         # compute : gax_Ahf
         U_gahf_U = np.zeros((3*nat,3,3))
         U_gahf_U[:,:,:] = gradHFI.gradAhfi[:,aa,:,:]
         # THz / ang
-        # set Sv matrix elements
-        sx = np.zeros((3,3), dtype=np.complex128)
-        sy = np.zeros((3,3), dtype=np.complex128)
-        sz = np.zeros((3,3), dtype=np.complex128)
+        sx = np.zeros((n, n), dtype=np.complex128)
+        sy = np.zeros((n, n), dtype=np.complex128)
+        sz = np.zeros((n, n), dtype=np.complex128)
         for i in range(3):
             for j in range(3):
                 sx[i,j] = self.compute_matr_elements(Hsp.Sx, Hsp.qs[:,i], Hsp.qs[:,j])
                 sy[i,j] = self.compute_matr_elements(Hsp.Sy, Hsp.qs[:,i], Hsp.qs[:,j])
                 sz[i,j] = self.compute_matr_elements(Hsp.Sz, Hsp.qs[:,i], Hsp.qs[:,j])
-        # iterate iax
-        for iax in range(3*nat):
+        # iterate jax
+        for jax in range(3*nat):
             gax_ahf = np.zeros((3,3))
             gax_ahf[:,:] = U_gahf_U[iax,:,:]
             I_gA = np.einsum("i,ij->j", Iaa, gax_ahf)
@@ -88,7 +89,7 @@ class SpinPhononClass(ABC):
         n = len(Hsp.basis_vectors)
         # effective : S gA S
         Fax = np.zeros((n, n, 3*nat), dtype=np.complex128)
-        isp_list = mpi.split_list(range(p.nsp))
+        isp_list = mpi.split_list(range(sp_config.nsp))
         # run over spin index
         for isp in isp_list:
             # spin site
@@ -96,7 +97,8 @@ class SpinPhononClass(ABC):
             Iaa= sp_config.nuclear_spins[isp]['I']
             # compute effective force
             # spin site number 1 - nat
-            Fax += self.set_gaxA_force(aa, gradHFI, Hsp, Iaa)
+            Fax += self.set_gaxAhf(aa, gradHFI, Hsp, Iaa)
+        exit()
         # collect data
         Fax = mpi.collect_array(Fax) * 2.*np.pi * hbar
         # eV / ang
@@ -150,7 +152,8 @@ class SpinPhononFirstOrder(SpinPhononClass):
         # HFI call
         if self.HFI_CALC:
             gradHFI = interact_dict['gradHFI']
-            Fax += self.set_Fax_hfi(self, gradHFI, Hsp, sp_config)
+            Fax += self.set_Fax_hfi(gradHFI, Hsp, sp_config)
+        exit()
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
@@ -168,19 +171,6 @@ class SpinPhononSecndOrder00(SpinPhononClass):
         self.Fzfs_axby = None
         # Hf coupling 2nd order gradient
         self.Fhf_axby = None
-    #
-    # set ZFS 2nd order gradient force
-    def set_Faxby_zfs(self, grad2ZFS, Hsp):
-        nat = grad2ZFS.struct_0.nat
-        # compute grad2 delta Ezfs
-        # laplacian spin state energy difference
-        self.Fzfs_axby = np.zeros((3*nat, 3*nat), dtype=np.complex128)
-        #
-        # compute : < qs1 | S gradD S | qs1 > - < qs2 | S gradD S | qs2 >
-        #
-        Faxby = self.set_gaxbyD_force(grad2ZFS, Hsp)
-		# eV / ang^2 units
-        self.Fzfs_axby[:,:] = Faxby[:,:] * 2.*np.pi * hbar
     #
     # set HFI 2nd order gradient force
     def set_Faxby_hfi(self, grad2HFI, Hsp, displ_structs, sp_config):
