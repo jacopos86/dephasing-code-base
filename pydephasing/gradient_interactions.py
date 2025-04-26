@@ -1274,7 +1274,7 @@ class perturbation_HFI(ABC):
 class gradient_HFI(perturbation_HFI):
 	def __init__(self, out_dir, atoms_info, core):
 		super().__init__(out_dir, atoms_info, core)
-		self.gradAhfi = None
+		self.U_gradAhfi_U = None
 		# local basis array
 		self.gAhfi_xx = []
 		self.gAhfi_yy = []
@@ -1292,10 +1292,13 @@ class gradient_HFI(perturbation_HFI):
 	# set Ahfi tensor gradient
 	#
 	def set_tensor_gradient(self, displ_structs):
+		# check file exists
+		file_name = "{}".format(p.work_dir + '/restart/grad_Htensor.yml')
+		fil = Path(file_name)
+		if fil.exists():
+			return
 		# nat
 		nat = self.struct_0.nat
-		# initialize array
-		self.gradAhfi = np.zeros((3*nat,nat,3,3))
 		# run over atoms
 		for ia in range(nat):
 			gradAxx = np.zeros((nat,3))
@@ -1347,7 +1350,20 @@ class gradient_HFI(perturbation_HFI):
 			self.gAhfi_yz.append(gradAyz)
 	# set grad Ahfi D diag basis set
 	def set_U_gradAhfi_U_tensor(self):
+		# check file exists
+		file_name = "{}".format(p.work_dir + '/restart/grad_Htensor.yml')
+		fil = Path(file_name)
+		if fil.exists():
+			with open(file_name, 'r') as f:
+				data = yaml.load(f, Loader=yaml.Loader)
+				self.U_gradAhfi_U = data['UgradHU']['coeffs']
+				if mpi.rank == mpi.root:
+					log.info("\t gradAhfi tensor shape: " + str(self.U_gradAhfi_U.shape))
+					log.info("\t " + p.sep)
+				return
 		nat = self.struct_0.nat
+		# initialize array
+		self.U_gradAhfi_U = np.zeros((3*nat,nat,3,3))
 		# set transf. matrix U
 		U = self.struct_0.Deigv
 		# start iterations over atoms
@@ -1378,7 +1394,7 @@ class gradient_HFI(perturbation_HFI):
 					# transform over new basis
 					gaU = np.matmul(ga, U)
 					ga = np.matmul(U.transpose(), gaU)
-					self.gradAhfi[jax,aa,:,:] = ga[:,:]
+					self.U_gradAhfi_U[jax,aa,:,:] = ga[:,:]
 					#
 					#  MHz / Ang units
 					#
@@ -1386,7 +1402,7 @@ class gradient_HFI(perturbation_HFI):
 		#
 		#  THz / Ang units
 		#
-		self.gradAhfi[:,:,:,:] = self.gradAhfi[:,:,:,:] * 1.E-6
+		self.U_gradAhfi_U[:,:,:,:] = self.U_gradAhfi_U[:,:,:,:] * 1.E-6
 	# write tensor to file
 	def write_gradHtensor_to_file(self, write_dir):
 		# write data on file
@@ -1394,7 +1410,7 @@ class gradient_HFI(perturbation_HFI):
 		file_name = "{}".format(write_dir + '/' + file_name)
 		fil = Path(file_name)
 		if not fil.exists():
-			data = {'UgradHU' : {'coeffs' : self.gradAhfi, 'units' : 'THz/ang'} }
+			data = {'UgradHU' : {'coeffs' : self.U_gradAhfi_U, 'units' : 'THz/ang'} }
 			# write data
 			with open(file_name, 'w') as out_file:
 				yaml.dump(data, out_file)
