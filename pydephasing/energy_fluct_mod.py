@@ -8,7 +8,6 @@ from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
 from common.phys_constants import THz_to_ev, mp
-from pydephasing.ph_resolved_quant import compute_ph_amplitude_q
 from pydephasing.atomic_list_struct import atoms
 #
 # energy levels fluctuations
@@ -53,8 +52,7 @@ class ZFS_ph_fluctuations:
     # fluctuations
     # dV = \sum_lambda \sum_q w(q) A_lambda(q) A_lambda(-q) (1+2n_lambda(q)) Delta F_lambda,q;lambda,-q
     def __init__(self):
-        self.dE_eV = np.zeros(p.ntmp)
-        self.dE_sp = np.zeros(p.ntmp)
+        self.dw_zfs = None
         # eV units
     # set (q,-q,l) transitions
     # list
@@ -106,40 +104,35 @@ class ZFS_ph_fluctuations:
         return F_lqqp
     # compute energy 
     # fluctuations
-    def compute_fluctuations(self, wq, qpts, nat, wu, u):
+    def compute_DW_factor(self, ph, spph):
         # first set transitions list
-        qqp_list = self.set_qqp_list(qpts)
-        # compute amplitudes
-        ql_list = []
-        for iqqp in qqp_list:
-            iq = iqqp[0]
-            for il in range(3*nat):
-                ql_list.append((iq,il))
-        A_lq = compute_ph_amplitude_q(wu, nat, ql_list)
-        # compute eff. forces
-        F_lqqp = self.transf_2nd_order_force_phr(u, nat, qpts, np.zeros((3*nat,3*nat)), qqp_list)
-        # sum over (q,q',l)
-        iqql = 0
-        for iqqp in qqp_list:
-            iq = iqqp[0]
-            iqp= iqqp[1]
-            for il in range(3*nat):
-                if wu[iq][il] > p.min_freq:
-                    assert np.abs(wu[iq][il]-wu[iqp][il]) < 1.E-4
-                    # -> Eql
-                    Eql = wu[iq][il] * THz_to_ev
+        # here compute :
+        # Delta_{a,b} = \sum_q g_{a,b}^{qp-}(1 + 2n(q))
+        qpl_list = spph.local_qpl_list()
+        # compute eff. forces -> different for each rank
+        g_qpl = spph.compute_gqqp(qpl_list)
+        nbnd = spph.space_size()
+        self.dw_zfs = np.zeros((nbnd, nbnd, p.ntmp))
+        # sum over (q,p,l)
+        for iqpl in range(len(qpl_list)):
+            iq = qpl_list[0]
+            ip = qpl_list[1]
+            il = qpl_list[2]
+            assert np.abs(ph.uql[iq][il]-ph.uql[ip][il]) < 1.E-4
+            # -> wql
+            wql = ph.uql[iq][il] * THz_to_ev
+            # bands
+            for i1 in range(nbnd):
+                for i2 in range(nbnd):
                     # run over temperatures
                     for iT in range(p.ntmp):
                         # compute n. phonons
                         T = p.temperatures[iT]
-                        nql_T = bose_occup(Eql, T)
-                        # compute De_fluct
-                        self.dE_sp[iT] += 0.5 * A_lq[iqql] * A_lq[iqql].conj() * F_lqqp[iqql] * (1.+2.*nql_T)
-                        # ps^-2 * eV ps^2 = eV
-                iqql += 1
-        # fluct. energy (eV)
-        for iT in range(p.ntmp):
-            self.dE_sp[iT] = self.dE_sp[iT].real
+                        nq0 = ph.ph_occup(wql, T)
+                        # compute DW energy correction
+                        self.dw_zfs[i1,i2,iT] += g_qpl[i1,i2,iqpl] * (1.+2.*nq0)
+                        #### eV
+        self.dw_zfs[:,:,:] = self.dw_zfs[:,:,:].real
     # collect data
     def collect_acf_from_processes(self):
         for iT in range(p.ntmp):

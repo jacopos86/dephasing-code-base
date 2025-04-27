@@ -8,90 +8,60 @@ import os
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
-from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
-from pydephasing.gradient_interactions import gradient_ZFS, generate_2nd_order_grad_instance
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.spin_hamiltonian import spin_triplet_hamiltonian
-from pydephasing.spin_ph_inter import SpinPhononClass
+from pydephasing.spin_hamiltonian import set_spin_hamiltonian
+from pydephasing.spin_ph_handler import spin_ph_handler
 from pydephasing.ph_amplitude_module import PhononAmplitude
 from pydephasing.auto_correlation_spph_mod import acf_sp_ph
 from pydephasing.T2_calc_handler import set_T2_calc_handler
 from pydephasing.energy_fluct_mod import ZFS_ph_fluctuations
 from pydephasing.phonons_module import PhononsClass
 from pydephasing.q_grid import qgridClass
+from pydephasing.build_interact_grad import calc_interaction_grad
+from pydephasing.build_unpert_struct import build_gs_spin_struct
+from pydephasing.nuclear_spin_config import nuclear_spins_config
 #
-def compute_homo_dephas():
+def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # main driver code for the calculation of dephasing time
     # in homogeneous spin systems
     #
-    # create displaced structures
-    struct_list = []
-    for i in range(len(p.displ_poscar_dir)):
-        displ_struct = DisplacedStructs(p.displ_poscar_dir[i], p.displ_outcar_dir[i])
-        # set atomic displ. in the structure
-        displ_struct.atom_displ(p.atoms_displ[i])      # Ang
-        # append to list
-        struct_list.append(displ_struct)
-    # 2nd order displ structs
-    if p.order_2_correct:
-        struct_list_2nd = []
-        for i in range(len(p.displ_2nd_poscar_dir)):
-            displ_struct = DisplacedStructures2ndOrder(p.displ_2nd_poscar_dir[i], p.displ_2nd_outcar_dir[i])
-            # set atomic displ. in the structure
-            displ_struct.atom_displ(p.atoms_2nd_displ[i]) # Ang
-            # append to list
-            struct_list_2nd.append(displ_struct)
+    # first set up atoms
+    # compute index maps
+    atoms.set_atoms_data()
     # check restart exist otherwise create
     if not os.path.isdir(p.work_dir+'/restart'):
         if mpi.rank == mpi.root:
             os.mkdir(p.work_dir+'/restart')
-        mpi.comm.Barrier()
-    # set ZFS gradient
-    gradZFS = gradient_ZFS(p.work_dir, p.grad_info)
-    gradZFS.set_gs_zfs_tensor()
-    # compute tensor gradient
-    gradZFS.compute_noise(struct_list)
-    gradZFS.set_tensor_gradient(struct_list)
-    # set ZFS gradient in quant. axis coordinates
-    gradZFS.set_UgradDU_tensor()
     mpi.comm.Barrier()
-    # save data to restart
-    if mpi.rank == mpi.root:
-        gradZFS.write_gradDtensor_to_file(p.work_dir+'/restart')
+    # extract interaction gradients
+    interact_dict = calc_interaction_grad(ZFS_CALC, HFI_CALC)
     mpi.comm.Barrier()
     # n. atoms
-    nat = gradZFS.struct_0.nat
-    # compute index maps
-    atoms.compute_index_to_ia_map(nat)
-    atoms.compute_index_to_idx_map(nat)
-    # set atoms dict
-    atoms.extract_atoms_coords(nat)
-    atoms.set_supercell_coords(nat)
-    # zfs 2nd order
-    if p.order_2_correct:
-        # set 2nd order tensor
-        grad2ZFS = generate_2nd_order_grad_instance(p.work_dir, p.grad_info)
-        grad2ZFS.set_gs_zfs_tensor()
-        # set secon order grad
-        grad2ZFS.compute_2nd_order_gradients(struct_list_2nd)
-        mpi.comm.Barrier()
-        # save data to restart
-        if mpi.rank == mpi.root:
-            grad2ZFS.write_grad2Dtensor_to_file(p.work_dir+'/restart')
-    mpi.comm.Barrier()
-    # debug mode
+    nat = atoms.nat
+    # extract unperturbed struct.
     if mpi.rank == mpi.root:
-        if log.level <= logging.DEBUG:
-            log.debug(" checking ZFS gradients")
-            gradZFS.plot_tensor_grad_component(struct_list)
-            if p.order_2_correct:
-                grad2ZFS.check_tensor_coefficients()
-    mpi.comm.Barrier()
+        log.info("\t GS DATA DIR: " + p.gs_data_dir)
+    struct_0 = build_gs_spin_struct(p.gs_data_dir, HFI_CALC)
+    # set nuclear spin configuration
+    nuclear_config = None
+    if HFI_CALC:
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t number nuclear spins: " + str(p.nsp))
+            log.info("\t nuclear config. index: " + str(config_index))
+            log.info("\t " + p.sep)
+            log.info("\n")
+        # set spin config.
+        nuclear_config = nuclear_spins_config(p.nsp, p.B0)
+        nuclear_config.set_nuclear_spins(nat, config_index)
     # set up the spin Hamiltonian
-    Hsp = spin_triplet_hamiltonian()
-    Hsp.set_zfs_levels(gradZFS.struct_0, p.B0)
+    Hsp = set_spin_hamiltonian(struct_0, p.B0, nuclear_config)
     # set up spin phonon interaction class
-    sp_ph_inter = SpinPhononClass().generate_instance(p.order_2_correct)
+    sp_ph_inter = spin_ph_handler(p.order_2_correct, ZFS_CALC, HFI_CALC, p.hessian)
+    if mpi.rank == mpi.root:
+        log.debug("\t ZFS_CALC: " + str(sp_ph_inter.ZFS_CALC))
+        log.debug("\t HFI_CALC: " + str(sp_ph_inter.HFI_CALC))
     # set q grid
     qgr = qgridClass()
     qgr.set_qgrid()
@@ -126,11 +96,12 @@ def compute_homo_dephas():
         log.info("\n")
         log.info("\t " + p.sep)
         log.info("\t START SPIN-PHONON COUPLING CALCULATION")
-    sp_ph_inter.set_Fax_zfs(gradZFS, Hsp)
+    sp_ph_inter.compute_spin_ph_coupl(nat, Hsp, ph, qgr, interact_dict, nuclear_config)
     if mpi.rank == mpi.root:
         log.info("\n")
         log.info("\t END SPIN-PHONON COUPLING CALCULATION")
         log.info("\t " + p.sep)
+    print(np.max(sp_ph_inter.g_ql.real))
     exit()
     #
     # compute ZFS fluctuations

@@ -23,12 +23,10 @@ class data_input(ABC):
         self.write_dir = ''
         # unperturbed directory
         self.unpert_dirs = []
+        # general GS directory - no for grads
+        self.gs_data_dir = ''
         # grad info file
         self.grad_info = ''
-        # relax. type calculation
-        self.relax = False
-        # dephasing type calculation
-        self.deph = False
         # dynamical decoupling F by default
         self.dyndec = False
         # sep.
@@ -48,7 +46,7 @@ class data_input(ABC):
         self.fc_core = True
         # nuclear spin random
         # orientation
-        self.rnd_orientation = True
+        self.rnd_orientation = False
         ######################################
         # auto-correlation fitting parameters
         # nlags
@@ -74,6 +72,8 @@ class data_input(ABC):
                     # create new dir.
                     os.makedirs(self.write_dir)
             mpi.comm.Barrier()
+        if 'unpert_dir' in data:
+            self.gs_data_dir = self.work_dir + '/' + data['unpert_dir']
         # grad info file
         if 'grad_info_file' in data:
             self.grad_info = self.work_dir + '/' + data['grad_info_file']
@@ -95,7 +95,7 @@ class data_input(ABC):
             self.B0 = np.array(data['B0'])
         else:
             self.B0 = np.array([0., 0., 0.])
-        # Gauss units
+        # units : Tesla
         # ---------------------------------------
         #    HFI calculation parameters
         # ---------------------------------------
@@ -169,16 +169,12 @@ class dynamical_data_input(data_input):
         #
         # zfs/hfi 2nd order correction grad.
         self.order_2_correct = False
-        self.raman_correct = False
+        self.hessian = False
         # fraction of atoms preserved
         # in gradient calculation
         self.frac_kept_atoms = 1.
         ####################################
-        # physical parameters : deph - relax
-        self.index_qs0 = None
-        self.index_qs1 = None
-        # index of states |0> and |1> in the 
-        # spin eigenvectors matrix
+        # physical parameters
         # n. temperatures
         self.ntmp = 0
         # time ph / at resolved
@@ -266,8 +262,8 @@ class dynamical_data_input(data_input):
         # 2nd order ZFS / HFI corrections
         if '2nd_order_correct' in data:
             self.order_2_correct = data['2nd_order_correct']
-            if 'raman' in data:
-                self.raman_correct = data['raman']
+            if 'hessian' in data:
+                self.hessian = data['hessian']
         # fraction atoms to be used in the gradient calculation
         # starting from the farthest away from defect
         if 'frac_kept_atoms' in data:
@@ -508,10 +504,7 @@ class preproc_data_input():
             self.work_dir = data['working_dir']
         # unpert. data directory
         if 'unpert_dir' in data:
-            if len(data['unpert_dir']) == 1:
-                self.unpert_dir = self.work_dir + '/' + data['unpert_dir'][0]
-            else:
-                log.error("\t ONLY ONE UNPERTURBED DIRECTORY")
+            self.unpert_dir = self.work_dir + '/' + data['unpert_dir']
         # displ. POSCAR dir.
         if 'displ_poscar_dir' in data:
             for d in data['displ_poscar_dir']:

@@ -25,7 +25,8 @@ eps = 1.E-7
 # Bohr magneton (eV/G)
 #
 mu_B = physical_constants["Bohr magneton in eV/T"][0]  # eV T^-1
-mu_B = mu_B * 1.E-4                                    # eV G^-1
+g_e = 2.00231930436256
+gamma_e = g_e * mu_B / 2.0                             # eV T^-1
 #
 # nuclear gyromagnetic ratio  : gamma_n / 2pi
 #

@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import math
 from pydephasing.log import log
 from pydephasing.mpi import mpi
-from pydephasing.set_structs import UnpertStruct
+from pydephasing.build_unpert_struct import build_gs_struct_base
 from tqdm import tqdm
 from abc import ABC
 #
@@ -150,9 +150,8 @@ class perturbation_ZFS(ABC):
 							self.Dns[i1,i2] = dD2[i1,i2]
 	#
 	# set local unperturbed structure
-	def set_gs_zfs_tensor(self):
-		self.struct_0 = UnpertStruct(self.gs_data_dir)
-		self.struct_0.read_poscar()
+	def build_gs_struct(self):
+		self.struct_0 = build_gs_struct_base(self.gs_data_dir)
 		# get ZFS tensor
 		self.struct_0.read_zfs_tensor()
 #
@@ -177,8 +176,10 @@ class gradient_ZFS(perturbation_ZFS):
 		self.gradE = None
 		# default dir
 		self.default_dir = self.atom_info_dict['(0,0)'][0]
-		# GS data dir
+		# GS data dir + unpert. struct.
 		self.gs_data_dir = self.out_dir + '/' + self.atom_info_dict['(0,0)'][1]
+		self.build_gs_struct()
+
 	#
 	# set ZFS gradients
 	#
@@ -389,7 +390,7 @@ class gradient_ZFS(perturbation_ZFS):
 #               2nd order gradient classes
 #
 # -------------------------------------------------------------------
-def generate_2nd_order_grad_instance(out_dir, atoms_info):
+def generate_2nd_orderZFS_grad_instance(out_dir, atoms_info):
 	# read atoms info data
 	try:
 		f = open(atoms_info)
@@ -422,6 +423,8 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		self.default_poscar_dir = self.out_dir + '/' + self.atom_info_dict['(0,0,0,0)'][1]
 		# GS data dir
 		self.gs_data_dir = self.out_dir + '/' + self.atom_info_dict['(0,0,0,0)'][2]
+		# build local unperturbed structure
+		self.build_gs_struct()
 		# cutoff distance between two atoms
 		if self.atom_info_dict['cutoff_dist'] == "inf":
 			self.d_cutoff = np.inf
@@ -532,7 +535,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		# run over displ.
 		# ia/idx
 		for jax in tqdm(jax_list):
-			ia = atoms.index_to_ia_map[jax]-1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			da = self.struct_0.struct.get_distance(ia,self.defect_index)
 			for ib in range(ia, nat):
@@ -797,7 +800,7 @@ class gradient_2nd_ZFS_MLP(gradient_2nd_ZFS):
 			log.error("\t DEFAULT ATOM DISPLACEMENT NOT FOUND")
 		# run over jax list
 		for jax in tqdm(jax_list):
-			ia = atoms.index_to_ia_map[jax]-1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			# distance from defect center
 			da = self.struct_0.struct.get_distance(ia, self.defect_index)
@@ -963,7 +966,7 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 		Dby1_lst = []
 		# run jax list
 		for jax in tqdm(jax_list):
-			ia = atoms.index_to_ia_map[jax]-1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			# distance from defect
 			da = self.struct_0.struct.get_distance(ia, self.defect_index)
@@ -1045,7 +1048,7 @@ class gradient_2nd_ZFS_DNN(gradient_2nd_ZFS):
 		# compute tensor gradient
 		ii = 0
 		for jax in jax_list:
-			ia = atoms.index_to_ia_map[jax] - 1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			# distance from defect
 			da = self.struct_0.struct.get_distance(ia, self.defect_index)
@@ -1216,7 +1219,8 @@ class perturbation_HFI(ABC):
 		at_index = np.argsort(d)
 		self.Ahf_ns = np.zeros((nat,6))
 		# run over atoms
-		for ia in range(int(2*nat/3)+1, nat):
+		# look at fraction of atoms that can be modified -> by default 1 : all atoms
+		for ia in range(int(p.frac_kept_atoms*nat)+1, nat):
 			iia = at_index[ia]
 			for idx in range(3):
 				pair = '(' + str(ia+1) + ',' + str(idx+1) + ')'
@@ -1254,10 +1258,13 @@ class perturbation_HFI(ABC):
 					for ix in range(6):
 						if dA2[aa,ix] > self.Ahf_ns[aa,ix]:
 							self.Ahf_ns[aa,ix] = dA2[aa,ix]
+		if mpi.rank == mpi.root:
+			log.info("\t " + p.sep)
+			log.info("\t max noise value: " + str(self.Ahf_ns))
+			log.info("\t " + p.sep)
 	# set HFI GS tensor
-	def set_gs_hfi_tensor(self):
-		self.struct_0 = UnpertStruct(self.gs_data_dir)
-		self.struct_0.read_poscar()
+	def build_gs_struct(self):
+		self.struct_0 = build_gs_struct_base(self.gs_data_dir)
 		# get zfs tensor
 		self.struct_0.read_zfs_tensor()
 		# set HFI tensor
@@ -1267,7 +1274,7 @@ class perturbation_HFI(ABC):
 class gradient_HFI(perturbation_HFI):
 	def __init__(self, out_dir, atoms_info, core):
 		super().__init__(out_dir, atoms_info, core)
-		self.gradAhfi = None
+		self.U_gradAhfi_U = None
 		# local basis array
 		self.gAhfi_xx = []
 		self.gAhfi_yy = []
@@ -1279,14 +1286,19 @@ class gradient_HFI(perturbation_HFI):
 		self.default_dir = self.atom_info_dict['(0,0)'][0]
 		# GS data dir
 		self.gs_data_dir = self.out_dir + '/' + self.atom_info_dict['(0,0)'][1]
+		# set unpert. struct.
+		self.build_gs_struct()
 	#
 	# set Ahfi tensor gradient
 	#
 	def set_tensor_gradient(self, displ_structs):
+		# check file exists
+		file_name = "{}".format(p.work_dir + '/restart/grad_Htensor.yml')
+		fil = Path(file_name)
+		if fil.exists():
+			return
 		# nat
 		nat = self.struct_0.nat
-		# initialize array
-		self.gradAhfi = np.zeros((3*nat,nat,3,3))
 		# run over atoms
 		for ia in range(nat):
 			gradAxx = np.zeros((nat,3))
@@ -1338,7 +1350,20 @@ class gradient_HFI(perturbation_HFI):
 			self.gAhfi_yz.append(gradAyz)
 	# set grad Ahfi D diag basis set
 	def set_U_gradAhfi_U_tensor(self):
+		# check file exists
+		file_name = "{}".format(p.work_dir + '/restart/grad_Htensor.yml')
+		fil = Path(file_name)
+		if fil.exists():
+			with open(file_name, 'r') as f:
+				data = yaml.load(f, Loader=yaml.Loader)
+				self.U_gradAhfi_U = data['UgradHU']['coeffs']
+				if mpi.rank == mpi.root:
+					log.info("\t gradAhfi tensor shape: " + str(self.U_gradAhfi_U.shape))
+					log.info("\t " + p.sep)
+				return
 		nat = self.struct_0.nat
+		# initialize array
+		self.U_gradAhfi_U = np.zeros((3*nat,nat,3,3))
 		# set transf. matrix U
 		U = self.struct_0.Deigv
 		# start iterations over atoms
@@ -1369,7 +1394,7 @@ class gradient_HFI(perturbation_HFI):
 					# transform over new basis
 					gaU = np.matmul(ga, U)
 					ga = np.matmul(U.transpose(), gaU)
-					self.gradAhfi[jax,aa,:,:] = ga[:,:]
+					self.U_gradAhfi_U[jax,aa,:,:] = ga[:,:]
 					#
 					#  MHz / Ang units
 					#
@@ -1377,7 +1402,18 @@ class gradient_HFI(perturbation_HFI):
 		#
 		#  THz / Ang units
 		#
-		self.gradAhfi[:,:,:,:] = self.gradAhfi[:,:,:,:] * 1.E-6
+		self.U_gradAhfi_U[:,:,:,:] = self.U_gradAhfi_U[:,:,:,:] * 1.E-6
+	# write tensor to file
+	def write_gradHtensor_to_file(self, write_dir):
+		# write data on file
+		file_name = "grad_Htensor.yml"
+		file_name = "{}".format(write_dir + '/' + file_name)
+		fil = Path(file_name)
+		if not fil.exists():
+			data = {'UgradHU' : {'coeffs' : self.U_gradAhfi_U, 'units' : 'THz/ang'} }
+			# write data
+			with open(file_name, 'w') as out_file:
+				yaml.dump(data, out_file)
 #
 # 2nd order HFI
 class gradient_2nd_HFI(perturbation_HFI):
@@ -1397,6 +1433,8 @@ class gradient_2nd_HFI(perturbation_HFI):
 		self.default_poscar_dir = self.out_dir + '/' + self.atom_info_dict['(0,0,0,0)'][1]
 		# GS data dir
 		self.gs_data_dir = self.out_dir + '/' + self.atom_info_dict['(0,0,0,0)'][2]
+		# set unpert. struct.
+		self.build_gs_struct()
 		# cut off distance
 		if self.atom_info_dict['cutoff_dist'] == 'inf':
 			self.d_cutoff = np.inf
@@ -1474,7 +1512,7 @@ class gradient_2nd_HFI(perturbation_HFI):
 		mpi.comm.Barrier()
 		# run over displ. ia/idx
 		for jax in tqdm(jax_list):
-			ia = atoms.index_to_ia_map[jax] - 1
+			ia = atoms.index_to_ia_map[jax]
 			idx= atoms.index_to_idx_map[jax]
 			da = self.struct_0.struct.get_distance(ia,self.defect_index)
 			for ib in range(ia, nat):
@@ -1576,11 +1614,11 @@ class gradient_2nd_HFI(perturbation_HFI):
 		assert len(ind) == len(oud)
 		# run over d.o.f.
 		for iiax in range(3*nat):
-			ia = atoms.index_to_ia_map[iiax]-1
+			ia = atoms.index_to_ia_map[iiax]
 			idx= atoms.index_to_idx_map[iiax]
 			# iiby index
 			for iiby in [3*aa, 3*aa+1, 3*aa+2]:
-				ib = atoms.index_to_ia_map[iiby]-1
+				ib = atoms.index_to_ia_map[iiby]
 				idy= atoms.index_to_idx_map[iiby]
 				# extract atomic displ.
 				iaxby = '(' + str(ia+1) + ',' + str(idx+1) + ',' + str(ib+1) + ',' + str(idy+1) + ')'
@@ -1696,10 +1734,12 @@ class gradient_Eg:
 		self.atom_info_dict = yaml.load(f, Loader=yaml.Loader)
 		f.close()
 		# unpert dir
-		self.unpert_dir = self.atom_info_dict[dict_key]['unpert_dir']
-		self.unpert_dir = p.work_dir + '/' + self.unpert_dir
+		self.gs_data_dir = self.atom_info_dict[dict_key]['unpert_dir']
+		self.gs_data_dir = p.work_dir + '/' + self.gs_data_dir
 		self.hess_file  = self.atom_info_dict[dict_key]['hess_file']
 		self.hess_file  = p.work_dir + '/' + self.hess_file
+		# set unpert. struct.
+		self.build_gs_struct()
 	# read outcar file
 	def read_outcar(self, outcar):
 		# read file
@@ -1757,17 +1797,16 @@ class gradient_Eg:
 		self.force_const = np.zeros((3*nat, 3*nat))
 		# iterate over atomic index
 		for jax in range(3*nat):
-			ia = atoms.index_to_ia_map[jax]-1
+			ia = atoms.index_to_ia_map[jax]
 			ix = atoms.index_to_idx_map[jax]
 			for jby in range(3*nat):
-				ib = atoms.index_to_ia_map[jby]-1
+				ib = atoms.index_to_ia_map[jby]
 				iy = atoms.index_to_idx_map[jby]
 				self.force_const[jax,jby] = Fc[ia,ib,ix,iy]
 		# eV / ang^2
 		# units
 	# set HFI GS tensor
-	def set_unpert_struct(self):
-		self.struct_0 = UnpertStruct(self.unpert_dir)
-		self.struct_0.read_poscar()
+	def build_gs_struct(self):
+		self.struct_0 = build_gs_struct_base(self.gs_data_dir)
 		# get energy
 		self.struct_0.read_free_energy()
