@@ -95,7 +95,7 @@ class data_input(ABC):
             self.B0 = np.array(data['B0'])
         else:
             self.B0 = np.array([0., 0., 0.])
-        # Gauss units
+        # units : Tesla
         # ---------------------------------------
         #    HFI calculation parameters
         # ---------------------------------------
