@@ -6,10 +6,13 @@
 # if evolve coherently the additional terms
 import os
 from pydephasing.mpi import mpi
+from pydephasing.log import log
 from pydephasing.set_param_object import p
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
 from pydephasing.gradient_interactions import gradient_ZFS
 from pydephasing.atomic_list_struct import atoms
+from pydephasing.electr_ph_dens_matr import elec_ph_dmatr
+from pydephasing.q_grid import qgridClass
 #
 def compute_nmark_dephas():
     # main driver of the calculation
@@ -56,3 +59,29 @@ def compute_nmark_dephas():
     # set atoms dict
     atoms.extract_atoms_coords(nat)
     atoms.set_supercell_coords(nat)
+    # set q grid
+    qgr = qgridClass()
+    qgr.set_qgrid()
+    if mpi.rank == 0:
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t Q MESH INFORMATION")
+        log.info("\n")
+        log.info("\n")
+        log.info("\t nq: " + str(qgr.nq))
+        log.info("\t grid size: " + str(qgr.grid_size))
+        if qgr.nq > 10:
+            for iq in range(10):
+                log.info("\t wq[" + str(iq+1) + "]: " + str(qgr.wq[iq]))
+            log.info("\t ...")
+        else:
+            for iq in range(qgr.nq):
+                log.info("\t wq[" + str(iq+1) + "]: " + str(qgr.wq[iq]))
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\n")
+    mpi.comm.Barrier()
+    # electron-phonon density
+    # matrix
+    eph_dm = elec_ph_dmatr().generate_instance()
+    eph_dm.set_modes_list(qgr)
