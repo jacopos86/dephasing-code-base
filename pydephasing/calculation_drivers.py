@@ -178,7 +178,7 @@ def spin_qubit_driver(yml_file):
         mpi.comm.Barrier()
     # --------------------------------------------------------------
     # 
-    #    FULL CALC. (HFI + ZFS)
+    #    FULL CALC. LINDBLADIAN FORM
     #
     # --------------------------------------------------------------
     elif calc_type1 == "LBLD":
@@ -201,7 +201,11 @@ def spin_qubit_driver(yml_file):
             log.info("\t" + p.sep)
             log.info("\n")
         mpi.comm.Barrier()
-        # full spin branch -> END
+    # --------------------------------------------------------------
+    # 
+    #    FULL CALC. -> NON MARKOVIAN FORM
+    #
+    # --------------------------------------------------------------
     elif calc_type1 == "NMARK":
         if mpi.rank == mpi.root:
             log.info("\t T2 CALCULATION -> STARTING")
@@ -211,12 +215,48 @@ def spin_qubit_driver(yml_file):
         # read input file
         p.read_yml_data(yml_file)
         # compute dephas
-        if calc_type2 == "homo" or calc_type2 == "inhomo":
-            T2_calc_handler = compute_nmark_dephas()
+        if calc_type2 == "homo":
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\n")
+                log.info("\t SPIN - PHONON HOMOGENEOUS CALCULATION")
+                log.info("\n")
+            # --------------------------------------------------------------
+            # 
+            #    SIMPLE HOMOGENEOUS CALC. (ZFS ONLY)
+            #
+            # --------------------------------------------------------------
+            ZFS_CALC = True
+            HFI_CALC = False
+        elif calc_type2 == "inhomo":
+            # --------------------------------------------------------------
+            # 
+            #    SIMPLE INHOMOGENEOUS CALC. (HFI ONLY)
+            #
+            # --------------------------------------------------------------
+            ZFS_CALC = False
+            HFI_CALC = True
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\n")
+                log.info("\t SPIN - PHONON INHOMOGENEOUS CALCULATION")
+                log.info("\n")
+        elif calc_type2 == "full":
+            ZFS_CALC = True
+            HFI_CALC = True
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\n")
+                log.info("\t SPIN - PHONON INHOMOGENEOUS CALCULATION")
+                log.info("\n")
         else:
             if mpi.rank == mpi.root:
-                log.warning("\t NON MARKOVIAN DYNAMICS -> calc_type2 : homo/inhomo")
+                log.warning("\t NON MARKOVIAN DYNAMICS -> calc_type2 : homo/inhomo/full")
             log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
+        #
+        #  START NON MARKOVIAN CALCULATION
+        #
+        T2_calc_handler = compute_nmark_dephas(ZFS_CALC, HFI_CALC)
     else:
         if mpi.rank == mpi.root:
             log.info("\n")
