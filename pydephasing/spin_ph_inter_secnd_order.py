@@ -10,50 +10,6 @@ from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 
-#
-# set ZFS gradient (lambda,q)
-def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
-    # ph. resolved forces
-    F_lq = np.zeros((3*nat,len(ql_list)), dtype=np.complex128)
-    # quantum states
-    iqs0 = p.index_qs0
-    iqs1 = p.index_qs1
-    # eff_Fax units : [eV/ang]
-    eff_Fax = np.zeros(3*nat, dtype=np.complex128)
-    if p.relax:
-        eff_Fax[:] = Fax[iqs0,iqs1,:]
-    elif p.deph:
-        eff_Fax[:] = Fax[iqs0,iqs0,:] - Fax[iqs1,iqs1,:]
-    # run over ph. modes
-    for jax in range(3*nat):
-        ia = atoms.index_to_ia_map[jax] - 1
-        # atom coordinates
-        Ra = atoms.atoms_dict[ia]['coordinates']
-        # atomic mass
-        m_ia = atoms.atoms_dict[ia]['mass']
-        m_ia = m_ia * mp
-        # eV ps^2 / ang^2
-        F_ax = eff_Fax[jax] / np.sqrt(m_ia)
-        # (q,l) list
-        iql = 0
-        for iq, il in ql_list:
-            # e^iqR
-            qv = qpts[iq]
-            eiqR = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
-            # u(q,l)
-            euq = u[iq]
-            F_lq[jax,iql] = euq[jax,il] * eiqR * F_ax
-            # [eV/ang * ang/eV^1/2 *ps^-1 = eV^1/2 / ps]
-            # update iter
-            iql += 1
-    return F_lq
-#
-# set ZFS force at 2nd order
-
-
-
-
-
 if GPU_ACTIVE:
     from pathlib import Path
     from pydephasing.global_params import gpu
