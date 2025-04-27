@@ -205,6 +205,31 @@ temperature :
    - 400.0
 EOF
 
+	cat > inputC.yml <<EOF
+working_dir : ${wdT2}
+output_dir : T2-SP-DEPHC_C
+displ_poscar_dir :
+   - DISPLACEMENT-FILES-01
+   - DISPLACEMENT-FILES-0001
+displ_outcar_dir :
+   - DISPL-01
+   - DISPL-0001
+grad_info_file : info.yml
+unpert_dir : GS
+yaml_pos_file : phonopy_disp.yaml
+hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
+2nd_order_correct : True
+atom_res : False
+phonon_res : False
+min_freq : 1.E-2
+temperature :
+   - 10.0
+B0 :
+   - 0.0
+   - 0.0
+   - 1.0
+EOF
+
 	DIR=${wdT2}/"DISPLACEMENT-FILES-01"
 	if [ ! -d "$DIR" ]; then
 		cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-01 ${wdT2}
