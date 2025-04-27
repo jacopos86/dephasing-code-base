@@ -61,25 +61,26 @@ class SpinPhononClass(ABC):
         n = len(Hsp.basis_vectors)
         # eff. force
         Fax = np.zeros((n, n, 3*nat), dtype=np.complex128)
-        exit()
         # compute : gax_Ahf
-        U_gahf_U = np.zeros((3*nat,3,3))
-        U_gahf_U[:,:,:] = gradHFI.gradAhfi[:,aa,:,:]
+        U_gahf_U = np.zeros((3*nat, 3, 3))
+        U_gahf_U[:,:,:] = gradHFI.U_gradAhfi_U[:,aa,:,:]
         # THz / ang
         sx = np.zeros((n, n), dtype=np.complex128)
         sy = np.zeros((n, n), dtype=np.complex128)
         sz = np.zeros((n, n), dtype=np.complex128)
-        for i in range(3):
-            for j in range(3):
-                sx[i,j] = self.compute_matr_elements(Hsp.Sx, Hsp.qs[:,i], Hsp.qs[:,j])
-                sy[i,j] = self.compute_matr_elements(Hsp.Sy, Hsp.qs[:,i], Hsp.qs[:,j])
-                sz[i,j] = self.compute_matr_elements(Hsp.Sz, Hsp.qs[:,i], Hsp.qs[:,j])
-        # iterate jax
+        for i1 in range(n):
+            qs1 = Hsp.qs[i1]['eigv']
+            for i2 in range(n):
+                qs2 = Hsp.qs[i2]['eigv']
+                sx[i1,i2] = compute_matr_elements(Hsp.Sx, qs1, qs2)
+                sy[i1,i2] = compute_matr_elements(Hsp.Sy, qs1, qs2)
+                sz[i1,i2] = compute_matr_elements(Hsp.Sz, qs1, qs2)
+        # iterate jax : 0, 3*nat
         for jax in range(3*nat):
             gax_ahf = np.zeros((3,3))
-            gax_ahf[:,:] = U_gahf_U[iax,:,:]
+            gax_ahf[:,:] = U_gahf_U[jax,:,:]
             I_gA = np.einsum("i,ij->j", Iaa, gax_ahf)
-            Fax[:,:,iax] = I_gA[0] * sx[:,:] + I_gA[1] * sy[:,:] + I_gA[2] * sz[:,:]
+            Fax[:,:,jax] = I_gA[0] * sx[:,:] + I_gA[1] * sy[:,:] + I_gA[2] * sz[:,:]
         return Fax
     #
     #  set hyperfine effective force from
@@ -98,7 +99,6 @@ class SpinPhononClass(ABC):
             # compute effective force
             # spin site number 1 - nat
             Fax += self.set_gaxAhf(aa, gradHFI, Hsp, Iaa)
-        exit()
         # collect data
         Fax = mpi.collect_array(Fax) * 2.*np.pi * hbar
         # eV / ang
@@ -153,7 +153,6 @@ class SpinPhononFirstOrder(SpinPhononClass):
         if self.HFI_CALC:
             gradHFI = interact_dict['gradHFI']
             Fax += self.set_Fax_hfi(gradHFI, Hsp, sp_config)
-        exit()
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
