@@ -8,57 +8,54 @@ import os
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
-from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
-from pydephasing.gradient_interactions import gradient_ZFS
 from pydephasing.atomic_list_struct import atoms
+from pydephasing.build_interact_grad import calc_interaction_grad
+from pydephasing.build_unpert_struct import build_gs_spin_struct
 from pydephasing.electr_ph_dens_matr import elec_ph_dmatr
+from pydephasing.spin_dens_matr import spin_dmatr
 from pydephasing.q_grid import qgridClass
+from pydephasing.nuclear_spin_config import nuclear_spins_config
+from pydephasing.spin_hamiltonian import set_spin_hamiltonian
 #
-def compute_nmark_dephas():
-    # main driver of the calculation
-    # create displaced structures
-    struct_list = []
-    for i in range(len(p.displ_poscar_dir)):
-        displ_struct = DisplacedStructs(p.displ_poscar_dir[i], p.displ_outcar_dir[i])
-        # set atomic displ. in the structure
-        displ_struct.atom_displ(p.atoms_displ[i])      # Ang
-        # append to list
-        struct_list.append(displ_struct)
-    # 2nd order displ structs
-    if p.order_2_correct:
-        struct_list_2nd = []
-        for i in range(len(p.displ_2nd_poscar_dir)):
-            displ_struct = DisplacedStructures2ndOrder(p.displ_2nd_poscar_dir[i], p.displ_2nd_outcar_dir[i])
-            # set atomic displ. in the structure
-            displ_struct.atom_displ(p.atoms_2nd_displ[i]) # Ang
-            # append to list
-            struct_list_2nd.append(displ_struct)
+def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
+    # main driver of the calculation non markovian
+    # dephasing time
+    #
+    # first set up atoms
+    # compute index maps
+    atoms.set_atoms_data()
     # check restart exist otherwise create
     if not os.path.isdir(p.work_dir+'/restart'):
         if mpi.rank == mpi.root:
             os.mkdir(p.work_dir+'/restart')
-        mpi.comm.Barrier()
-    # set ZFS gradient
-    gradZFS = gradient_ZFS(p.work_dir, p.grad_info)
-    gradZFS.set_gs_zfs_tensor()
-    # compute tensor gradient
-    gradZFS.compute_noise(struct_list)
-    gradZFS.set_tensor_gradient(struct_list)
-    # set ZFS gradient in quant. axis coordinates
-    gradZFS.set_UgradDU_tensor()
     mpi.comm.Barrier()
-    # save data to restart
-    if mpi.rank == mpi.root:
-        gradZFS.write_gradDtensor_to_file(p.work_dir+'/restart')
+    # extract interaction gradients
+    interact_dict = calc_interaction_grad(ZFS_CALC, HFI_CALC)
     mpi.comm.Barrier()
     # n. atoms
-    nat = gradZFS.struct_0.nat
-    # compute index maps
-    atoms.compute_index_to_ia_map(nat)
-    atoms.compute_index_to_idx_map(nat)
-    # set atoms dict
-    atoms.extract_atoms_coords(nat)
-    atoms.set_supercell_coords(nat)
+    nat = atoms.nat
+    # extract unperturbed struct.
+    if mpi.rank == mpi.root:
+        log.info("\t GS DATA DIR: " + p.gs_data_dir)
+    struct_0 = build_gs_spin_struct(p.gs_data_dir, HFI_CALC)
+    # set nuclear spin configuration
+    nuclear_config = None
+    if HFI_CALC:
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t number nuclear spins: " + str(p.nsp))
+            log.info("\t nuclear config. index: " + str(config_index))
+            log.info("\t " + p.sep)
+            log.info("\n")
+        # set spin config.
+        nuclear_config = nuclear_spins_config(p.nsp, p.B0)
+        nuclear_config.set_nuclear_spins(nat, config_index)
+    # set up the spin Hamiltonian
+    Hsp = set_spin_hamiltonian(struct_0, p.B0, nuclear_config)
+    # spin density matrix
+    rho = spin_dmatr()
+    rho.initialize(p.psi0)
     # set q grid
     qgr = qgridClass()
     qgr.set_qgrid()
@@ -81,7 +78,8 @@ def compute_nmark_dephas():
         log.info("\t " + p.sep)
         log.info("\n")
     mpi.comm.Barrier()
-    # electron-phonon density
-    # matrix
-    eph_dm = elec_ph_dmatr().generate_instance()
-    eph_dm.set_modes_list(qgr)
+    exit()
+    # spin phonon
+    # density matrix
+    rho_q = elec_ph_dmatr().generate_instance()
+    rho_q.set_modes_list(qgr)
