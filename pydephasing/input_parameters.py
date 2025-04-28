@@ -10,6 +10,7 @@ from abc import ABC
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 from common.phys_constants import THz_to_ev
+from common.matrix_operations import norm_cmplxv
 from pydephasing.input_parser import parser
 #
 class data_input(ABC):
@@ -55,6 +56,9 @@ class data_input(ABC):
         self.N_df= 100000
         self.T_df= 0.05
         self.maxiter = 80000
+        ######################################
+        # initial wave function
+        self.psi0 = None
     #
     # read yaml data
     def read_yml_common_data(self, data):
@@ -96,6 +100,11 @@ class data_input(ABC):
         else:
             self.B0 = np.array([0., 0., 0.])
         # units : Tesla
+        # psi0 wfc
+        if 'psi0' in data:
+            self.psi0 = np.array(data['psi0'], dtype=np.complex128)
+        nrm = norm_cmplxv(self.psi0)
+        self.psi0 = self.psi0 / nrm
         # ---------------------------------------
         #    HFI calculation parameters
         # ---------------------------------------
@@ -431,8 +440,6 @@ class static_data_input(data_input):
         self.n_pulses = 0
         # order taylor exp.
         self.order_exp = 7
-        # initial triplet wfc (spin 1 along z)
-        self.psi0 = np.array([1.+0*1j,0.+0*1j,0.+0*1j])
     #
     # read yml data file
     def read_yml_data(self, input_file):
@@ -457,12 +464,6 @@ class static_data_input(data_input):
         # taylor exp. order
         if 'order_taylor_exp' in data:
             self.order_exp = data['order_taylor_exp']
-        # psi0 triplet wfc
-        if 'psi0' in data:
-            self.psi0 = np.array(data['psi0'], dtype=np.complex128)
-        nrm = 0.
-        nrm = np.sqrt(sum(self.psi0[:] * np.conjugate(self.psi0[:])))
-        self.psi0 = self.psi0 / nrm
         # dynamical decoupling -> number of pulses
         if 'npulses' in data:
             self.n_pulses = data['npulses']
