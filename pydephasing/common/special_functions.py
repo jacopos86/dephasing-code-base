@@ -80,29 +80,3 @@ def triplet_evolution(Ht, psi0, dt):
 		K4 = dt * F4
 		psit[:,i+1] = v[:] + (K1[:] + 2.*K2[:] + 2.*K3[:] + K4[:]) / 6.
 	return psit
-#
-# function 8) print ZPL gradient data
-# on output file
-#
-def print_zpl_fluct(gradZPL, hessZPL, out_dir):
-	# write tensor to file
-	file_name = "ZPL_grad.yml"
-	file_name = "{}".format(out_dir + '/' + file_name)
-	data = {'gradZPL' : gradZPL, 'hessZPL' : hessZPL}
-	# eV / ang - eV / ang^2 units
-	with open(file_name, 'w') as out_file:
-		yaml.dump(data, out_file)
-#
-# function 9) print matrix
-#
-def print_2D_matrix(A):
-	size = A.shape
-	log.info("\t Noise matrix :")
-	for i in range(size[0]):
-		line = ""
-		for j in range(size[1]):
-			line += "  {0:.3f}".format(A[i,j])
-		log.info("\t " + line)
-	log.info("\n")
-	log.info("\t " + p.sep)
-	return line
