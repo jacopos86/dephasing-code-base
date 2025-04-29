@@ -1,30 +1,48 @@
+import yaml
+from pydephasing.log import log
+from pydephasing.set_param_object import p
 
 #   This module prints 
 #   different objects
 
+#
+# function -> print matrix
+#
+
+def print_2D_matrix(A):
+	size = A.shape
+	for i in range(size[0]):
+		line = ""
+		for j in range(size[1]):
+			line += "  {0:.3f}".format(A[i,j])
+		log.info("\t " + line)
+	log.info("\n")
+	log.info("\t " + p.sep)
+
 # write spin vector on file
-def write_spin_vector_on_file(self, out_dir):
-		# time steps
-		nt = len(self.time)
-		# write on file
-		namef = out_dir + "/spin-vector.yml"
-		# set dictionary
-		dict = {'time' : 0, 'Mt' : 0}
-		dict['time'] = self.time
-		dict['Mt'] = self.Mt
-		# save data
-		with open(namef, 'w') as out_file:
-			yaml.dump(dict, out_file)
-		# mag. vector
-		namef = out_dir + "/occup-prob.yml"
-		# set dictionary
-		dict2 = {'time' : 0, 'occup' : 0}
-		occup = np.zeros((3,nt))
-		# run over t
-		for i in range(nt):
-			occup[:,i] = np.dot(self.tripl_psit[:,i].conjugate(), self.tripl_psit[:,i]).real
-		dict2['time'] = self.time
-		dict2['occup']= occup
-		# save data
-		with open(namef, 'w') as out_file:
-			yaml.dump(dict2, out_file)
+
+def write_time_dependent_data_on_file(time, data, data_label, file_name):
+	# time steps
+	nt = len(time)
+	# set dictionary
+	dict = {'nt' : 0, 'time' : 0, 'Mt' : 0}
+	dict['time'] = time
+	dict['nt'] = nt
+	dict[data_label] = data
+	# save data
+	with open(file_name, 'w') as out_file:
+		yaml.dump(dict, out_file)
+
+#
+# function -> print ZPL gradient data
+# on output file
+#
+
+def print_zpl_fluct(gradZPL, hessZPL, out_dir):
+	# write tensor to file
+	file_name = "ZPL_grad.yml"
+	file_name = "{}".format(out_dir + '/' + file_name)
+	data = {'gradZPL' : gradZPL, 'hessZPL' : hessZPL}
+	# eV / ang - eV / ang^2 units
+	with open(file_name, 'w') as out_file:
+		yaml.dump(data, out_file)
