@@ -2,6 +2,7 @@ import numpy as np
 from pydephasing.log import log
 from pydephasing.mpi import mpi
 from pydephasing.set_param_object import p
+from common.print_objects import print_2D_matrix
 
 #
 # spin density matrix class -> rho_{a,b}
@@ -19,3 +20,8 @@ class spin_dmatr(object):
             log.info("\t " + p.sep)
         self.matr0 = np.kron(psi0, psi0.conj()).reshape((self.n, self.n))
         np.testing.assert_almost_equal(self.matr0.trace().real, 1.0)
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t PRINT DENSITY MATRIX(t=0)")
+            print_2D_matrix(self.matr0)
