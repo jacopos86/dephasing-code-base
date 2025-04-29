@@ -2,16 +2,14 @@
 #   This module defines
 #   the spin Hamiltonian 
 #
+
 import numpy as np
 from numpy import linalg as LA
-import yaml
-from common.special_functions import delta, triplet_evolution
-from common.phys_constants import hbar, gamma_e, eps, THz_to_ev
+from common.special_functions import delta
+from common.phys_constants import gamma_e, eps, THz_to_ev
 from pydephasing.log import log
 from pydephasing.mpi import mpi
-import logging
 from abc import ABC
-import matplotlib.pyplot as plt
 
 #
 #   function : set spin Hamiltonian
@@ -172,88 +170,6 @@ class spin_triplet_hamiltonian(spin_hamiltonian):
 				site = nuclear_config.nuclear_spins[isp]['site']
 				H += self.hperfine_coupl(site, It, unprt_struct.Ahfi)
 		return H
-	# set time array
-	def set_time(self, dt, T):
-		# set time in ps units
-		# for spin vector evolution
-		# n. time steps
-		nt = int(T / dt)
-		self.time = np.linspace(0., T, nt)
-		#
-		nt = int(T / (dt/2.))
-		self.time_dense = np.linspace(0., T, nt)
-	# compute magnetization array
-	def set_magnetization(self):
-		# compute magnet. expect. value
-		nt = len(self.time)
-		self.Mt = np.zeros((3,nt))
-		# run on t
-		for i in range(nt):
-			vx = np.dot(self.Sx, self.tripl_psit[:,i])
-			self.Mt[0,i] = np.dot(self.tripl_psit[:,i].conjugate(), vx).real
-			#
-			vy = np.dot(self.Sy, self.tripl_psit[:,i])
-			self.Mt[1,i] = np.dot(self.tripl_psit[:,i].conjugate(), vy).real
-			#
-			vz = np.dot(self.Sz, self.tripl_psit[:,i])
-			self.Mt[2,i] = np.dot(self.tripl_psit[:,i].conjugate(), vz).real
-		# plot spin magnetization
-		if log.level <= logging.DEBUG:
-			plt.ylim([-1.5, 1.5])
-			plt.plot(self.time, self.Mt[0,:].real, label="X")
-			plt.plot(self.time, self.Mt[1,:].real, label="Y")
-			plt.plot(self.time, self.Mt[2,:].real, label="Z")
-			plt.legend()
-			plt.show()
-	# compute spin vector
-	def compute_spin_vector_evol(self, struct0, psi0, B):
-		# initial state : psi0
-		# magnetic field : B (gauss)
-		# H = SDS + gamma_e B S
-		# 1) compute SDS
-		self.set_SDS(struct0)
-		# n. time steps
-		nt = len(self.time_dense)
-		Ht = np.zeros((3,3,nt), dtype=np.complex128)
-		# 2) set Ht in eV units
-		# run over time steps
-		for i in range(nt):
-			Ht[:,:,i] = Ht[:,:,i] + hbar * self.SDS[:,:]
-			# eV
-			# add B field
-			Ht[:,:,i] = Ht[:,:,i] + gamma_e * hbar * (B[0] * self.Sx[:,:] + B[1] * self.Sy[:,:] + B[2] * self.Sz[:,:])
-		dt = self.time[1]-self.time[0]
-		# ps units
-		# triplet wave function evolution
-		self.tripl_psit = triplet_evolution(Ht, psi0, dt)
-		# set magnetization vector Mt
-		self.set_magnetization()
-	# write spin vector on file
-	def write_spin_vector_on_file(self, out_dir):
-		# time steps
-		nt = len(self.time)
-		# write on file
-		namef = out_dir + "/spin-vector.yml"
-		# set dictionary
-		dict = {'time' : 0, 'Mt' : 0}
-		dict['time'] = self.time
-		dict['Mt'] = self.Mt
-		# save data
-		with open(namef, 'w') as out_file:
-			yaml.dump(dict, out_file)
-		# mag. vector
-		namef = out_dir + "/occup-prob.yml"
-		# set dictionary
-		dict2 = {'time' : 0, 'occup' : 0}
-		occup = np.zeros((3,nt))
-		# run over t
-		for i in range(nt):
-			occup[:,i] = np.dot(self.tripl_psit[:,i].conjugate(), self.tripl_psit[:,i]).real
-		dict2['time'] = self.time
-		dict2['occup']= occup
-		# save data
-		with open(namef, 'w') as out_file:
-			yaml.dump(dict2, out_file)
 
 #
 #   spin doublet 
