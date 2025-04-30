@@ -203,6 +203,9 @@ class dynamical_data_input(data_input):
         # eV units
         self.lorentz_thres = 0.
         # lorentzian treshold
+        #####################################
+        # real time parameters
+        self.dynamical_mode = []
     #
     # read yml data file
     def read_yml_data(self, input_file):
@@ -350,6 +353,14 @@ class dynamical_data_input(data_input):
         #
         # read displ. atoms data
         self.read_atoms_displ()
+        # ---------------------------------------------------------------
+        #
+        #   real time
+        #
+        # ---------------------------------------------------------------
+        if 'dynamics' in data:
+            for i in data['dynamics']:
+                self.dynamical_mode.append(i)
     #
     # time arrays
     def set_time_arrays(self):
