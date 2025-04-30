@@ -27,5 +27,19 @@ def set_real_time_solver():
             log.info("\t " + p.sep)
             log.info("\t SETTING NON MARKOVIAN SOLVER")
             log.info("\t " + p.sep)
-            log.info("\n")
-        return LiouvilleSolver()
+        if p.dynamical_mode[0] == 0 and p.dynamical_mode[1] == 0:
+            if mpi.rank == mpi.root:
+                log.info("\t FULLY COHERENT EVOLUTION ")
+                log.info("\t " + p.sep)
+                log.info("\n")
+            return LiouvilleSolver()
+        elif p.dynamical_mode[0] == 1 and p.dynamical_mode[1] == 0:
+            if mpi.rank == mpi.root:
+                log.info("\t LINDBLAD SOLVER - ELEC-PH ORDER 1")
+                log.info("\t " + p.sep)
+                log.info("\n")
+        elif p.dynamical_mode[0] == 2 and p.dynamical_mode[1] == 0:
+            if mpi.rank == mpi.root:
+                log.info("\t NON MARKOVIAN SOLVER - ELEC-PH ORDER 1")
+                log.info("\t " + p.sep)
+                log.info("\n")
