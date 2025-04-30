@@ -16,6 +16,7 @@ from pydephasing.spin_dens_matr import spin_dmatr
 from pydephasing.q_grid import qgridClass
 from pydephasing.nuclear_spin_config import nuclear_spins_config
 from pydephasing.spin_hamiltonian import set_spin_hamiltonian
+from pydephasing.set_real_time_solver import set_real_time_solver
 #
 def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # main driver of the calculation non markovian
@@ -78,6 +79,8 @@ def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\t " + p.sep)
         log.info("\n")
     mpi.comm.Barrier()
+    # set real time solver
+    solver = set_real_time_solver()
     exit()
     # spin phonon
     # density matrix
