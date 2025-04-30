@@ -55,3 +55,36 @@ def compute_spin_vector_evol(self, struct0, psi0, B):
 		self.tripl_psit = triplet_evolution(Ht, psi0, dt)
 		# set magnetization vector Mt
 		self.set_magnetization()
+                
+
+#
+#   function 7)
+#
+def triplet_evolution(Ht, psi0, dt):
+	# this routine solves
+	# dpsi/dt = -i/hbar Ht psi -> psi triplet wfc
+	# H(t) is 3X3
+	nt = Ht.shape[2]
+	psit = np.zeros((3,int(nt/2)), dtype=np.complex128)
+	psit[:,0] = psi0[:]
+	# iterate over time
+	for i in range(int(nt/2)-1):
+		v = np.zeros(3, dtype=np.complex128)
+		v[:] = psit[:,i]
+		# K1
+		F1 = -1j / hbar * np.matmul(Ht[:,:,2*i], v)
+		K1 = dt * F1
+		v1 = v + K1 / 2.
+		# K2
+		F2 = -1j / hbar * np.matmul(Ht[:,:,2*i+1], v1)
+		K2 = dt * F2
+		v2 = v + K2 / 2.
+		# K3
+		F3 = -1j / hbar * np.matmul(Ht[:,:,2*i+1], v2)
+		K3 = dt * F3
+		v3 = v + K3
+		# K4
+		F4 = -1j / hbar * np.matmul(Ht[:,:,2*i+2], v3)
+		K4 = dt * F4
+		psit[:,i+1] = v[:] + (K1[:] + 2.*K2[:] + 2.*K3[:] + K4[:]) / 6.
+	return psit
