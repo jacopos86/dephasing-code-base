@@ -8,3 +8,7 @@ from pydephasing.real_time_solver_base import RealTimeSolver
 class LiouvilleSolver(RealTimeSolver):
     def __init__(self):
         super(LiouvilleSolver, self).__init__()
+    # evolve DM
+    def evolve(self, dt, T, rho, H):
+        # set time arrays
+        self.set_time_arrays(dt, T)
