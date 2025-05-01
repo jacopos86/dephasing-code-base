@@ -166,16 +166,6 @@ class dynamical_data_input(data_input):
         self.nwbn = 0
         self.phm_list = []
         #
-        # time resolved calculation
-        self.time_resolved = False
-        # freq. resolved
-        self.w_resolved = False
-        # integral / fit type calculation
-        self.ACF_INTEG = False
-        self.ACF_FIT = False
-        # fit model (default) ExpSin / Exp
-        self.FIT_MODEL = "ExS"
-        #
         # zfs/hfi 2nd order correction grad.
         self.order_2_correct = False
         self.hessian = False
@@ -186,43 +176,19 @@ class dynamical_data_input(data_input):
         # physical parameters
         # n. temperatures
         self.ntmp = 0
-        # time ph / at resolved
-        self.T2 = 0.0
         # eta decay parameter (time resolved calc.)
         self.eta = 1e-5
         # in eV units
         # min. allowed phonon freq.
         self.min_freq = 0.0
         # THz units
-        #
-        # freq. resolved calculation inputs
-        self.w_grid = None
-        # freq. w grid
-        self.nwg = 0
-        self.w_max = 0.
-        # eV units
-        self.lorentz_thres = 0.
-        # lorentzian treshold
-        #####################################
-        # real time parameters
-        self.dynamical_mode = []
     #
     # read yml data file
-    def read_yml_data(self, input_file):
-        try:
-            f = open(input_file)
-        except:
-            msg = "\t COULD NOT FIND : " + input_file
-            log.error(msg)
-        data = yaml.load(f, Loader=yaml.Loader)
-        f.close()
+    def read_yml_data_dyn(self, data):
         #
         # reaad common shared data
         #
         self.read_yml_common_data(data)
-        # only T or nwg in data -> either time or freq. resolved
-        if 'T' in data and 'nwg' in data:
-            log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
         # displ. positions directory
         if 'displ_poscar_dir' in data:
             for d in data['displ_poscar_dir']:
@@ -353,14 +319,6 @@ class dynamical_data_input(data_input):
         #
         # read displ. atoms data
         self.read_atoms_displ()
-        # ---------------------------------------------------------------
-        #
-        #   real time
-        #
-        # ---------------------------------------------------------------
-        if 'dynamics' in data:
-            for i in data['dynamics']:
-                self.dynamical_mode.append(i)
     #
     # time arrays
     def set_time_arrays(self):
@@ -436,6 +394,61 @@ class dynamical_data_input(data_input):
                 data = yaml.load(f, Loader=yaml.Loader)
                 self.atoms_2nd_displ.append(np.array(data['displ_ang']))
                 f.close()
+
+class linear_resp_input(dynamical_data_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        # time resolved calculation
+        self.time_resolved = False
+        # freq. resolved
+        self.w_resolved = False
+        ####################################
+        # freq. resolved calculation inputs
+        self.w_grid = None
+        # freq. w grid
+        self.nwg = 0
+        self.w_max = 0.
+        # eV units
+        self.lorentz_thres = 0.
+        # lorentzian treshold
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # only T or nwg in data -> either time or freq. resolved
+        if 'T' in data and 'nwg' in data:
+            log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
+
+class real_time_input(dynamical_data_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        #####################################
+        # real time parameters
+        self.dynamical_mode = []
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # ---------------------------------------------------------------
+        #
+        #   real time
+        #
+        # ---------------------------------------------------------------
+        if 'dynamics' in data:
+            for i in data['dynamics']:
+                self.dynamical_mode.append(i)
                 
 class static_data_input(data_input):
     # initialization
