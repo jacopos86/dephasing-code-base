@@ -294,40 +294,10 @@ class dynamical_data_input(data_input):
         if 'eta' in data:
             self.eta = float(data['eta'])
             # eV units
-        # --------------------------------------------------------------
-        #
-        #    frequency variables
-        #
-        # --------------------------------------------------------------
-        if 'nwg' in data:
-            self.w_resolved = True
-            # n. w grid points
-            self.nwg = data['nwg']
-            # min. freq (THz)
-            if 'min_freq' in data:
-                self.min_freq = data['min_freq']
-            # lorentz. threshold
-            if 'lorentz_thres' in data:
-                self.lorentz_thres = data['lorentz_thres']
-        if mpi.rank == mpi.root:
-            if np.abs(self.min_freq) < 1.E-7:
-                log.info("\n")
-                log.info("\t " + self.sep)
-                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
-                log.info("\t " + self.sep)
-                log.info("\n")
         #
         # read displ. atoms data
         self.read_atoms_displ()
     #
-    # time arrays
-    def set_time_arrays(self):
-        self.nt = int(self.T / self.dt)
-        self.time = np.linspace(0., self.T, self.nt)
-        # ph / at resolved time array
-        if self.at_resolved or self.ph_resolved:
-            self.nt2 = int(self.T2 / self.dt)
-            self.time2 = np.linspace(0., self.T2, self.nt2)
     # set w_grid
     def set_w_grid(self, wu):
         self.w_max = np.max(wu) * THz_to_ev * 10.
@@ -424,6 +394,28 @@ class linear_resp_input(dynamical_data_input):
         # only T or nwg in data -> either time or freq. resolved
         if 'T' in data and 'nwg' in data:
             log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
+        # --------------------------------------------------------------
+        #
+        #    frequency variables
+        #
+        # --------------------------------------------------------------
+        if 'nwg' in data:
+            self.w_resolved = True
+            # n. w grid points
+            self.nwg = data['nwg']
+            # min. freq (THz)
+            if 'min_freq' in data:
+                self.min_freq = data['min_freq']
+            # lorentz. threshold
+            if 'lorentz_thres' in data:
+                self.lorentz_thres = data['lorentz_thres']
+        if mpi.rank == mpi.root:
+            if np.abs(self.min_freq) < 1.E-7:
+                log.info("\n")
+                log.info("\t " + self.sep)
+                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
+                log.info("\t " + self.sep)
+                log.info("\n")
 
 class real_time_input(dynamical_data_input):
     # initialization
