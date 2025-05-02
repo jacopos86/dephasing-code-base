@@ -34,7 +34,7 @@ if nargs < 4:
             log.info("\n")
             log.info("\t " + p.sep)
             log.warning("\t CODE USAGE: \n")
-            log.warning("\t -> python pydephasing -ct1 [LR, LBLD, NMARK, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
+            log.warning("\t -> python pydephasing -ct1 [LR, RT, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
         log.error("\t WRONG EXECUTION PARAMETERS: PYDEPHASING STOPS")
 else:
     if mpi.rank == mpi.root:
@@ -76,7 +76,7 @@ if calc_type1 == "init":
 elif calc_type1 == "postproc":
     # post process output data from VASP
     pass
-elif calc_type1 == "LR" or calc_type1 == "LBLD" or calc_type1 == "NMARK":
+elif calc_type1 == "LR" or calc_type1 == "RT":
     co = parser.parse_args().co[0]
     if co == "energy":
         energy_linewidth_driver(yml_file)
