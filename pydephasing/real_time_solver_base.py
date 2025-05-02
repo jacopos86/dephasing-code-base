@@ -1,4 +1,5 @@
 from abc import ABC
+import numpy as np
 
 #    This module implements
 #    the real time solver class
