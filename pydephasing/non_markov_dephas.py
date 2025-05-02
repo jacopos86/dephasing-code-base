@@ -79,9 +79,9 @@ def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\t " + p.sep)
         log.info("\n")
     mpi.comm.Barrier()
-    # set real time solver
+    # set real time solver (time in ps)
     solver = set_real_time_solver()
-    solver.evolve(dt, T, rho, Hsp)
+    solver.evolve(p.dt, p.T, rho, Hsp)
     exit()
     # spin phonon
     # density matrix
