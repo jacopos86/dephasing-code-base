@@ -3,6 +3,7 @@ from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
 from pydephasing.Liouville_solver import LiouvilleSolver
+from pydephasing.oneph_process_solver import OnephSolver
 
 #
 #   This module set the real time solver
@@ -31,6 +32,7 @@ def set_real_time_solver():
             log.info("\t LINDBLAD SOLVER - ELEC-PH ORDER 1")
             log.info("\t " + p.sep)
             log.info("\n")
+        return OnephSolver(p.dynamical_mode[0])
     elif p.dynamical_mode[0] == 2 and p.dynamical_mode[1] == 0:
         if mpi.rank == mpi.root:
             log.info("\t COMPLETE NON MARKOVIAN SOLVER - ELEC-PH ORDER 1")
