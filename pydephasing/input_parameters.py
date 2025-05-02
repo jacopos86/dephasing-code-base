@@ -263,6 +263,7 @@ class dynamical_data_input(data_input):
                 self.T2 = float(data['T'][1])
             # T2 calculation
             # methods
+            '''
             if 'T2_extract_method' in data:
                 if data['T2_extract_method'] == "fit":
                     self.ACF_FIT = True
@@ -272,8 +273,6 @@ class dynamical_data_input(data_input):
                     self.ACF_INTEG = True
                 else:
                     log.error("\t T2 EXTRACTION METHOD ONLY : [ fit / integ ]")
-            else:
-                log.error("\t T2 EXTRACTION METHOD : [ fit / integ ] MUST BE GIVEN IN INPUT")
             # fitting model -> (1) Exp ; (2) ExpSin
             # ExpSin -> more accurate dynamical calculations
             if self.ACF_FIT and 'fit_model' in data:
@@ -283,6 +282,7 @@ class dynamical_data_input(data_input):
                     self.FIT_MODEL = 'ExS'
                 else:
                     log.error("\t fit model ONLY : [ Exp / ExpSin ]")
+            '''
             # min. frequency
             # THz
             if 'min_freq' in data:
@@ -297,16 +297,6 @@ class dynamical_data_input(data_input):
         #
         # read displ. atoms data
         self.read_atoms_displ()
-    #
-    # set w_grid
-    def set_w_grid(self, wu):
-        self.w_max = np.max(wu) * THz_to_ev * 10.
-        # eV
-        dw = self.w_max / (self.nwg - 1)
-        self.w_grid = np.zeros(self.nwg)
-        # compute w grid
-        for iw in range(self.nwg):
-            self.w_grid[iw] = iw * dw
     #
     # set wql grid -> ph. res.
     #
@@ -416,6 +406,16 @@ class linear_resp_input(dynamical_data_input):
                 log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
                 log.info("\t " + self.sep)
                 log.info("\n")
+    #
+    # set w_grid
+    def set_w_grid(self, wu):
+        self.w_max = np.max(wu) * THz_to_ev * 10.
+        # eV
+        dw = self.w_max / (self.nwg - 1)
+        self.w_grid = np.zeros(self.nwg)
+        # compute w grid
+        for iw in range(self.nwg):
+            self.w_grid[iw] = iw * dw
 
 class real_time_input(dynamical_data_input):
     # initialization
