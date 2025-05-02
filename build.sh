@@ -222,6 +222,13 @@ hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
 atom_res : False
 phonon_res : False
 min_freq : 1.E-2
+T :
+   - 10.0
+   - 1.0
+dt : 0.0007
+dynamics :
+   - 0
+   - 0
 temperature :
    - 10.0
 B0 :
