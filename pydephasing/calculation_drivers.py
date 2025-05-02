@@ -4,7 +4,6 @@ from pydephasing.input_parser import parser
 from pydephasing.set_param_object import p
 from pydephasing.compute_LR_spin_decoher import compute_spin_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
-from pydephasing.compute_zfs_hfi_dephas import compute_full_dephas
 from pydephasing.non_markov_dephas import compute_nmark_dephas
 
 #
@@ -178,38 +177,13 @@ def spin_qubit_driver(yml_file):
         mpi.comm.Barrier()
     # --------------------------------------------------------------
     # 
-    #    FULL CALC. LINDBLADIAN FORM
+    #    FULL CALC. -> REAL TIME
     #
     # --------------------------------------------------------------
-    elif calc_type1 == "LBLD":
+    elif calc_type1 == "RT":
         if mpi.rank == mpi.root:
             log.info("\t T2 CALCULATION -> STARTING")
-            log.info("\t LINDBLAD DYNAMICS")
-            log.info("\n")
-            log.info("\t " + p.sep)
-        # read input file
-        p.read_yml_data(yml_file)
-        # compute auto correl. function first
-        T2_calc_handler = compute_full_dephas()
-        # finalize calculation
-        if mpi.rank == mpi.root:
-            log.info("\n")
-            log.info("\t" + p.sep)
-            log.info("\t PRINT DATA ON FILES")
-            # write T2 yaml files
-            T2_calc_handler.print_decoherence_times()
-            log.info("\t" + p.sep)
-            log.info("\n")
-        mpi.comm.Barrier()
-    # --------------------------------------------------------------
-    # 
-    #    FULL CALC. -> NON MARKOVIAN FORM
-    #
-    # --------------------------------------------------------------
-    elif calc_type1 == "NMARK":
-        if mpi.rank == mpi.root:
-            log.info("\t T2 CALCULATION -> STARTING")
-            log.info("\t NON MARKOVIAN DYNAMICS")
+            log.info("\t REAL TIME DYNAMICS")
             log.info("\n")
             log.info("\t " + p.sep)
         # read input file
@@ -251,7 +225,7 @@ def spin_qubit_driver(yml_file):
                 log.info("\n")
         else:
             if mpi.rank == mpi.root:
-                log.warning("\t NON MARKOVIAN DYNAMICS -> calc_type2 : homo/inhomo/full")
+                log.warning("\t REAL TIME DYNAMICS -> calc_type2 : homo/inhomo/full")
             log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
         #
         #  START NON MARKOVIAN CALCULATION
@@ -262,6 +236,6 @@ def spin_qubit_driver(yml_file):
             log.info("\n")
             log.info("\t " + p.sep)
             log.warning("\t CODE USAGE: \n")
-            log.warning("\t -> python pydephasing -ct1 [LR, LBLD, NMARK, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
+            log.warning("\t -> python pydephasing -ct1 [LR, RT, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
             log.info("\t " + p.sep)
         log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
