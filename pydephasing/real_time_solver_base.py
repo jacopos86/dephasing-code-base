@@ -22,4 +22,6 @@ class RealTimeSolver(ABC):
         # build dense array
         nt2 = int(T / (dt/2.))
         self.time_dense = np.linspace(0., T, nt2)
-        # everything must be in fs
+        # everything must be in ps
+        self.T = T
+        self.dt = dt
