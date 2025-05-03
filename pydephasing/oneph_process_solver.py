@@ -18,3 +18,7 @@ class OnephSolver(RealTimeSolver):
             self.NMARK = True
         else:
             log.error("\t incorrect mode : mode = [1,2]")
+    # evolve DM
+    def evolve(self, dt, T, rho, H):
+        # set time arrays
+        self.set_time_arrays(dt, T)
