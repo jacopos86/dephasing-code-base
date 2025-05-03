@@ -18,6 +18,11 @@ def compute_matr_elements(A, s1, s2):
     mel = np.einsum("i,i", s1.conjugate(), r)
     return mel
 
+# commute [A, B]=AB - BA
+def commute(A, B):
+    C = np.matmul(A, B) - np.matmul(B, A)
+    return C
+
 #
 #   function: set cross product matrix
 #
