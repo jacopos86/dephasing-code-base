@@ -5,27 +5,30 @@ from pydephasing.set_param_object import p
 from common.phys_constants import hbar
 from common.matrix_operations import commute
 import numpy as np
+from pydephasing.magnetic_field import magnetic_field
 
 #
 #    This module implements
 #    the Liouville solver for DM dynamics
 #
 
-class LiouvilleSolver(RealTimeSolver):
+class LiouvilleSolverSpin(RealTimeSolver):
     def __init__(self):
-        super(LiouvilleSolver, self).__init__()
+        super(LiouvilleSolverSpin, self).__init__()
     # evolve DM
     def evolve(self, dt, T, rho, H):
         # set time arrays
         self.set_time_arrays(dt, T)
-        # dynamics purely
+        # set magnetic field
+        B = magnetic_field().set_pulse(self.time_dense)
+        # dynamics
         # drho/dt = -i[H, rho]
         # propagate DM
-        self.propagate(rho, H)
+        self.propagate(rho, H, B)
         # compute observables
     # time propagation DM
     # drho/dt = i[H,\rho]/\hbar
-    def propagate(self, rho, H):
+    def propagate(self, rho, H, B):
         # initialize DM
         rh0 = rho.matr0
         n = rh0.shape[0]
@@ -44,7 +47,15 @@ class LiouvilleSolver(RealTimeSolver):
             y = np.zeros((n,n), dtype=np.complex128)
             y[:,:] = rh[:,:,t]
             # F1 (ps^-1)
-            h = H.set_hamilt_oft(2*self.time_dense[2*t], unprt_struct, B[2*t], nuclear_config)
-            F1 = 1j * commute(h, y) / hbar
-            K1 = self.dt * F1
-            y1 = y + K1 / 2.0
+            #h = H.set_hamilt_oft(2*self.time_dense[2*t], unprt_struct, B[2*t], nuclear_config)
+            #F1 = 1j * commute(h, y) / hbar
+           # K1 = self.dt * F1
+            #y1 = y + K1 / 2.0
+
+class LiouvilleSolverHFI(RealTimeSolver):
+    def __init__(self):
+        super(LiouvilleSolverHFI, self).__init__()
+    # evolve DM with HFI
+    def evolve(self, dt, T, rho, H):
+        # set time arrays
+        self.set_time_arrays(dt, T)
