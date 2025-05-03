@@ -235,6 +235,10 @@ B0 :
    - 0.0
    - 0.0
    - 1.0
+psi0 :
+   - 1.0
+   - 1.0
+   - 0.0
 EOF
 
 	DIR=${wdT2}/"DISPLACEMENT-FILES-01"
