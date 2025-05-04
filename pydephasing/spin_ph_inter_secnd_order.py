@@ -3,9 +3,10 @@ import cmath
 import collections
 from common.phys_constants import hbar, mp, THz_to_ev
 from common.matrix_operations import compute_matr_elements
+from common.GPU_arrays_handler import GPU_ARRAY
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
-from pydephasing.global_params import GPU_ACTIVE
+from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.log import log
 from pydephasing.mpi import mpi
@@ -156,6 +157,7 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         self.R_LST = None
         # mass list
         self.M_LST = None
+        print('GPU OK')
     #
     # prepare order 2 phr force calculation
     def set_up_2nd_order_force_phr(self, nat, qpts, Fax, Faxby, H):
@@ -284,15 +286,6 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
             m_ia = atoms.atoms_dict[ia]['mass']
             m_ia = m_ia * mp
             self.M_LST[jax] = m_ia
-        if self.calc_raman:
-            # EIG
-            self.EIG = np.zeros(nqs, dtype=np.double)
-            self.NQS = np.int32(nqs)
-            for qs in range(nqs):
-                self.EIG[qs] = H.eig[qs]
-            # eV
-            self.IQS0 = np.int32(p.index_qs0)
-            self.IQS1 = np.int32(p.index_qs1)
     #
     # driver function
     def transf_2nd_order_force_phr(self, il, iq, wu, u, nat, qlp_list):
@@ -468,6 +461,53 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
                 F_lq_lqp[3,jax,:] = np.conj(EIQR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[3,jax,:] / np.sqrt(self.M_LST[jax])
         print('OK')
         return F_lq_lqp
+    #
+    # compute the Raman contribution to 
+    # force matrix elements
+    # Fr_aa'(X,X') = sum_b' {Fab(X) Fba'(X')/(e_a' - e_b) + Fab(X) Fba'(X')/(e_a - e_b)}
+    def compute_raman(self, nat, Hsp, Fax):
+        # read function
+        gpu_src = Path(CUDA_SOURCE_DIR+'compute_raman_matr.cu').read_text()
+        gpu_mod = SourceModule(gpu_src)
+        # Raman F_axby vector
+        n = len(Hsp.basis_vectors)
+        # result in eV / ang^2 units
+        # partition jax between proc.
+        deg = Hsp.check_degeneracy()
+        if mpi.rank == mpi.root:
+            log.info("\t spin Hamiltonian degenerate: " + str(deg))
+        if deg:
+            log.warning("\t Spin Hamiltonian is degenerate")
+        jX_list = mpi.random_split(range(3*nat))
+        jXp_list = np.array(range(3*nat))
+        jXXp_list = np.array(list(product(jX_list, jXp_list)))
+        # make list of (jX,jXp) on gpu grid
+        INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(jXXp_list)
+        JXXP_LIST = GPU_ARRAY(jXXp_list, np.int32)
+        NJX = np.int32(3*nat)
+        # EIG array -> allocate GPU memory
+        # & copy data
+        eig = np.zeros(n)
+        for a in range(n):
+            eig[a] = Hsp.qs[a]['eig']
+        EIG = GPU_ARRAY(eig, np.float32)
+        # FX -> ALLOCATE GPU array
+        FX = GPU_ARRAY(Fax, np.complex128)
+        print(FX.to_gpu()[0,0,0], FX.to_gpu()[1,0,0], FX.to_gpu()[2,0,0], FX.to_gpu()[0,1,0], FX.to_gpu()[1,1,0], FX.to_gpu()[2,1,0])
+        # raman matrix elements
+        FXXP = GPU_ARRAY(np.zeros((n, n, len(jXXp_list))), np.complex128)
+        FXXP_ARRAY = np.zeros((n, n, len(jXXp_list)), dtype=np.complex128)
+        if not deg:
+            compute_raman = gpu_mod.get_function("compute_raman_nondeg")
+        else:
+            compute_raman = gpu_mod.get_function("compute_raman_deg")
+        compute_raman(EIG.length(), NJX, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(JXXP_LIST.to_gpu()), cuda.In(EIG.to_gpu()),
+                      cuda.In(FX.to_gpu()), cuda.Out(FXXP_ARRAY), block=gpu.block, grid=gpu.grid)
+        # reshape array
+        #gpu.create_index_list((n, n, len(JXXP_LIST)))
+        #FXXp = gpu.reshape_array(jXXp_list, FXXP)
+        FXXP.reshape_gpu_array(FXXP_ARRAY, jXXp_list, (n, n, 3*nat, 3*nat))
+        return FXXP.cpu_array
     
 # -------------------------------------------------------------------
 #       CPU class
