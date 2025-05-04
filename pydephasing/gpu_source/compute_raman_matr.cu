@@ -275,8 +275,16 @@ cmplx *FX, cmplx *FXXP) {
             printf("%.10E - %.10E - %.10E - %.10E - %.10E - %.10E\n", real(FX[JXP+0*NJX+0*n*NJX]), real(FX[JXP+0*NJX+1*n*NJX]), real(FX[JXP+0*NJX+2*n*NJX]), real(FX[JXP+1*NJX+0*n*NJX]), real(FX[JXP+1*NJX+1*n*NJX]), real(FX[JXP+1*NJX+2*n*NJX]));
         }
         /* iterate over bands */
-        //for (int a=0; a<n; a++) {
-        //
-        //}
+        for (int a=0; a<n; a++) {
+            for (int ap=0; ap<n; ap++) {
+                for (int b=0; b<n; b++) {
+                    int INX  = JX+b*NJX+a*n*NJX;
+                    int INXP = JXP+ap*NJX+b*n*NJX;
+                    int INXXP= ix+ap*NJX+a*n*NJX;
+                    if (b != ap) FXXP[INXXP] += FX[INX] * FX[INXP] / (EIG[ap] - EIG[b]);
+                    if (b != a) FXXP[INXXP] += FX[INX] * FX[INXP] / (EIG[a] - EIG[b]);
+                }
+            }
+        }
     }
 }
