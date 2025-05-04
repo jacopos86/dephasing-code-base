@@ -1,6 +1,7 @@
 import numpy as np
 import cmath
 import collections
+from itertools import product
 from common.phys_constants import hbar, mp, THz_to_ev
 from common.matrix_operations import compute_matr_elements
 from common.GPU_arrays_handler import GPU_ARRAY
