@@ -10,52 +10,6 @@ from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.log import log
 from pydephasing.mpi import mpi
-from itertools import product
-#
-
-#
-# set ZFS gradient (lambda,q)
-def transf_1st_order_force_phr(u, qpts, nat, Fax, ql_list):
-    # ph. resolved forces
-    F_lq = np.zeros((3*nat,len(ql_list)), dtype=np.complex128)
-    # quantum states
-    iqs0 = p.index_qs0
-    iqs1 = p.index_qs1
-    # eff_Fax units : [eV/ang]
-    eff_Fax = np.zeros(3*nat, dtype=np.complex128)
-    if p.relax:
-        eff_Fax[:] = Fax[iqs0,iqs1,:]
-    elif p.deph:
-        eff_Fax[:] = Fax[iqs0,iqs0,:] - Fax[iqs1,iqs1,:]
-    # run over ph. modes
-    for jax in range(3*nat):
-        ia = atoms.index_to_ia_map[jax] - 1
-        # atom coordinates
-        Ra = atoms.atoms_dict[ia]['coordinates']
-        # atomic mass
-        m_ia = atoms.atoms_dict[ia]['mass']
-        m_ia = m_ia * mp
-        # eV ps^2 / ang^2
-        F_ax = eff_Fax[jax] / np.sqrt(m_ia)
-        # (q,l) list
-        iql = 0
-        for iq, il in ql_list:
-            # e^iqR
-            qv = qpts[iq]
-            eiqR = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
-            # u(q,l)
-            euq = u[iq]
-            F_lq[jax,iql] = euq[jax,il] * eiqR * F_ax
-            # [eV/ang * ang/eV^1/2 *ps^-1 = eV^1/2 / ps]
-            # update iter
-            iql += 1
-    return F_lq
-#
-# set ZFS force at 2nd order
-
-
-
-
 
 if GPU_ACTIVE:
     from pathlib import Path
@@ -127,19 +81,19 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         # HFI call
         if self.HFI_CALC:
             gradHFI = interact_dict['gradHFI']
-            Fax += self.set_Fax_hfi(self, gradHFI, Hsp, sp_config)
+            Fax += self.set_Fax_hfi(gradHFI, Hsp, sp_config)
         # compute Hessian
         if self.hessian:
-            self.compute_hessian_term(interact_dict, Hsp)
+            Faxby = self.compute_hessian_term(interact_dict, Hsp)
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
         nan_indices = np.isnan(self.g_ql)
         assert nan_indices.any() == False
-        print(np.max(Fax.real))
+        print("max Fx", np.max(Fax.real))
         # compute g_qqp
-        self.compute_gqqp(nat, qgr, ph, Hsp, Fax, Faxby)
+        self.set_gqqp_calculation(nat, qgr, ph, Hsp, Fax, Faxby)
     #
     #  compute Hessian term
     #
@@ -171,7 +125,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
     # compute g_{ab}(q,qp)
     # = \sum_{nn';ss'} Aq e^{iq Rn}e_q(s) <a|H^(2)|b> Aqp e^{iqp Rn'}e_qp(s')
     #
-    def compute_gqqp(self, nat, qgr, ph, Hsp, Fax, Faxby):
+    def set_gqqp_calculation(self, nat, qgr, ph, Hsp, Fax, Faxby):
         if not self.hessian:
             assert Faxby == None
         # first compute raman
@@ -180,8 +134,16 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         # if available compute add to Hessian
         if Faxby is not None:
             FXXp += 0.5 * Faxby
+        print("max FXX'", np.max(FXXp.real))
         # compute gqqp
         # make list of q vector pairs for each proc.
+        qqp_list = qgr.build_irred_qqp_pairs()
+        # parallelize calculation over (q,q')
+        qqp_list = mpi.split_list(qqp_list)
+        # compute g_qqp
+        for iq, iqp in qqp_list:
+            self.compute_gqqp(iq, iqp, qgr, ph, Hsp, FXXp)
+            # save data
 
 # --------------------------------------------------------
 #       GPU class
@@ -635,16 +597,12 @@ class SpinPhononSecndOrderCPU(SpinPhononSecndOrderBase):
         self.nq = len(qpts)
         self.qv = qpts
     #
-    def transf_2nd_order_force_phr(self, il, iq, wu, u, nat, qlp_list):
-        # Fax units -> eV / ang
-        # Faxby units -> eV / ang^2
-        F_lq_lqp = np.zeros((4, 3*nat, len(qlp_list)), dtype=np.complex128)
-        # 0 -> (lq,l'q'); 1 -> (l-q,l'q'); 2 -> (lq,l'-q'); 3 -> (l-q,l'-q')
-        # wql (eV)
-        wql = wu[iq][il] * THz_to_ev
-        # remember index jax -> atom,idx
-        # second index (n,p)
-        euq = u[iq]
+    def compute_gqqp(self, iq, iqp, qgr, ph, Hsp, FXXp):
+        # FXXp units -> eV / ang^2
+        n = len(Hsp.basis_vectors)
+        gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
+        print(gqqp.shape)
+        # pre-compute ph. amplitudes
         q = self.qv[iq]
         # set e^iqR
         eiqR = np.zeros(3*nat, dtype=np.complex128)
@@ -731,7 +689,7 @@ class SpinPhononSecndOrderCPU(SpinPhononSecndOrderBase):
         # eV / ang^2
         # collect into single proc.
         mpi.comm.Barrier()
-        print(np.max(FXXp.real))
+        print('FXXp ', np.max(FXXp.real))
         FXXp = mpi.collect_array(FXXp)
         nan_indices = np.isnan(FXXp)
         assert nan_indices.any() == False

@@ -46,7 +46,7 @@ class data_input(ABC):
         self.fc_core = True
         # nuclear spin random
         # orientation
-        self.rnd_orientation = True
+        self.rnd_orientation = False
         ######################################
         # auto-correlation fitting parameters
         # nlags
@@ -95,7 +95,7 @@ class data_input(ABC):
             self.B0 = np.array(data['B0'])
         else:
             self.B0 = np.array([0., 0., 0.])
-        # Gauss units
+        # units : Tesla
         # ---------------------------------------
         #    HFI calculation parameters
         # ---------------------------------------
