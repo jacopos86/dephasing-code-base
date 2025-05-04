@@ -250,3 +250,41 @@ double wql, double *wqlp, int size, cmplx *Fjax, double *eig, int calc_typ, cmpl
         }
     }
 }
+
+/*
+
+non degenerate Raman matrix elements
+
+*/
+
+__global__ void compute_raman_nondeg(int n, int NJX, int *INIT_INDEX, int *SIZE_LIST, int *JXXP_LIST, double *EIG,
+cmplx *FX, cmplx *FXXP) {
+    /* internal variables */
+    const int i = threadIdx.x + blockDim.x * blockIdx.x;
+    const int j = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k = threadIdx.z + blockDim.z * blockIdx.z;
+    const int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
+    const int sx = SIZE_LIST[idx];
+    const int i0x = INIT_INDEX[idx];
+    for (int ix=i0x; ix<i0x+sx; ix++) {
+        /* set atoms index */
+        int JX = JXXP_LIST[2*ix];
+        int JXP= JXXP_LIST[2*ix+1];
+        if (ix == 0) printf("%d - %d\n", JX, JXP);
+        if (ix == 0) {
+            printf("%.10E - %.10E - %.10E - %.10E - %.10E - %.10E\n", real(FX[JXP+0*NJX+0*n*NJX]), real(FX[JXP+0*NJX+1*n*NJX]), real(FX[JXP+0*NJX+2*n*NJX]), real(FX[JXP+1*NJX+0*n*NJX]), real(FX[JXP+1*NJX+1*n*NJX]), real(FX[JXP+1*NJX+2*n*NJX]));
+        }
+        /* iterate over bands */
+        for (int a=0; a<n; a++) {
+            for (int ap=0; ap<n; ap++) {
+                for (int b=0; b<n; b++) {
+                    int INX  = JX+b*NJX+a*n*NJX;
+                    int INXP = JXP+ap*NJX+b*n*NJX;
+                    int INXXP= ix+ap*NJX+a*n*NJX;
+                    if (b != ap) FXXP[INXXP] += FX[INX] * FX[INXP] / (EIG[ap] - EIG[b]);
+                    if (b != a) FXXP[INXXP] += FX[INX] * FX[INXP] / (EIG[a] - EIG[b]);
+                }
+            }
+        }
+    }
+}
