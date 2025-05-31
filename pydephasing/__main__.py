@@ -76,7 +76,7 @@ if calc_type1 == "init":
 elif calc_type1 == "postproc":
     # post process output data from VASP
     pass
-elif calc_type1 == "LR" or calc_type1 == "RT":
+elif calc_type1 == "LR" or calc_type1 == "RT" or calc_type1 == "QUANTUM":
     co = parser.parse_args().co[0]
     if co == "energy":
         energy_linewidth_driver(yml_file)
