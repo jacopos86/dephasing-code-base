@@ -9,6 +9,7 @@ from common.special_functions import delta
 from common.phys_constants import gamma_e, eps, THz_to_ev
 from utilities.log import log
 from parallelization.mpi import mpi
+import pydephasing.quantum_eigensolver
 from abc import ABC
 
 #
