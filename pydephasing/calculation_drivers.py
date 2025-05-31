@@ -232,6 +232,15 @@ def spin_qubit_driver(yml_file):
         #  START NON MARKOVIAN CALCULATION
         #
         T2_calc_handler = compute_nmark_dephas(ZFS_CALC, HFI_CALC)
+    elif calc_type1 == "QUANTUM":
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\n")
+            log.info("\t " + " PERFORM QUANTUM CALCULATION")
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\n")
     else:
         if mpi.rank == mpi.root:
             log.info("\n")
