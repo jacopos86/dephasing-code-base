@@ -9,6 +9,7 @@ from common.special_functions import delta, triplet_evolution
 from common.phys_constants import hbar, gamma_e, eps, THz_to_ev
 from pydephasing.log import log
 from pydephasing.mpi import mpi
+import pydephasing.quantum_eigensolver
 import logging
 from abc import ABC
 import matplotlib.pyplot as plt
