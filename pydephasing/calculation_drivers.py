@@ -221,17 +221,36 @@ def spin_qubit_driver(yml_file):
             HFI_CALC = True
             if mpi.rank == mpi.root:
                 log.info("\t " + p.sep)
-                log.info("\n")
-                log.info("\t SPIN - PHONON INHOMOGENEOUS CALCULATION")
-                log.info("\n")
-        else:
-            if mpi.rank == mpi.root:
-                log.warning("\t REAL TIME DYNAMICS -> calc_type2 : homo/inhomo/full")
-            log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
-        #
-        #  START NON MARKOVIAN CALCULATION
-        #
-        T2_calc_handler = compute_nmark_dephas(ZFS_CALC, HFI_CALC)
+            log.error("\t calc_type2 wrong: " + calc_type2)
+        # read input file
+        p.read_yml_data(yml_file)
+        # compute auto correl. function first
+        T2_calc_handler = compute_full_dephas()
+        # finalize calculation
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t" + p.sep)
+            log.info("\t PRINT DATA ON FILES")
+            # write T2 yaml files
+            T2_calc_handler.print_decoherence_times()
+            log.info("\t" + p.sep)
+            log.info("\n")
+        mpi.comm.Barrier()
+        # full spin branch -> END
+    elif calc_type1 == "NMARK":
+        assert(calc_type2 == "full")
+        '''
+        NOT IMPLEMENTED
+        '''
+    elif calc_type1 == "QUANTUM":
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\n")
+            log.info("\t " + " PERFORM QUANTUM CALCULATION")
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\n")
     else:
         if mpi.rank == mpi.root:
             log.info("\n")
