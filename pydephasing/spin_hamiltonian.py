@@ -125,7 +125,7 @@ class spin_triplet_hamiltonian(spin_hamiltonian):
 		eig0 = LA.eig(self.H0)[0]
 		np.testing.assert_almost_equal(eig, eig0, decimal=5)
 	# hyperfine interaction
-	def hperfine_coupl(self, site, I, Ahfi):
+	def hyperfine_coupl(self, site, I, Ahfi):
 		# hyperfine coupl. in eV from MHz
 		Ahfi_ev = Ahfi * 1.E-6 * THz_to_ev
 		I_Ahf = np.einsum("i,ij->j", I, Ahfi_ev[site,:,:])
@@ -150,7 +150,7 @@ class spin_triplet_hamiltonian(spin_hamiltonian):
 			for isp in range(nuclear_config.nsp):
 				I = nuclear_config.nuclear_spins[isp]['I']
 				site = nuclear_config.nuclear_spins[isp]['site']
-				H0 += self.hperfine_coupl(site, I, unprt_struct.Ahfi)
+				H0 += self.hyperfine_coupl(site, I, unprt_struct.Ahfi)
 		# store eigenstates
 		eig, eigv = LA.eig(H0)
 		for s in range(3):
@@ -158,17 +158,17 @@ class spin_triplet_hamiltonian(spin_hamiltonian):
 		# check eigenvalues
 		self.set_SDS(unprt_struct)
 	# set Hamiltonian time t
-	def set_hamilt_oft(self, t, unprt_struct, B, nuclear_config=None):
+	def set_hamilt_oft(self, t, B, unprt_struct=None, nuclear_config=None):
 		# get unpert. Hamiltonian
-		H = self.H0
+		H = np.copy(self.H0)
 		# add ext. magnetic field
-		H -=gamma_e * (B[0] * self.Sx + B[1] * self.Sy + B[2] * self.Sz)
+		H -=gamma_e * (B[0][t] * self.Sx + B[1][t] * self.Sy + B[2][t] * self.Sz)
 		# hyperfine interaction
 		if nuclear_config is not None:
 			for isp in range(nuclear_config.nsp):
 				It = nuclear_config.nuclear_spins[isp]['I'][t]
 				site = nuclear_config.nuclear_spins[isp]['site']
-				H += self.hperfine_coupl(site, It, unprt_struct.Ahfi)
+				H += self.hyperfine_coupl(site, It, unprt_struct.Ahfi)
 		return H
 
 #
