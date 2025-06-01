@@ -5,14 +5,15 @@ from pydephasing.set_param_object import p
 from common.phys_constants import hbar
 from common.matrix_operations import commute
 import numpy as np
+from pydephasing.magnetic_field import magnetic_field
 
 #
 #      Liouville solver without nuclear spins
 #
 
-class LiouvilleSolver(RealTimeSolver):
+class LiouvilleSolverSpin(RealTimeSolver):
     def __init__(self):
-        super().__init__(LiouvilleSolver, self).__init__()
+        super(LiouvilleSolverSpin, self).__init__()
     # evolve DM
     def evolve(self, dt, T, rho, H, Bfield):
         # set time arrays
