@@ -13,6 +13,8 @@ class spin_dmatr(object):
         # hilbert space dim.
         self.n = None
         self.matr0 = None
+        self.matr = None
+        self.time = None
     def initialize(self, psi0):
         self.n = len(psi0)
         if mpi.rank == mpi.root:
@@ -25,3 +27,11 @@ class spin_dmatr(object):
             log.info("\t " + p.sep)
             log.info("\t PRINT DENSITY MATRIX(t=0)")
             print_2D_matrix(self.matr0)
+    def set_density_matr(self, time, rh):
+        self.matr = rh
+        self.time = time
+        assert(self.matr.shape[0] == self.n)
+        assert(self.matr.shape[1] == self.n)
+        assert(self.matr.shape[2] == self.time.shape[0])
+    def trace_oft(self):
+        nt = len(self.time)
