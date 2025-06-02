@@ -99,6 +99,9 @@ class data_input(ABC):
             self.B0 = np.array(data['B0'])
         else:
             self.B0 = np.array([0., 0., 0.])
+        # time dependent field
+        if 'Bt' in data:
+            self.Bt = data['Bt']
         # units : Tesla
         # psi0 wfc
         if 'psi0' in data:
