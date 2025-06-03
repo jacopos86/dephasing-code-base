@@ -143,8 +143,16 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         qqp_list = mpi.split_list(qqp_list)
         # compute g_qqp
         for iq, iqp in qqp_list:
-            self.compute_gqqp(iq, iqp, qgr, ph, Hsp, FXXp)
-            # save data
+            file_name = 'G-iq-' + str(iq) + '-iqp-' + str(iqp) + '.npy'
+            file_path = p.work_dir + '/restart/' + file_name
+            file_path = "{}".format(file_path)
+            fil = Path(file_path)
+            if not fil.exists():
+                gqqp = self.compute_gqqp(nat, iq, iqp, qgr, ph, Hsp, FXXp)
+                # save data
+                np.savez(file_path, G=gqqp, illp=[])
+            else:
+                pass
 
 # --------------------------------------------------------
 #       GPU class
@@ -572,91 +580,70 @@ class SpinPhononSecndOrderCPU(SpinPhononSecndOrderBase):
         # eV / ang^2 units
         return Faxby
     #
-    # prepare order 2 phr force calculation
-    def set_up_2nd_order_force_phr(self, qpts, Fax, Faxby, H):
-        #
-        # prepare force arrays
-        nqs = H.eig.shape[0]
-        n = int(Faxby.shape[0])
-        self.jax_lst = []
-        for jax in range(n):
-            for msr in range(nqs):
-                for msc in range(nqs):
-                    if np.abs(Fax[msr,msc,jax]) > 1.e-7:
-                        self.jax_lst.append(jax)
-        self.jax_lst = list(set(self.jax_lst))
-        # define FAX matrix
-        nax = len(self.jax_lst)
-        self.Fax = np.zeros((nqs,nqs,nax), dtype=np.complex128)
-        for iax in range(nax):
-            jax = self.jax_lst[iax]
-            self.Fax[:,:,iax] = Fax[:,:,jax]
-        # 
-        # prepare 2nd force arrays
-        self.Faxby = Faxby
-        # Q vectors list
-        self.nq = len(qpts)
-        self.qv = qpts
+    #  compute gqqp
     #
-    def compute_gqqp(self, iq, iqp, qgr, ph, Hsp, FXXp):
+    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, FXXp):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
         gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
         print(gqqp.shape)
+        print(mpi.rank, iq, iqp)
+        # set modes list
+        ql_list = []
+        for il in range(ph.nmodes):
+            ql_list.append((iq, il))
         # pre-compute ph. amplitudes
-        q = self.qv[iq]
+        A_ql = ph.compute_ph_amplitude_q(nat, ql_list)
+        # set modes list
+        qpl_list = []
+        for il in range(ph.nmodes):
+            qpl_list.append((iqp, il))
+        # pre-compute ph. amplitudes
+        A_qpl = ph.compute_ph_amplitude_q(nat, qpl_list)
         # set e^iqR
-        eiqR = np.zeros(3*nat, dtype=np.complex128)
-        for jax in range(3*nat):
-            ia = atoms.index_to_ia_map[jax] - 1
-            # atom coordinate
-            Ra = atoms.atoms_dict[ia]['coordinates']
-            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(q,Ra))
-        # run over list of modes
-        for jby in range(3*nat):
-            ib = atoms.index_to_ia_map[jby] - 1
-            Rb = atoms.atoms_dict[ib]['coordinates']
-            m_ib = atoms.atoms_dict[ib]['mass']
-            m_ib = m_ib * mp
-            # compute Raman force
-            naxr = len(self.jax_lst)
-            if self.calc_raman and jby in self.jax_lst:
-                Fr = self.compute_raman(jby, wql, qlp_list, wu)
-            else:
-                Fr = np.zeros((naxr, len(qlp_list)), dtype=np.complex128)
-            # compute ph. resolved force
-            iqlp = 0
-            for iqp, ilp in qlp_list:
-                # e^iqpR
-                qp = self.qv[iqp]
-                eiqpR = cmath.exp(1j*2.*np.pi*np.dot(qp, Rb))
-                # euqp
-                euqp = u[iqp]
-                # compute Raman contribution to eff_Faxby
-                # eff. force : F(R) + F(2)
-                eff_Faxby = np.zeros(3*nat, dtype=np.complex128)
-                eff_Faxby[:] += self.Faxby[:,jby]
-                for jjax in range(naxr):
-                    jax = self.jax_lst[jjax]
-                    eff_Faxby[jax] += Fr[jjax,iqlp]
-                # update F_ql,qlp
-                F_lq_lqp[:2,:,iqlp] += eff_Faxby[:] * eiqpR * euqp[jby,ilp] / np.sqrt(m_ib)
-                F_lq_lqp[2:,:,iqlp] += eff_Faxby[:] * np.conj(eiqpR) * np.conj(euqp[jby,ilp]) / np.sqrt(m_ib)
-                # eV/ang^2 * ang/eV^0.5/ps = eV^0.5/ang/ps
-                iqlp += 1
+        q = qgr.qpts[iq]
+        L = atoms.supercell_size
+        eiqR = np.zeros(L, dtype=np.complex128)
+        for i in range(L):
+            Rn = atoms.supercell_grid[i]
+            eiqR[i] = cmath.exp(1j*2.*np.pi*np.dot(q,Rn))
+        # set e^iqpR
+        qp = qgr.qpts[iqp]
+        eiqpR = np.zeros(L, dtype=np.complex128)
+        for i in range(L):
+            Rn = atoms.supercell_grid[i]
+            eiqpR[i] = cmath.exp(1j*2.*np.pi*np.dot(qp,Rn))
+        # run over modes pairs (ql,q'l')
+        for il in range(ph.nmodes):
+            for ilp in range(ph.nmodes):
+                # compute ph. resolved force
+                # compute first order raman term
+                # for this (q,q') pair
+                Fr1 = np.zeros((n, n, 3*nat, 3*nat), dtype=np.complex128)
+                F = Fr1 + FXXp
+                # compute gqqp
+                for jx in range(3*nat):
+                    mx = atoms.atoms_mass[atoms.index_to_ia_map[jx]]
+                    eq = ph.eql[iq][jx,il] / np.sqrt(mx)
+                    for jxp in range(3*nat):
+                        mxp = atoms.atoms_mass[atoms.index_to_ia_map[jxp]]
+                        eqp = ph.eql[iqp][jxp,ilp] / np.sqrt(mxp)
+                        # ang/eV^1/2 *ps^-1
+                        for i in range(L):
+                            for j in range(L):
+                                gqqp[:,:,il,ilp] += A_ql[il] * eiqR[i] * eq * F[:,:,jx,jxp] * eqp * eiqpR[j] * A_qpl[ilp]
+            print(il)
+        gqqp = 0.5 * gqqp
+        exit()
         # compute e^iqR e[q] F[jax,qlp]
         for jax in range(3*nat):
-            ia = atoms.index_to_ia_map[jax] - 1
-            # atom mass
-            m_ia = atoms.atoms_dict[ia]['mass']
-            m_ia = m_ia * mp
             # effective force
             F_lq_lqp[0,jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[0,jax,:] / np.sqrt(m_ia)
             F_lq_lqp[2,jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[2,jax,:] / np.sqrt(m_ia)
             F_lq_lqp[1,jax,:] = np.conj(eiqR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[1,jax,:] / np.sqrt(m_ia)
             F_lq_lqp[3,jax,:] = np.conj(eiqR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[3,jax,:] / np.sqrt(m_ia)
             # [eV^0.5/ang/ps *ang/eV^0.5/ps] = 1/ps^2
-        return F_lq_lqp
+        return gqqp
     #
     # compute the Raman contribution to 
     # force matrix elements
