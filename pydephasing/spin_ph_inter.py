@@ -115,8 +115,8 @@ class SpinPhononClass(ABC):
         iql = 0
         for iq, il in ql_list:
             qv = qgr.qpts[iq]
-            for n in range(atoms.supercell_size):
-                Rn = atoms.supercell_grid[n]
+            for iL in range(atoms.supercell_size):
+                Rn = atoms.supercell_grid[iL]
                 for jax in range(3*nat):
                     ia = atoms.index_to_ia_map[jax]
                     m_ia = atoms.atoms_mass[ia]             
