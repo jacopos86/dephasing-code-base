@@ -70,7 +70,7 @@ fi
 # update input test file paths
 # test 1 -> init
 
-echo "clean TESTS directory? "
+echo "build/clean TESTS directory? "
 read clean_tests
 if [ "$clean_tests" = "yes" ] || [ "$clean_tests" = "y" ]
 then
