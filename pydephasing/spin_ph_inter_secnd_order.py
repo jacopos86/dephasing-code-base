@@ -11,9 +11,9 @@ from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.log import log
 from pydephasing.mpi import mpi
+from pathlib import Path
 
 if GPU_ACTIVE:
-    from pathlib import Path
     from pydephasing.global_params import gpu
     from pycuda.compiler import SourceModule
     import pycuda.driver as cuda
@@ -305,11 +305,12 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
             self.M_LST[jax] = m_ia
     #
     # driver function
-    def transf_2nd_order_force_phr(self, il, iq, wu, u, nat, qlp_list):
-        # initialize out array
-        F_lq_lqp = np.zeros((4,3*nat,len(qlp_list)), dtype=np.complex128)
-        # Fax units -> eV / ang
-        # Faxby units -> eV / ang^2
+    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, FXXp):
+        # FXXp units -> eV / ang^2
+        n = len(Hsp.basis_vectors)
+        gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
+        print(gqqp.shape)
+        print(mpi.rank, iq, iqp)
         # load file
         gpu_src = Path('./pydephasing/gpu_source/compute_phr_forces.cu').read_text()
         mod = SourceModule(gpu_src)
@@ -635,7 +636,6 @@ class SpinPhononSecndOrderCPU(SpinPhononSecndOrderBase):
             print(il)
         gqqp = 0.5 * gqqp
         exit()
-        # compute e^iqR e[q] F[jax,qlp]
         for jax in range(3*nat):
             # effective force
             F_lq_lqp[0,jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[0,jax,:] / np.sqrt(m_ia)
