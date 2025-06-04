@@ -131,11 +131,15 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
             assert Faxby == None
         # first compute raman
         # contribution
-        FXXp = self.compute_raman(nat, Hsp, Fax)
+        if not GPU_ACTIVE:
+            FXXpmax = self.compute_raman(nat, Hsp, Fax)
         # if available compute add to Hessian
+        FXXp = None
         if Faxby is not None:
+            n = len(Hsp.basis_vectors)
+            FXXp = np.zeros((n, n, 3*nat, 3*nat), dtype=np.complex128)
             FXXp += 0.5 * Faxby
-        print("max FXX'", np.max(FXXp.real))
+        #print("max FXX'", np.max(FXXpmax.real))
         # compute gqqp
         # make list of q vector pairs for each proc.
         qqp_list = qgr.build_irred_qqp_pairs()
@@ -305,22 +309,18 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
             self.M_LST[jax] = m_ia
     #
     # driver function
-    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, FXXp):
+    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, FXXp=None):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
         gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
         print(gqqp.shape)
         print(mpi.rank, iq, iqp)
         # load file
-        gpu_src = Path('./pydephasing/gpu_source/compute_phr_forces.cu').read_text()
-        mod = SourceModule(gpu_src)
-        if self.calc_raman:
-            compute_F_raman = mod.get_function("compute_raman_force")
-            compute_Flq_lqp_raman = mod.get_function("compute_Flqlqp_raman")
-        else:
-            compute_Flq_lqp = mod.get_function("compute_Flqlqp")
+        gpu_src = Path(CUDA_SOURCE_DIR+'compute_two_phonons_matr.cu').read_text()
+        gpu_mod = SourceModule(gpu_src)
         # prepare input quantities
         NAT = np.int32(nat)
+        # phonon energies
         wql = wu[iq][il] * THz_to_ev
         WQL = np.double(wql)
         # q vector
@@ -583,7 +583,7 @@ class SpinPhononSecndOrderCPU(SpinPhononSecndOrderBase):
     #
     #  compute gqqp
     #
-    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, FXXp):
+    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, FXXp=None):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
         gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
