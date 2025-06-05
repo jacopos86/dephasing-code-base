@@ -324,9 +324,10 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         WQL = GPU_ARRAY(np.array(ph.uql[iq]) * THz_to_ev, np.double)
         WQPL= GPU_ARRAY(np.array(ph.uql[iqp]) * THz_to_ev, np.double)
         # -> GPU parallelized arrays
-        illp_list = np.array(list(product(np.array(range(ph.nmodes), np.array(range(ph.nmodes))))))
+        illp_list = np.array(list(product(range(ph.nmodes), range(ph.nmodes))))
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(illp_list)
         MODES_LIST = GPU_ARRAY(illp_list, np.int32)
+        print(illp_list)
         # eq
         euq = u[iq]
         # set e^iqR
