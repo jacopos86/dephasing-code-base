@@ -35,3 +35,8 @@ class spin_dmatr(object):
         assert(self.matr.shape[2] == self.time.shape[0])
     def trace_oft(self):
         nt = len(self.time)
+        tr = np.zeros(nt)
+        for t in range(nt):
+            for i in range(self.n):
+                tr[t] += self.matr[i,i,t]
+        return tr
