@@ -8,7 +8,7 @@ typedef pycuda::complex<double> cmplx;
 */
 
 __global__ void compute_gqqp(int nat, int *INIT_INDEX, int *SIZE_LIST, int *MODES_LIST, cmplx *FX, 
-cmplx *FXXP) {
+double *WQL, double *WQPL, double *EIG, cmplx *FXXP) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
