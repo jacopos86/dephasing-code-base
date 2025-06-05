@@ -10,7 +10,7 @@ import numpy as np
 
 def compute_spin_mag(H, dm_obj):
     # compute magnet. expect. value
-    rho = dm_obj.rho
+    rho = dm_obj.matr
     nt = rho.shape[-1]
     M_oft = np.zeros((3, nt))
     # spin operators
