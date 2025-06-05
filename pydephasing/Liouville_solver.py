@@ -4,8 +4,8 @@ from pydephasing.mpi import mpi
 from pydephasing.set_param_object import p
 from common.phys_constants import hbar
 from common.matrix_operations import commute
+from pydephasing.observables import compute_spin_mag
 import numpy as np
-from pydephasing.magnetic_field import magnetic_field
 
 #
 #      Liouville solver without nuclear spins
@@ -28,8 +28,13 @@ class LiouvilleSolverSpin(RealTimeSolver):
         # propagate DM
         time, rh = self.propagate(rho, H, B, dt, T)
         rho.set_density_matr(time, rh)
-        rho.trace_oft()
+        tr = rho.trace_oft()
+        plt.plot(time, tr)
+        plt.show()
+        print(tr, rh[0,0,:])
         # compute observables
+        # spin 
+        Mt = compute_spin_mag(H, rho)
     #
     #  set time propagation function
     def propagate(self, rho, H, B, dt, T):
