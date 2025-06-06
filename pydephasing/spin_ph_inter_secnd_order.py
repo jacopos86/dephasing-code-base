@@ -129,17 +129,11 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
     def set_gqqp_calculation(self, nat, qgr, ph, Hsp, Fax, Faxby):
         if not self.hessian:
             assert Faxby == None
-        # first compute raman
-        # contribution
+        # first compute raman wq=0 value
+        # CPU algorithm keeps terms only within given fraction of FXXp0
         if not GPU_ACTIVE:
-            FXXpmax = self.compute_raman(nat, Hsp, Fax)
-        # if available compute add to Hessian
-        FXXp = None
-        if Faxby is not None:
-            n = len(Hsp.basis_vectors)
-            FXXp = np.zeros((n, n, 3*nat, 3*nat), dtype=np.complex128)
-            FXXp += 0.5 * Faxby
-        #print("max FXX'", np.max(FXXpmax.real))
+            FXXp0 = self.compute_raman(nat, Hsp, Fax)
+            print("max FXX'", np.max(FXXp0.real))
         # compute gqqp
         # make list of q vector pairs for each proc.
         qqp_list = qgr.build_irred_qqp_pairs()
@@ -152,7 +146,10 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
             file_path = "{}".format(file_path)
             fil = Path(file_path)
             if not fil.exists():
-                gqqp = self.compute_gqqp(nat, iq, iqp, qgr, ph, Hsp, FXXp)
+                if not GPU_ACTIVE:
+                    gqqp = self.compute_gqqp(nat, iq, iqp, qgr, ph, Hsp, Fax, FXXp0, Faxby)
+                else:
+                    gqqp = self.compute_gqqp(nat, iq, iqp, qgr, ph, Hsp, Fax, Faxby)
                 # save data
                 np.savez(file_path, G=gqqp, illp=[])
             else:
@@ -309,7 +306,7 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
             self.M_LST[jax] = m_ia
     #
     # driver function
-    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, FXXp=None):
+    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, Fax, Faxby=None):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
         gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
@@ -323,6 +320,16 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         # phonon energies
         WQL = GPU_ARRAY(np.array(ph.uql[iq]) * THz_to_ev, np.double)
         WQPL= GPU_ARRAY(np.array(ph.uql[iqp]) * THz_to_ev, np.double)
+        # energy eigenvalues array -> EIG
+        eig = np.zeros(n)
+        for a in range(n):
+            eig[a] = Hsp.qs[a]['eig']
+        EIG = GPU_ARRAY(eig, np.float32)
+        # FX -> allocate GPU array
+        FX = GPU_ARRAY(Fax, np.complex128)
+        # Hessian term
+        if Faxby is not None:
+            FXXp = GPU_ARRAY(Faxby, np.complex128)
         # -> GPU parallelized arrays
         illp_list = np.array(list(product(range(ph.nmodes), range(ph.nmodes))))
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(illp_list)
@@ -340,7 +347,6 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         # (q',l') list
         QP_LST = np.zeros(len(qlp_list), dtype=np.int32)
         ILP_LST= np.zeros(len(qlp_list), dtype=np.int32)
-        WQLP = np.zeros(len(qlp_list), dtype=np.double)
         iqlp = 0
         for iqp, ilp in qlp_list:
             QP_LST[iqlp] = iqp
@@ -584,7 +590,7 @@ class SpinPhononSecndOrderCPU(SpinPhononSecndOrderBase):
     #
     #  compute gqqp
     #
-    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, FXXp=None):
+    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, Fax, FXXp0, Faxby=None):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
         gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
@@ -602,6 +608,8 @@ class SpinPhononSecndOrderCPU(SpinPhononSecndOrderBase):
             qpl_list.append((iqp, il))
         # pre-compute ph. amplitudes
         A_qpl = ph.compute_ph_amplitude_q(nat, qpl_list)
+        # compute raman term
+        
         # set e^iqR
         q = qgr.qpts[iq]
         L = atoms.supercell_size
