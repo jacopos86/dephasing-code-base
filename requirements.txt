@@ -1,4 +1,3 @@
-pycuda
 h5py
 matplotlib
 mpi4py
