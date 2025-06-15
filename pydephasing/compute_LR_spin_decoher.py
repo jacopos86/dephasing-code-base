@@ -20,6 +20,7 @@ from pydephasing.q_grid import qgridClass
 from pydephasing.build_interact_grad import calc_interaction_grad
 from pydephasing.build_unpert_struct import build_gs_spin_struct
 from pydephasing.nuclear_spin_config import nuclear_spins_config
+from pydephasing.fermi_golden_rule import GeneralizedFermiGoldenRule
 #
 def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # main driver code for the calculation of dephasing time
@@ -62,6 +63,13 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     if mpi.rank == mpi.root:
         log.debug("\t ZFS_CALC: " + str(sp_ph_inter.ZFS_CALC))
         log.debug("\t HFI_CALC: " + str(sp_ph_inter.HFI_CALC))
+    # set Fermi Golden Rule object
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info("\t TIME RESOLVED: " + str(p.time_resolved))
+        log.info("\t FREQ. RESOLVED: " + str(p.w_resolved))
+        log.info("\t " + p.sep)
+    FGR = GeneralizedFermiGoldenRule().generate_instance(p.time_resolved, p.w_resolved)
     # set q grid
     qgr = qgridClass()
     qgr.set_qgrid()
