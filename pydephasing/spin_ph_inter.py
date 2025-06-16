@@ -157,6 +157,7 @@ class SpinPhononFirstOrder(SpinPhononClass):
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
+        self.ql_list = ql_list
         nan_indices = np.isnan(self.g_ql)
         assert nan_indices.any() == False
 
