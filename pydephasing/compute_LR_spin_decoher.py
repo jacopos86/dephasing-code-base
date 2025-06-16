@@ -70,6 +70,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\t FREQ. RESOLVED: " + str(p.w_resolved))
         log.info("\t " + p.sep)
     FGR = GeneralizedFermiGoldenRule().generate_instance(p.time_resolved, p.w_resolved)
+    FGR.set_grids()
     # set q grid
     qgr = qgridClass()
     qgr.set_qgrid()
@@ -110,6 +111,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\t END SPIN-PHONON COUPLING CALCULATION")
         log.info("\t " + p.sep)
     print('g_ql', np.max(sp_ph_inter.g_ql.real))
+    FGR.compute_relax_time_one_ph(Hsp, sp_ph_inter, ph, p.temperatures)
     exit()
     #
     # compute ZFS fluctuations
