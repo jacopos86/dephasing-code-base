@@ -29,5 +29,5 @@ def lorentzian(x, eta):
 #
 #   function 3)
 #
-def gaussian():
-	pass
+def gaussian(x, eta):
+	return exp(-x ** 2/(2.*eta ** 2)) / np.sqrt(2.*np.pi*eta ** 2)
