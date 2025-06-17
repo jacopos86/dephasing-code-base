@@ -111,7 +111,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\t END SPIN-PHONON COUPLING CALCULATION")
         log.info("\t " + p.sep)
     print('g_ql', np.max(sp_ph_inter.g_ql.real))
-    FGR.compute_relax_time_one_ph(Hsp, sp_ph_inter, ph, p.temperatures)
+    FGR.compute_relax_time_one_ph(Hsp, sp_ph_inter, ph, qgr, p.temperatures)
     exit()
     #
     # compute ZFS fluctuations
