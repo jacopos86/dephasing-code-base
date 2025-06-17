@@ -44,7 +44,9 @@ class GeneralizedFermiGoldenRuleBase(ABC):
         self.wgr = None
     def set_grids(self):
         if self.FREQ_DOMAIN:
-            self.wgr = set_w_grid(p.w_max, p.nwg)
+            # w_max in THz -> convert to ev
+            wgr = set_w_grid(p.w_max, p.nwg)
+            self.wgr = wgr * THz_to_ev
         if self.REAL_TIME:
             if p.nt == None:
                 self.tgr = set_time_grid_B(p.T, p.dt)
@@ -52,11 +54,10 @@ class GeneralizedFermiGoldenRuleBase(ABC):
                 self.tgr = set_time_grid_A(p.T, p.nt)
     # compute linewidth
     # -> one phonon term
-    def compute_relax_time_one_ph(self, H, inter_model, ph, T):
+    def compute_relax_time_one_ph(self, H, inter_model, ph, qgr, T):
         # build (q,im) list
         ql_list = inter_model.ql_list
         gq = inter_model.g_ql
-        print('OK')
         print(ql_list.shape)
         print(gq.shape)
         print(T)
@@ -90,15 +91,27 @@ class GeneralizedFermiGoldenRuleCPU(GeneralizedFermiGoldenRuleBase):
         super(GeneralizedFermiGoldenRuleCPU, self).__init__()
         self.REAL_TIME = REAL_TIME
         self.FREQ_DOMAIN = FREQ_DOMAIN
-    def compute_T1_oneph(self, ql_list, gq, eig, wql, temp):
+    def compute_T1_oneph(self, ql_list, gq, eig, wql, temp, eta):
         if self.REAL_TIME:
-            self.gt, self.int_gt = self.compute_T1_oneph_tres(ql_list, gq, eig, wql, temp)
+            self.gt, self.int_gt = self.compute_T1_oneph_tres(wq, ql_list, gq, eig, wql, temp, eta)
         if self.FREQ_DOMAIN:
-            self.gw = self.compute_T1_oneph_wres(ql_list, gq, eig, wql, temp)
-    def compute_T1_oneph_tres(self, ql_list, gq, eig, wql, temp, tgr):
-        pass
-    def compute_T1_oneph_wres(ql_list, gq, eig, wql, temp, wgr):
-        pass
+            self.gw = self.compute_T1_oneph_wres(wq, ql_list, gq, eig, wql, temp, eta)
+    def compute_T1_oneph_tres(self, wq, ql_list, gq, eig, wql, temp, eta):
+        # n. states
+        n = len(eig)
+        nt = len(self.tgr)
+        # g(t)
+        g_oft = np.zeros((n,nt))
+        intg_oft = np.zeros((n,nt))
+    def compute_T1_oneph_wres(self, wq, ql_list, gq, eig, wql, temp, eta):
+        # n. states
+        n = len(eig)
+        nw = len(self.wgr)
+        # g(w)
+        g_ofw = np.zeros((n,nw))
+        # iterate over w
+        for iw in range(nw):
+            print(iw, self.wgr[iw])
 
 
 
@@ -132,24 +145,21 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
         self.REAL_TIME = REAL_TIME
         self.FREQ_DOMAIN = FREQ_DOMAIN
     def compute_T1_oneph(self, ql_list, gq, eig, wql, temp, eta):
-        # n. states
-        n = len(eig)
+        # state energies
+        EIG = GPU_ARRAY(eig, np.double)
+        NST = EIG.length()
         # REAL TIME
         if self.REAL_TIME:
             TIME = GPU_ARRAY(self.tgr, np.double)
             NT = TIME.length()
-            GOFT = GPU_ARRAY(np.zeros((n,NT)), np.double)
-            INTGOFT = GPU_ARRAY(np.zeros((n,NT)), np.double)
+            GOFT = GPU_ARRAY(np.zeros((NST,NT)), np.double)
+            INTGOFT = GPU_ARRAY(np.zeros((NST,NT)), np.double)
         if self.FREQ_DOMAIN:
             WGR = GPU_ARRAY(self.wgr, np.double)
             NW = WGR.length()
-            GOFW = GPU_ARRAY(np.zeros((n,NW)), np.double)
-        # state energies
-        EIG = GPU_ARRAY(eig, np.double)
-        NST = EIG.length()
+            GOFW = GPU_ARRAY(np.zeros((NST,NW)), np.double)
         # linewidth
         ETA = np.double(eta)
-        print(ETA)
         # ph. freq.
         WQL = GPU_ARRAY(wql, np.double)
         GQL = GPU_ARRAY(gq, np.complex128)
