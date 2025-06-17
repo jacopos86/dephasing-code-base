@@ -1,7 +1,8 @@
 import numpy as np
 from abc import ABC
+from pathlib import Path
 from pydephasing.mpi import mpi
-from pydephasing.global_params import GPU_ACTIVE
+from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
 from common.phys_constants import THz_to_ev
 from common.GPU_arrays_handler import GPU_ARRAY
 from pydephasing.grids import set_w_grid, set_time_grid_B, set_time_grid_A
@@ -71,8 +72,13 @@ class GeneralizedFermiGoldenRuleBase(ABC):
         for iql in range(ql_list.shape[0]):
             iq, il = ql_list[iql]
             wql[iql] = ph.uql[iq][il]*THz_to_ev
+        # weights
+        wq = np.zeros(ql_list.shape[0])
+        for iql in range(ql_list.shape[0]):
+            iq, il = ql_list[iql]
+            wq[iql] = qgr.wq[iq]
         # T1 times
-        inv_T1 = self.compute_T1_oneph(ql_list, gq, eig, wql, T, p.eta)
+        inv_T1 = self.compute_T1_oneph(ql_list, wq, gq, eig, wql, T, p.eta)
     # compute T2 times
     def compute_decoher_times_one_ph(self, H, inter_model, ph):
         # quantum states
@@ -144,7 +150,10 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
         super(GeneralizedFermiGoldenRuleGPU, self).__init__()
         self.REAL_TIME = REAL_TIME
         self.FREQ_DOMAIN = FREQ_DOMAIN
-    def compute_T1_oneph(self, ql_list, gq, eig, wql, temp, eta):
+    def compute_T1_oneph(self, ql_list, wq, gq, eig, wql, temp, eta):
+        # load file
+        gpu_src = Path(CUDA_SOURCE_DIR+'compute_oneph_decoher.cu').read_text()
+        gpu_mod = SourceModule(gpu_src)
         # state energies
         EIG = GPU_ARRAY(eig, np.double)
         NST = EIG.length()
@@ -154,10 +163,16 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
             NT = TIME.length()
             GOFT = GPU_ARRAY(np.zeros((NST,NT)), np.double)
             INTGOFT = GPU_ARRAY(np.zeros((NST,NT)), np.double)
+            # load function
+            compute_T1_times = gpu_mod.get_function("compute_T1_oneph_time_resolved")
         if self.FREQ_DOMAIN:
             WGR = GPU_ARRAY(self.wgr, np.double)
             NW = WGR.length()
             GOFW = GPU_ARRAY(np.zeros((NST,NW)), np.double)
+            # load function
+            compute_T1_times = gpu_mod.get_function("compute_T1_oneph_w_resolved")
+        # weights
+        WQ = GPU_ARRAY(wq, np.double)
         # linewidth
         ETA = np.double(eta)
         # ph. freq.
@@ -165,3 +180,4 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
         GQL = GPU_ARRAY(gq, np.complex128)
         # distribute data on grid
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(ql_list)
+        print('OK HERE')
