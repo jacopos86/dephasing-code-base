@@ -335,8 +335,7 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(illp_list)
         MODES_LIST = GPU_ARRAY(illp_list, np.int32)
         print(illp_list)
-        # eq
-        euq = u[iq]
+        exit()
         # set e^iqR
         EIQR = np.zeros(3*nat, dtype=np.complex128)
         for jax in range(3*nat):
