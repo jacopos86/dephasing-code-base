@@ -17,7 +17,6 @@ class magnetic_field(object):
             'sinh': sinh, 'sqrt': sqrt, 'tan': tan, 'tanh': tanh}
         # creating a dictionary of safe methods
         self.var = B_dict['var']
-        print(self.var, self.safe_dict)
     def set_pulse_oft(self, time):
         nt = len(time)
         Bt = np.zeros((3, nt))
