@@ -1,4 +1,5 @@
 import numpy as np
+from common.print_objects import print_2D_matrix
 
 #  handler to reshape and transform GPU arrays
 
@@ -24,4 +25,4 @@ class GPU_ARRAY:
         if len(self.shape) == 1:
             pass
         elif len(self.shape) == 2:
-            pass
+            print_2D_matrix(self.cpu_array)
