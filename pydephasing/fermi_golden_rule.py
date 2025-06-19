@@ -183,3 +183,4 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
         # distribute data on grid
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(ql_list)
         print('OK HERE')
+        INIT_INDEX.print_array()
