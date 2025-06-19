@@ -115,8 +115,8 @@ class SpinPhononClass(ABC):
         iql = 0
         for iq, il in ql_list:
             qv = qgr.qpts[iq]
-            for n in range(atoms.supercell_size):
-                Rn = atoms.supercell_grid[n]
+            for iL in range(atoms.supercell_size):
+                Rn = atoms.supercell_grid[iL]
                 for jax in range(3*nat):
                     ia = atoms.index_to_ia_map[jax]
                     m_ia = atoms.atoms_mass[ia]             
@@ -157,6 +157,7 @@ class SpinPhononFirstOrder(SpinPhononClass):
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
+        self.ql_list = ql_list
         nan_indices = np.isnan(self.g_ql)
         assert nan_indices.any() == False
 

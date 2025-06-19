@@ -1,5 +1,6 @@
 import h5py
 import math
+from collections import Counter
 import numpy as np
 import logging
 from pydephasing.mpi import mpi
@@ -90,6 +91,50 @@ class qgridClass:
                         qplist.append([iq1, iq2])
         assert nqp == self.nq
         return qplist
+    #
+    #  build all possible unique 
+    #  (q, q') pairs
+    #
+    def build_qqp_pairs(self):
+        qqp_pairs = []
+        for i in range(self.nq):
+            for j in range(self.nq):
+                if (i, j) not in qqp_pairs:
+                    qqp_pairs.append((i, j))
+        return qqp_pairs
+    #
+    #  find -q index given q index
+    #
+    def find_ip_from_iq(self, iq, qp_list):
+        for qp_pair in qp_list:
+            if iq in qp_pair:
+                if iq == qp_pair[0]:
+                    return qp_pair[1]
+                else:
+                    return qp_pair[0]
+
+    #
+    #  build irreducible (q,q') pairs
+    #  (q1,-q2)^* -> (q2,-q1)
+    #  (q1,q2)^* -> (-q2,-q1)
+    #
+    def build_irred_qqp_pairs(self):
+        qqp_list = self.build_qqp_pairs()
+        qp_list = self.set_q2mq_list()
+        for iq1 in range(self.nq):
+            ip1 = self.find_ip_from_iq(iq1, qp_list)
+            for iq2 in range(self.nq):
+                ip2 = self.find_ip_from_iq(iq2, qp_list)
+                if (iq1, iq2) in qqp_list and (ip2, ip1) in qqp_list and iq1 != ip2 and iq2 != ip1:
+                    qqp_list.remove((ip2, ip1))
+        for qp in qp_list:
+            [iq1, iq2] = qp
+            if iq1 != iq2 and (iq1, iq2) in qqp_list:
+                qqp_list.remove((iq2, iq1))
+        c = Counter(qqp_list)
+        qqp_list_uniq = [pair for pair in c if c[pair] == 1]
+        assert(len(qqp_list_uniq) == (1 + (self.nq*self.nq-1)/2))
+        return qqp_list_uniq
     #
     # check weights
     def check_weights(self):

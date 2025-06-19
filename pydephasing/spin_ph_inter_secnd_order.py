@@ -1,17 +1,19 @@
 import numpy as np
 import cmath
 import collections
+from itertools import product
 from common.phys_constants import hbar, mp, THz_to_ev
 from common.matrix_operations import compute_matr_elements
+from common.GPU_arrays_handler import GPU_ARRAY
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
-from pydephasing.global_params import GPU_ACTIVE
+from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
 from pydephasing.spin_ph_inter import SpinPhononClass
 from pydephasing.log import log
 from pydephasing.mpi import mpi
+from pathlib import Path
 
 if GPU_ACTIVE:
-    from pathlib import Path
     from pydephasing.global_params import gpu
     from pycuda.compiler import SourceModule
     import pycuda.driver as cuda
@@ -83,16 +85,16 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
             Fax += self.set_Fax_hfi(gradHFI, Hsp, sp_config)
         # compute Hessian
         if self.hessian:
-            self.compute_hessian_term(interact_dict, Hsp)
+            Faxby = self.compute_hessian_term(interact_dict, Hsp)
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
         nan_indices = np.isnan(self.g_ql)
         assert nan_indices.any() == False
-        print(np.max(Fax.real))
+        print("max Fx", np.max(Fax.real))
         # compute g_qqp
-        self.compute_gqqp(nat, qgr, ph, Hsp, Fax, Faxby)
+        self.set_gqqp_calculation(nat, qgr, ph, Hsp, Fax, Faxby)
     #
     #  compute Hessian term
     #
@@ -124,17 +126,34 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
     # compute g_{ab}(q,qp)
     # = \sum_{nn';ss'} Aq e^{iq Rn}e_q(s) <a|H^(2)|b> Aqp e^{iqp Rn'}e_qp(s')
     #
-    def compute_gqqp(self, nat, qgr, ph, Hsp, Fax, Faxby):
+    def set_gqqp_calculation(self, nat, qgr, ph, Hsp, Fax, Faxby):
         if not self.hessian:
             assert Faxby == None
-        # first compute raman
-        # contribution
-        FXXp = self.compute_raman(nat, Hsp, Fax)
-        # if available compute add to Hessian
-        if Faxby is not None:
-            FXXp += 0.5 * Faxby
+        # first compute raman wq=0 value
+        # CPU algorithm keeps terms only within given fraction of FXXp0
+        if not GPU_ACTIVE:
+            FXXp0 = self.compute_raman(nat, Hsp, Fax)
+            print("max FXX'", np.max(FXXp0.real))
         # compute gqqp
         # make list of q vector pairs for each proc.
+        qqp_list = qgr.build_irred_qqp_pairs()
+        # parallelize calculation over (q,q')
+        qqp_list = mpi.split_list(qqp_list)
+        # compute g_qqp
+        for iq, iqp in qqp_list:
+            file_name = 'G-iq-' + str(iq) + '-iqp-' + str(iqp) + '.npy'
+            file_path = p.work_dir + '/restart/' + file_name
+            file_path = "{}".format(file_path)
+            fil = Path(file_path)
+            if not fil.exists():
+                if not GPU_ACTIVE:
+                    gqqp = self.compute_gqqp(nat, iq, iqp, qgr, ph, Hsp, Fax, FXXp0, Faxby)
+                else:
+                    gqqp = self.compute_gqqp(nat, iq, iqp, qgr, ph, Hsp, Fax, Faxby)
+                # save data
+                np.savez(file_path, G=gqqp, illp=[])
+            else:
+                pass
 
 # --------------------------------------------------------
 #       GPU class
@@ -156,6 +175,7 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         self.R_LST = None
         # mass list
         self.M_LST = None
+        print('GPU OK')
     #
     # prepare order 2 phr force calculation
     def set_up_2nd_order_force_phr(self, nat, qpts, Fax, Faxby, H):
@@ -284,40 +304,38 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
             m_ia = atoms.atoms_dict[ia]['mass']
             m_ia = m_ia * mp
             self.M_LST[jax] = m_ia
-        if self.calc_raman:
-            # EIG
-            self.EIG = np.zeros(nqs, dtype=np.double)
-            self.NQS = np.int32(nqs)
-            for qs in range(nqs):
-                self.EIG[qs] = H.eig[qs]
-            # eV
-            self.IQS0 = np.int32(p.index_qs0)
-            self.IQS1 = np.int32(p.index_qs1)
     #
     # driver function
-    def transf_2nd_order_force_phr(self, il, iq, wu, u, nat, qlp_list):
-        # initialize out array
-        F_lq_lqp = np.zeros((4,3*nat,len(qlp_list)), dtype=np.complex128)
-        # Fax units -> eV / ang
-        # Faxby units -> eV / ang^2
+    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, Fax, Faxby=None):
+        # FXXp units -> eV / ang^2
+        n = len(Hsp.basis_vectors)
+        gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
+        print(gqqp.shape)
+        print(mpi.rank, iq, iqp)
         # load file
-        gpu_src = Path('./pydephasing/gpu_source/compute_phr_forces.cu').read_text()
-        mod = SourceModule(gpu_src)
-        if self.calc_raman:
-            compute_F_raman = mod.get_function("compute_raman_force")
-            compute_Flq_lqp_raman = mod.get_function("compute_Flqlqp_raman")
-        else:
-            compute_Flq_lqp = mod.get_function("compute_Flqlqp")
+        gpu_src = Path(CUDA_SOURCE_DIR+'compute_two_phonons_matr.cu').read_text()
+        gpu_mod = SourceModule(gpu_src)
         # prepare input quantities
         NAT = np.int32(nat)
-        wql = wu[iq][il] * THz_to_ev
-        WQL = np.double(wql)
-        # q vector
-        qv = np.zeros(3)
-        for ix in range(3):
-            qv[ix] = self.QV[3*iq+ix]
-        # eq
-        euq = u[iq]
+        # phonon energies
+        WQL = GPU_ARRAY(np.array(ph.uql[iq]) * THz_to_ev, np.double)
+        WQPL= GPU_ARRAY(np.array(ph.uql[iqp]) * THz_to_ev, np.double)
+        # energy eigenvalues array -> EIG
+        eig = np.zeros(n)
+        for a in range(n):
+            eig[a] = Hsp.qs[a]['eig']
+        EIG = GPU_ARRAY(eig, np.float32)
+        # FX -> allocate GPU array
+        FX = GPU_ARRAY(Fax, np.complex128)
+        # Hessian term
+        if Faxby is not None:
+            FXXp = GPU_ARRAY(Faxby, np.complex128)
+        # -> GPU parallelized arrays
+        illp_list = np.array(list(product(range(ph.nmodes), range(ph.nmodes))))
+        INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(illp_list)
+        MODES_LIST = GPU_ARRAY(illp_list, np.int32)
+        print(illp_list)
+        exit()
         # set e^iqR
         EIQR = np.zeros(3*nat, dtype=np.complex128)
         for jax in range(3*nat):
@@ -328,7 +346,6 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         # (q',l') list
         QP_LST = np.zeros(len(qlp_list), dtype=np.int32)
         ILP_LST= np.zeros(len(qlp_list), dtype=np.int32)
-        WQLP = np.zeros(len(qlp_list), dtype=np.double)
         iqlp = 0
         for iqp, ilp in qlp_list:
             QP_LST[iqlp] = iqp
@@ -468,6 +485,53 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
                 F_lq_lqp[3,jax,:] = np.conj(EIQR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[3,jax,:] / np.sqrt(self.M_LST[jax])
         print('OK')
         return F_lq_lqp
+    #
+    # compute the Raman contribution to 
+    # force matrix elements
+    # Fr_aa'(X,X') = sum_b' {Fab(X) Fba'(X')/(e_a' - e_b) + Fab(X) Fba'(X')/(e_a - e_b)}
+    def compute_raman(self, nat, Hsp, Fax):
+        # read function
+        gpu_src = Path(CUDA_SOURCE_DIR+'compute_raman_matr.cu').read_text()
+        gpu_mod = SourceModule(gpu_src)
+        # Raman F_axby vector
+        n = len(Hsp.basis_vectors)
+        # result in eV / ang^2 units
+        # partition jax between proc.
+        deg = Hsp.check_degeneracy()
+        if mpi.rank == mpi.root:
+            log.info("\t spin Hamiltonian degenerate: " + str(deg))
+        if deg:
+            log.warning("\t Spin Hamiltonian is degenerate")
+        jX_list = mpi.random_split(range(3*nat))
+        jXp_list = np.array(range(3*nat))
+        jXXp_list = np.array(list(product(jX_list, jXp_list)))
+        # make list of (jX,jXp) on gpu grid
+        INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(jXXp_list)
+        JXXP_LIST = GPU_ARRAY(jXXp_list, np.int32)
+        NJX = np.int32(3*nat)
+        # EIG array -> allocate GPU memory
+        # & copy data
+        eig = np.zeros(n)
+        for a in range(n):
+            eig[a] = Hsp.qs[a]['eig']
+        EIG = GPU_ARRAY(eig, np.float32)
+        # FX -> ALLOCATE GPU array
+        FX = GPU_ARRAY(Fax, np.complex128)
+        print(FX.to_gpu()[0,0,0], FX.to_gpu()[1,0,0], FX.to_gpu()[2,0,0], FX.to_gpu()[0,1,0], FX.to_gpu()[1,1,0], FX.to_gpu()[2,1,0])
+        # raman matrix elements
+        FXXP = GPU_ARRAY(np.zeros((n, n, len(jXXp_list))), np.complex128)
+        FXXP_ARRAY = np.zeros((n, n, len(jXXp_list)), dtype=np.complex128)
+        if not deg:
+            compute_raman = gpu_mod.get_function("compute_raman_nondeg")
+        else:
+            compute_raman = gpu_mod.get_function("compute_raman_deg")
+        compute_raman(EIG.length(), NJX, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(JXXP_LIST.to_gpu()), cuda.In(EIG.to_gpu()),
+                      cuda.In(FX.to_gpu()), cuda.Out(FXXP_ARRAY), block=gpu.block, grid=gpu.grid)
+        # reshape array
+        #gpu.create_index_list((n, n, len(JXXP_LIST)))
+        #FXXp = gpu.reshape_array(jXXp_list, FXXP)
+        FXXP.reshape_gpu_array(FXXP_ARRAY, jXXp_list, (n, n, 3*nat, 3*nat))
+        return FXXP.cpu_array
     
 # -------------------------------------------------------------------
 #       CPU class
@@ -523,95 +587,71 @@ class SpinPhononSecndOrderCPU(SpinPhononSecndOrderBase):
         # eV / ang^2 units
         return Faxby
     #
-    # prepare order 2 phr force calculation
-    def set_up_2nd_order_force_phr(self, qpts, Fax, Faxby, H):
-        #
-        # prepare force arrays
-        nqs = H.eig.shape[0]
-        n = int(Faxby.shape[0])
-        self.jax_lst = []
-        for jax in range(n):
-            for msr in range(nqs):
-                for msc in range(nqs):
-                    if np.abs(Fax[msr,msc,jax]) > 1.e-7:
-                        self.jax_lst.append(jax)
-        self.jax_lst = list(set(self.jax_lst))
-        # define FAX matrix
-        nax = len(self.jax_lst)
-        self.Fax = np.zeros((nqs,nqs,nax), dtype=np.complex128)
-        for iax in range(nax):
-            jax = self.jax_lst[iax]
-            self.Fax[:,:,iax] = Fax[:,:,jax]
-        # 
-        # prepare 2nd force arrays
-        self.Faxby = Faxby
-        # Q vectors list
-        self.nq = len(qpts)
-        self.qv = qpts
+    #  compute gqqp
     #
-    def transf_2nd_order_force_phr(self, il, iq, wu, u, nat, qlp_list):
-        # Fax units -> eV / ang
-        # Faxby units -> eV / ang^2
-        F_lq_lqp = np.zeros((4, 3*nat, len(qlp_list)), dtype=np.complex128)
-        # 0 -> (lq,l'q'); 1 -> (l-q,l'q'); 2 -> (lq,l'-q'); 3 -> (l-q,l'-q')
-        # wql (eV)
-        wql = wu[iq][il] * THz_to_ev
-        # remember index jax -> atom,idx
-        # second index (n,p)
-        euq = u[iq]
-        q = self.qv[iq]
+    def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, Fax, FXXp0, Faxby=None):
+        # FXXp units -> eV / ang^2
+        n = len(Hsp.basis_vectors)
+        gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
+        print(gqqp.shape)
+        print(mpi.rank, iq, iqp)
+        # set modes list
+        ql_list = []
+        for il in range(ph.nmodes):
+            ql_list.append((iq, il))
+        # pre-compute ph. amplitudes
+        A_ql = ph.compute_ph_amplitude_q(nat, ql_list)
+        # set modes list
+        qpl_list = []
+        for il in range(ph.nmodes):
+            qpl_list.append((iqp, il))
+        # pre-compute ph. amplitudes
+        A_qpl = ph.compute_ph_amplitude_q(nat, qpl_list)
+        # compute raman term
+        
         # set e^iqR
-        eiqR = np.zeros(3*nat, dtype=np.complex128)
+        q = qgr.qpts[iq]
+        L = atoms.supercell_size
+        eiqR = np.zeros(L, dtype=np.complex128)
+        for i in range(L):
+            Rn = atoms.supercell_grid[i]
+            eiqR[i] = cmath.exp(1j*2.*np.pi*np.dot(q,Rn))
+        # set e^iqpR
+        qp = qgr.qpts[iqp]
+        eiqpR = np.zeros(L, dtype=np.complex128)
+        for i in range(L):
+            Rn = atoms.supercell_grid[i]
+            eiqpR[i] = cmath.exp(1j*2.*np.pi*np.dot(qp,Rn))
+        # run over modes pairs (ql,q'l')
+        for il in range(ph.nmodes):
+            for ilp in range(ph.nmodes):
+                # compute ph. resolved force
+                # compute first order raman term
+                # for this (q,q') pair
+                Fr1 = np.zeros((n, n, 3*nat, 3*nat), dtype=np.complex128)
+                F = Fr1 + FXXp
+                # compute gqqp
+                for jx in range(3*nat):
+                    mx = atoms.atoms_mass[atoms.index_to_ia_map[jx]]
+                    eq = ph.eql[iq][jx,il] / np.sqrt(mx)
+                    for jxp in range(3*nat):
+                        mxp = atoms.atoms_mass[atoms.index_to_ia_map[jxp]]
+                        eqp = ph.eql[iqp][jxp,ilp] / np.sqrt(mxp)
+                        # ang/eV^1/2 *ps^-1
+                        for i in range(L):
+                            for j in range(L):
+                                gqqp[:,:,il,ilp] += A_ql[il] * eiqR[i] * eq * F[:,:,jx,jxp] * eqp * eiqpR[j] * A_qpl[ilp]
+            print(il)
+        gqqp = 0.5 * gqqp
+        exit()
         for jax in range(3*nat):
-            ia = atoms.index_to_ia_map[jax] - 1
-            # atom coordinate
-            Ra = atoms.atoms_dict[ia]['coordinates']
-            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(q,Ra))
-        # run over list of modes
-        for jby in range(3*nat):
-            ib = atoms.index_to_ia_map[jby] - 1
-            Rb = atoms.atoms_dict[ib]['coordinates']
-            m_ib = atoms.atoms_dict[ib]['mass']
-            m_ib = m_ib * mp
-            # compute Raman force
-            naxr = len(self.jax_lst)
-            if self.calc_raman and jby in self.jax_lst:
-                Fr = self.compute_raman(jby, wql, qlp_list, wu)
-            else:
-                Fr = np.zeros((naxr, len(qlp_list)), dtype=np.complex128)
-            # compute ph. resolved force
-            iqlp = 0
-            for iqp, ilp in qlp_list:
-                # e^iqpR
-                qp = self.qv[iqp]
-                eiqpR = cmath.exp(1j*2.*np.pi*np.dot(qp, Rb))
-                # euqp
-                euqp = u[iqp]
-                # compute Raman contribution to eff_Faxby
-                # eff. force : F(R) + F(2)
-                eff_Faxby = np.zeros(3*nat, dtype=np.complex128)
-                eff_Faxby[:] += self.Faxby[:,jby]
-                for jjax in range(naxr):
-                    jax = self.jax_lst[jjax]
-                    eff_Faxby[jax] += Fr[jjax,iqlp]
-                # update F_ql,qlp
-                F_lq_lqp[:2,:,iqlp] += eff_Faxby[:] * eiqpR * euqp[jby,ilp] / np.sqrt(m_ib)
-                F_lq_lqp[2:,:,iqlp] += eff_Faxby[:] * np.conj(eiqpR) * np.conj(euqp[jby,ilp]) / np.sqrt(m_ib)
-                # eV/ang^2 * ang/eV^0.5/ps = eV^0.5/ang/ps
-                iqlp += 1
-        # compute e^iqR e[q] F[jax,qlp]
-        for jax in range(3*nat):
-            ia = atoms.index_to_ia_map[jax] - 1
-            # atom mass
-            m_ia = atoms.atoms_dict[ia]['mass']
-            m_ia = m_ia * mp
             # effective force
             F_lq_lqp[0,jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[0,jax,:] / np.sqrt(m_ia)
             F_lq_lqp[2,jax,:] = eiqR[jax] * euq[jax,il] * F_lq_lqp[2,jax,:] / np.sqrt(m_ia)
             F_lq_lqp[1,jax,:] = np.conj(eiqR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[1,jax,:] / np.sqrt(m_ia)
             F_lq_lqp[3,jax,:] = np.conj(eiqR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[3,jax,:] / np.sqrt(m_ia)
             # [eV^0.5/ang/ps *ang/eV^0.5/ps] = 1/ps^2
-        return F_lq_lqp
+        return gqqp
     #
     # compute the Raman contribution to 
     # force matrix elements
@@ -645,7 +685,7 @@ class SpinPhononSecndOrderCPU(SpinPhononSecndOrderBase):
         # eV / ang^2
         # collect into single proc.
         mpi.comm.Barrier()
-        print(np.max(FXXp.real))
+        print('FXXp ', np.max(FXXp.real))
         FXXp = mpi.collect_array(FXXp)
         nan_indices = np.isnan(FXXp)
         assert nan_indices.any() == False

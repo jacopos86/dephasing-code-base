@@ -12,6 +12,7 @@ from pydephasing.mpi import mpi
 from common.phys_constants import THz_to_ev
 from common.matrix_operations import norm_cmplxv
 from pydephasing.input_parser import parser
+from pydephasing.grids import set_temperatures
 #
 class data_input(ABC):
     # initialization
@@ -35,8 +36,9 @@ class data_input(ABC):
         #######################################
         # physical common parameters
         # time
-        self.T  = 0.0
-        self.dt = 0.0
+        self.T  = None
+        self.dt = None
+        self.nt = None
         ######################################
         # hyperfine parameters
         # n. spins list
@@ -93,6 +95,8 @@ class data_input(ABC):
         if 'dt' in data:
             self.dt = float(data['dt'])
             # ps units
+        if 'nt' in data:
+            self.nt = int(data['nt'])
         # applied static magnetic field
         # magnitude -> aligned along spin quant. axis
         if 'B0' in data:
@@ -106,8 +110,8 @@ class data_input(ABC):
         # psi0 wfc
         if 'psi0' in data:
             self.psi0 = np.array(data['psi0'], dtype=np.complex128)
-        nrm = norm_cmplxv(self.psi0)
-        self.psi0 = self.psi0 / nrm
+            nrm = norm_cmplxv(self.psi0)
+            self.psi0 = self.psi0 / nrm
         # ---------------------------------------
         #    HFI calculation parameters
         # ---------------------------------------
@@ -178,6 +182,7 @@ class dynamical_data_input(data_input):
         ####################################
         # physical parameters
         # n. temperatures
+        self.temperatures = None
         self.ntmp = 0
         # eta decay parameter (time resolved calc.)
         self.eta = 1e-5
@@ -252,7 +257,24 @@ class dynamical_data_input(data_input):
         # temperature (K)
         if 'temperature' in data:
             Tlist = data['temperature']
-            self.set_temperatures(Tlist)
+            self.temperatures = set_temperatures(Tlist)
+            self.ntmp = len(self.temperatures)
+        # eta decay parameter
+        if 'eta' in data:
+            self.eta = float(data['eta'])
+            # eV units
+        # min. frequency
+        # THz
+        if 'min_freq' in data:
+            self.min_freq = data['min_freq']
+        if mpi.rank == mpi.root:
+            log.info("\t min. freq. (THz): " + str(self.min_freq))
+            if np.abs(self.min_freq) < 1.E-7:
+                log.info("\n")
+                log.info("\t " + self.sep)
+                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
+                log.info("\t " + self.sep)
+                log.info("\n")
         # --------------------------------------------------------------
         #
         #    time variables
@@ -266,7 +288,6 @@ class dynamical_data_input(data_input):
                 self.T2 = float(data['T'][1])
             # T2 calculation
             # methods
-            '''
             if 'T2_extract_method' in data:
                 if data['T2_extract_method'] == "fit":
                     self.ACF_FIT = True
@@ -276,27 +297,26 @@ class dynamical_data_input(data_input):
                     self.ACF_INTEG = True
                 else:
                     log.error("\t T2 EXTRACTION METHOD ONLY : [ fit / integ ]")
-            # fitting model -> (1) Exp ; (2) ExpSin
-            # ExpSin -> more accurate dynamical calculations
-            if self.ACF_FIT and 'fit_model' in data:
-                if data['fit_model'] == "Exp":
-                    self.FIT_MODEL = 'Ex'
-                elif data['fit_model'] == "ExpSin":
-                    self.FIT_MODEL = 'ExS'
-                else:
-                    log.error("\t fit model ONLY : [ Exp / ExpSin ]")
-            '''
-            # min. frequency
-            # THz
-            if 'min_freq' in data:
-                self.min_freq = data['min_freq']
-            self.min_freq = max(1./self.T, self.min_freq)
-            if mpi.rank == mpi.root:
-                log.info("\t min. freq. (THz): " + str(self.min_freq))
-        # eta decay parameter
-        if 'eta' in data:
-            self.eta = float(data['eta'])
-            # eV units
+                # fitting model -> (1) Exp ; (2) ExpSin
+                # ExpSin -> more accurate dynamical calculations
+                if self.ACF_FIT and 'fit_model' in data:
+                    if data['fit_model'] == "Exp":
+                        self.FIT_MODEL = 'Ex'
+                    elif data['fit_model'] == "ExpSin":
+                        self.FIT_MODEL = 'ExS'
+                    else:
+                        log.error("\t fit model ONLY : [ Exp / ExpSin ]")
+        # --------------------------------------------------------------
+        #
+        #    frequency variables
+        #
+        # --------------------------------------------------------------
+        if 'nwg' in data:
+            self.w_resolved = True
+            # n. w grid points
+            self.nwg = data['nwg']
+            # max. freq. (THz)
+            self.w_max = data['w_max']
         #
         # read displ. atoms data
         self.read_atoms_displ()
@@ -329,10 +349,6 @@ class dynamical_data_input(data_input):
                     self.wql_grid_index[iq,iph] = ii
                     # wql freq.
                     self.wql_freq[ii] += 1
-    # set temperatures
-    def set_temperatures(self, Tlist):
-        self.ntmp = len(Tlist)
-        self.temperatures = np.array(Tlist)
     # read atomic displacements
     def read_atoms_displ(self):
         for i in range(len(self.displ_poscar_dir)):
