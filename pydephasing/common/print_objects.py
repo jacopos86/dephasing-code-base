@@ -1,6 +1,5 @@
 import yaml
 from pydephasing.log import log
-from pydephasing.set_param_object import p
 
 #   This module prints 
 #   different objects
@@ -17,7 +16,6 @@ def print_2D_matrix(A):
 			line += "  {0:.3f}".format(A[i,j])
 		log.info("\t " + line)
 	log.info("\n")
-	log.info("\t " + p.sep)
 
 # write spin vector on file
 
