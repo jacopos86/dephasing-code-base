@@ -110,8 +110,8 @@ class data_input(ABC):
         # psi0 wfc
         if 'psi0' in data:
             self.psi0 = np.array(data['psi0'], dtype=np.complex128)
-        nrm = norm_cmplxv(self.psi0)
-        self.psi0 = self.psi0 / nrm
+            nrm = norm_cmplxv(self.psi0)
+            self.psi0 = self.psi0 / nrm
         # ---------------------------------------
         #    HFI calculation parameters
         # ---------------------------------------
@@ -288,7 +288,6 @@ class dynamical_data_input(data_input):
                 self.T2 = float(data['T'][1])
             # T2 calculation
             # methods
-            '''
             if 'T2_extract_method' in data:
                 if data['T2_extract_method'] == "fit":
                     self.ACF_FIT = True
@@ -298,29 +297,15 @@ class dynamical_data_input(data_input):
                     self.ACF_INTEG = True
                 else:
                     log.error("\t T2 EXTRACTION METHOD ONLY : [ fit / integ ]")
-            # fitting model -> (1) Exp ; (2) ExpSin
-            # ExpSin -> more accurate dynamical calculations
-            if self.ACF_FIT and 'fit_model' in data:
-                if data['fit_model'] == "Exp":
-                    self.FIT_MODEL = 'Ex'
-                elif data['fit_model'] == "ExpSin":
-                    self.FIT_MODEL = 'ExS'
-                else:
-                    log.error("\t fit model ONLY : [ Exp / ExpSin ]")
-<<<<<<< HEAD
-            '''
-            # min. frequency
-            # THz
-            if 'min_freq' in data:
-                self.min_freq = data['min_freq']
-            self.min_freq = max(1./self.T, self.min_freq)
-            if mpi.rank == mpi.root:
-                log.info("\t min. freq. (THz): " + str(self.min_freq))
-        # eta decay parameter
-        if 'eta' in data:
-            self.eta = float(data['eta'])
-            # eV units
-=======
+                # fitting model -> (1) Exp ; (2) ExpSin
+                # ExpSin -> more accurate dynamical calculations
+                if self.ACF_FIT and 'fit_model' in data:
+                    if data['fit_model'] == "Exp":
+                        self.FIT_MODEL = 'Ex'
+                    elif data['fit_model'] == "ExpSin":
+                        self.FIT_MODEL = 'ExS'
+                    else:
+                        log.error("\t fit model ONLY : [ Exp / ExpSin ]")
         # --------------------------------------------------------------
         #
         #    frequency variables
@@ -332,7 +317,6 @@ class dynamical_data_input(data_input):
             self.nwg = data['nwg']
             # max. freq. (THz)
             self.w_max = data['w_max']
->>>>>>> e7af857 (input parameters -> clean inputs)
         #
         # read displ. atoms data
         self.read_atoms_displ()
