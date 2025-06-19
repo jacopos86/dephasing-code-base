@@ -17,6 +17,17 @@ def print_2D_matrix(A):
 		log.info("\t " + line)
 	log.info("\n")
 
+# print 1D array
+
+def print_1D_array(A):
+	size = A.shape
+	line = ""
+	for i in range(size[0]):
+		if i < 100:
+			line += "  {0:.3f}".format(A[i])
+	log.info("\t " + line)
+	log.info("\n")
+
 # write spin vector on file
 
 def write_time_dependent_data_on_file(time, data, data_label, file_name):
