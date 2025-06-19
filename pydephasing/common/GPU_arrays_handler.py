@@ -20,3 +20,8 @@ class GPU_ARRAY:
         array = np.zeros(shape)
         print(array.shape)
         return array
+    def print_array(self):
+        if len(self.shape) == 1:
+            pass
+        elif len(self.shape) == 2:
+            pass
