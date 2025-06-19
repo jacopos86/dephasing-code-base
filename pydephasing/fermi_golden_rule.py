@@ -97,11 +97,11 @@ class GeneralizedFermiGoldenRuleCPU(GeneralizedFermiGoldenRuleBase):
         super(GeneralizedFermiGoldenRuleCPU, self).__init__()
         self.REAL_TIME = REAL_TIME
         self.FREQ_DOMAIN = FREQ_DOMAIN
-    def compute_T1_oneph(self, ql_list, gq, eig, wql, temp, eta):
+    def compute_T1_oneph(self, ql_list, wq, gq, eig, wql, temp, eta):
         if self.REAL_TIME:
-            self.gt, self.int_gt = self.compute_T1_oneph_tres(wq, ql_list, gq, eig, wql, temp, eta)
+            self.gt, self.int_gt = self.compute_T1_oneph_tres(ql_list, wq, gq, eig, wql, temp, eta)
         if self.FREQ_DOMAIN:
-            self.gw = self.compute_T1_oneph_wres(wq, ql_list, gq, eig, wql, temp, eta)
+            self.gw = self.compute_T1_oneph_wres(ql_list, wq, gq, eig, wql, temp, eta)
     def compute_T1_oneph_tres(self, wq, ql_list, gq, eig, wql, temp, eta):
         # n. states
         n = len(eig)
@@ -109,6 +109,8 @@ class GeneralizedFermiGoldenRuleCPU(GeneralizedFermiGoldenRuleBase):
         # g(t)
         g_oft = np.zeros((n,nt))
         intg_oft = np.zeros((n,nt))
+        for t in range(nt):
+            print(t, self.tgr[t])
     def compute_T1_oneph_wres(self, wq, ql_list, gq, eig, wql, temp, eta):
         # n. states
         n = len(eig)
