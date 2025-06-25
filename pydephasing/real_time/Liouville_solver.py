@@ -20,21 +20,32 @@ class LiouvilleSolverSpin(RealTimeSolver):
         time = self.set_time_array(dt/2., T)
         # compute ext. magnetic field
         B = Bfield.set_pulse_oft(time)
-        import matplotlib.pyplot as plt
-        plt.plot(time[:], B[2,:])
-        plt.show()
+        if mpi.rank == mpi.root:
+            units = {'time': 'ps', 'quantity': 'T'}
+            file_name = "B_oft.yml"
+            file_name = "{}".format(p.write_dir + '/' + file_name)
+            self.write_obj_to_file(time, B, units, file_name)
+        mpi.comm.Barrier()
         # dynamics purely
         # drho/dt = -i[H, rho]
         # propagate DM
         time, rh = self.propagate(rho, H, B, dt, T)
         rho.set_density_matr(time, rh)
-        tr = rho.trace_oft()
-        plt.plot(time, tr)
-        plt.show()
-        print(tr, rh[0,0,:])
+        if mpi.rank == mpi.root:
+            units = {'time': 'ps', 'quantity': ''}
+            file_name = "rho_oft.yml"
+            file_name = "{}".format(p.write_dir + '/' + file_name)
+            self.write_obj_to_file(time, rho.matr, units, file_name)
+        mpi.comm.Barrier()
         # compute observables
         # spin 
         Mt = compute_spin_mag(H, rho)
+        if mpi.rank == mpi.root:
+            units = {'time': 'ps', 'quantity': ''}
+            file_name = "spin_vec.yml"
+            file_name = "{}".format(p.write_dir + '/' + file_name)
+            self.write_obj_to_file(time, Mt, units, file_name)
+        mpi.comm.Barrier()
     #
     #  set time propagation function
     def propagate(self, rho, H, B, dt, T):
@@ -89,3 +100,18 @@ class LiouvilleSolverHFI(RealTimeSolver):
     # evolve DM
     def evolve(self, dt, T, rho, H, Bfield):
         pass
+    def propagate(self, rho, H, B, dt, T):
+        rh0 = rho.matr0
+        n = rh0.shape[0]
+        # time variables
+        time = self.set_time_array(dt, T)
+        nt = len(time)
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t STARTING REAL TIME EVOLUTION")
+            log.info("\t nt: " + str(nt))
+            log.info("\t dt (ps): " + str(dt))
+            log.info("\t T (ps): " + str(T))
+            log.info("\t " + p.sep)
+        rh = np.zeros((n, n, nt), dtype=np.complex128)
