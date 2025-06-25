@@ -70,7 +70,7 @@ fi
 # update input test file paths
 # test 1 -> init
 
-echo "clean TESTS directory? "
+echo "build/clean TESTS directory? "
 read clean_tests
 if [ "$clean_tests" = "yes" ] || [ "$clean_tests" = "y" ]
 then
@@ -186,6 +186,7 @@ unpert_dir : GS
 yaml_pos_file : phonopy_disp.yaml
 hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
 2nd_order_correct : True
+hessian : False
 atom_res : False
 phonon_res : False
 T :
@@ -203,6 +204,10 @@ temperature :
    - 200.0
    - 300.0
    - 400.0
+B0 :
+   - 0.0
+   - 0.0
+   - 1.0
 EOF
 
 	cat > inputC.yml <<EOF
