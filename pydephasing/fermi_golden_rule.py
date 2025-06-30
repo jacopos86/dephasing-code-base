@@ -189,3 +189,7 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
             INIT_INDEX.print_array()
             log.info("\t " + p.sep)
             log.info("\n")
+        # call function
+        print(self.REAL_TIME, self.FREQ_DOMAIN)
+        compute_T1_times(NST, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()),
+                         block=gpu.block, grid=gpu.grid)
