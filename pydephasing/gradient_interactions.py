@@ -21,6 +21,7 @@ from pydephasing.mpi import mpi
 from pydephasing.build_unpert_struct import build_gs_struct_base
 from tqdm import tqdm
 from abc import ABC
+from common.print_objects import print_2D_matrix
 #
 class perturbation_ZFS(ABC):
 	def __init__(self, out_dir):
