@@ -2,6 +2,7 @@ import numpy as np
 from abc import ABC
 from pathlib import Path
 from pydephasing.mpi import mpi
+from pydephasing.log import log
 from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
 from common.phys_constants import THz_to_ev
 from common.GPU_arrays_handler import GPU_ARRAY
@@ -182,5 +183,9 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
         GQL = GPU_ARRAY(gq, np.complex128)
         # distribute data on grid
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(ql_list)
-        print('OK HERE')
-        INIT_INDEX.print_array()
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            INIT_INDEX.print_array()
+            log.info("\t " + p.sep)
+            log.info("\n")
