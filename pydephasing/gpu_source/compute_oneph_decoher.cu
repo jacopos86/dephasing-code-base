@@ -24,6 +24,8 @@ __global__ void compute_T1_oneph_time_resolved(int n, int *INIT_INDEX, int *SIZE
     const int idx = i + j * blockDim.x * gridDim.x + k * blockDim.x * gridDim.x * blockDim.y * gridDim.y;
 
     /* local variables */
+    const int sx = SIZE_LIST[idx];
+    const int i0x = INIT_INDEX[idx];
 
 
 
