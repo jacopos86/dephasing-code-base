@@ -4,7 +4,7 @@ import collections
 from itertools import product
 from common.phys_constants import hbar, mp, THz_to_ev
 from common.matrix_operations import compute_matr_elements
-from common.GPU_arrays_handler import GPU_ARRAY
+from pydephasing.GPU_arrays_handler import GPU_ARRAY
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
 from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
