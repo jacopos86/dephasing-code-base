@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import pycuda.gpuarray as gpuarray
-from common.GPU_arrays_handler import GPU_ARRAY
+from pydephasing.GPU_arrays_handler import GPU_ARRAY
 
 # GPU class
 class GPU_obj:
