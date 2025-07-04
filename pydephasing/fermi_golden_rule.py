@@ -4,8 +4,8 @@ from pathlib import Path
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
-from common.phys_constants import THz_to_ev
-from common.GPU_arrays_handler import GPU_ARRAY
+from pydephasing.GPU_arrays_handler import GPU_ARRAY
+from common.phys_constants import THz_to_ev, kb
 from pydephasing.grids import set_w_grid, set_time_grid_B, set_time_grid_A
 from pydephasing.set_param_object import p
 
@@ -156,7 +156,7 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
     def compute_T1_oneph(self, ql_list, wq, gq, eig, wql, temp, eta):
         # load file
         gpu_src = Path(CUDA_SOURCE_DIR+'compute_oneph_decoher.cu').read_text()
-        gpu_mod = SourceModule(gpu_src)
+        gpu_mod = SourceModule(gpu_src, options=["-I"+CUDA_SOURCE_DIR])
         # state energies
         EIG = GPU_ARRAY(eig, np.double)
         NST = EIG.length()
@@ -167,13 +167,13 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
             GOFT = GPU_ARRAY(np.zeros((NST,NT)), np.double)
             INTGOFT = GPU_ARRAY(np.zeros((NST,NT)), np.double)
             # load function
-            compute_T1_times = gpu_mod.get_function("compute_T1_oneph_time_resolved")
+            compute_T1 = gpu_mod.get_function("compute_T1_oneph_time_resolved")
         if self.FREQ_DOMAIN:
             WGR = GPU_ARRAY(self.wgr, np.double)
             NW = WGR.length()
             GOFW = GPU_ARRAY(np.zeros((NST,NW)), np.double)
             # load function
-            compute_T1_times = gpu_mod.get_function("compute_T1_oneph_w_resolved")
+            compute_T1 = gpu_mod.get_function("compute_T1_oneph_w_resolved")
         # weights
         WQ = GPU_ARRAY(wq, np.double)
         # linewidth
@@ -181,6 +181,8 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
         # ph. freq.
         WQL = GPU_ARRAY(wql, np.double)
         GQL = GPU_ARRAY(gq, np.complex128)
+        NQL = WQL.length()
+        print(mpi.rank, gq[1,1,1])
         # distribute data on grid
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(ql_list)
         if mpi.rank == mpi.root:
@@ -189,7 +191,14 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
             INIT_INDEX.print_array()
             log.info("\t " + p.sep)
             log.info("\n")
-        # call function
-        print(self.REAL_TIME, self.FREQ_DOMAIN)
-        compute_T1_times(NST, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()),
-                         block=gpu.block, grid=gpu.grid)
+        # call function at different temperatures
+        for it in range(1):
+            KT = np.double(kb*temp[it])
+            if self.REAL_TIME:
+                compute_T1(NST, NQL, NT, KT, ETA, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), 
+                        cuda.In(TIME.to_gpu()), cuda.In(WQ.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(GQL.to_gpu()),
+                        cuda.Out(GOFT.to_gpu()), cuda.Out(INTGOFT.to_gpu()), block=gpu.block, grid=gpu.grid)
+            if self.FREQ_DOMAIN:
+                compute_T1(NST, NW, KT, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()),
+                        cuda.In(WGR.to_gpu()), cuda.In(WQ.to_gpu()), cuda.In(WQL.to_gpu()), 
+                        block=gpu.block, grid=gpu.grid)
