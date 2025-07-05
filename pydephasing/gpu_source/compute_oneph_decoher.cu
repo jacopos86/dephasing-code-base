@@ -3,8 +3,8 @@
 #include <cuComplex.h>
 typedef pycuda::complex<double> cmplx;
 
-__global__ void compute_T1_oneph_w_resolved(int n, int nw, double KT, int *INIT_INDEX, int *SIZE_LIST,
-double *WGR, double *WQ, double *WQL) {
+__global__ void compute_T1_oneph_w_resolved(int n, int nw, double KT, double eta, int *INIT_INDEX, int *SIZE_LIST,
+double *WGR, double *WQ, double *WQL, double *EIG) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
@@ -32,8 +32,8 @@ double *WGR, double *WQ, double *WQL) {
 }
 
 
-__global__ void compute_T1_oneph_time_resolved(int n, int nql, int nt, double KT, double eta, int *INIT_INDEX, int *SIZE_LIST, 
-double *TIME, double *WQ, double *WQL, cmplx *GQL, double *GOFT, double *INTGOFT) {
+__global__ void compute_T1_oneph_time_resolved(int n, int nql, int nt, double KT, double tbar, int *INIT_INDEX, int *SIZE_LIST, 
+double *TIME, double *WQ, double *WQL, double *EIG, cmplx *GQL, double *GOFT, double *INTGOFT) {
     /* internal variables */
     const int i = threadIdx.x + blockDim.x * blockIdx.x;
     const int j = threadIdx.y + blockDim.y * blockIdx.y;
@@ -58,7 +58,8 @@ double *TIME, double *WQ, double *WQL, cmplx *GQL, double *GOFT, double *INTGOFT
                     int INGQL = ix + a1*nql + a*n*nql;
                     cmplx g = GQL[INGQL];
                     cmplx g_conj = (g.real(), -g.imag());
-                    GOFT[INGT] += (g * g_conj).real();
+                    GOFT[INGT] += (g * g_conj).real() * (nq + 1) * exp(-pow(t, 2)/(2 * pow(tbar, 2))) / sqrt(sqrt(2*PI)*tbar);
+                    GOFT[INGT] += (g * g_conj).real() * nq;
                 }
             }
         }
