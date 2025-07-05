@@ -175,16 +175,11 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         self.R_LST = None
         # mass list
         self.M_LST = None
-        print('GPU OK')
     #
     # prepare order 2 phr force calculation
     def set_up_2nd_order_force_phr(self, nat, qpts, Fax, Faxby, H):
         #
         n = 3*nat
-        if p.deph:
-            self.CALCTYP = np.int32(0)
-        elif p.relax:
-            self.CALCTYP = np.int32(1)
         if self.calc_raman:
             # prepare force arrays
             nqs = H.eig.shape[0]
@@ -280,88 +275,82 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
                 for ij in range(len(self.JAXBY_LST[jax])):
                     jby = self.JAXBY_LST[jax][ij]
                     self.FAXBY[jax][ij] = Faxby[jax,jby]
-        # Q vectors list
-        nq = len(qpts)
-        self.NQ = np.int32(nq)
-        self.QV = np.zeros(3*nq, dtype=np.double)
-        iiq = 0
-        for iq in range(nq):
-            qv = qpts[iq]
-            for ix in range(3):
-                self.QV[iiq] = qv[ix]
-                iiq += 1
-        # Ra list
-        self.R_LST = np.zeros(n, dtype=np.double)
-        for jax in range(n):
-            ia = atoms.index_to_ia_map[jax] - 1
-            Ra = atoms.atoms_dict[ia]['coordinates']
-            idx = jax%3
-            self.R_LST[jax] = Ra[idx]
-        # M list
-        self.M_LST = np.zeros(n, dtype=np.double)
-        for jax in range(n):
-            ia = atoms.index_to_ia_map[jax] - 1
-            m_ia = atoms.atoms_dict[ia]['mass']
-            m_ia = m_ia * mp
-            self.M_LST[jax] = m_ia
+    #  -------------------------------------------------------------------------
     #
-    # driver function
+    #       driver function
+    #
+    # --------------------------------------------------------------------------
     def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, Fax, Faxby=None):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
         gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
+        GQQP = GPU_ARRAY(gqqp, np.complex128)
         print(gqqp.shape)
-        print(mpi.rank, iq, iqp)
-        # load file
+        print("iq, iqp", mpi.rank, iq, iqp)
+        # load file 
         gpu_src = Path(CUDA_SOURCE_DIR+'compute_two_phonons_matr.cu').read_text()
-        gpu_mod = SourceModule(gpu_src)
+        gpu_mod = SourceModule(gpu_src, options=["-I"+CUDA_SOURCE_DIR])
         # prepare input quantities
         NAT = np.int32(nat)
+        NMD = np.int32(ph.nmodes)
         # phonon energies
         WQL = GPU_ARRAY(np.array(ph.uql[iq]) * THz_to_ev, np.double)
         WQPL= GPU_ARRAY(np.array(ph.uql[iqp]) * THz_to_ev, np.double)
+        # amplitudes
+        ql_list = list(product([iq], range(ph.nmodes)))
+        AQL = GPU_ARRAY(ph.compute_ph_amplitude_q(nat, ql_list), np.double)
+        qpl_list = list(product([iqp], range(ph.nmodes)))
+        AQPL = GPU_ARRAY(ph.compute_ph_amplitude_q(nat, qpl_list), np.double)
         # energy eigenvalues array -> EIG
         eig = np.zeros(n)
         for a in range(n):
             eig[a] = Hsp.qs[a]['eig']
-        EIG = GPU_ARRAY(eig, np.float32)
+        EIG = GPU_ARRAY(eig, np.double)
+        NST = EIG.length()
         # FX -> allocate GPU array
         FX = GPU_ARRAY(Fax, np.complex128)
         # Hessian term
         if Faxby is not None:
             FXXp = GPU_ARRAY(Faxby, np.complex128)
+        else:
+            compute_gqqp = gpu_mod.get_function("compute_gqqp")
         # -> GPU parallelized arrays
         illp_list = np.array(list(product(range(ph.nmodes), range(ph.nmodes))))
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(illp_list)
         MODES_LIST = GPU_ARRAY(illp_list, np.int32)
-        print(illp_list)
-        exit()
+        print(SIZE_LIST.cpu_array)
+        print(illp_list[850])
         # set e^iqR
-        EIQR = np.zeros(3*nat, dtype=np.complex128)
+        eiqr = np.zeros(atoms.supercell_size, dtype=np.complex128)
+        eiqpr= np.zeros(atoms.supercell_size, dtype=np.complex128)
+        qv = qgr.qpts[iq]
+        qpv= qgr.qpts[iqp]
+        for iL in range(atoms.supercell_size):
+            Rn = atoms.supercell_grid[iL]
+            eiqr[iL] = cmath.exp(1j*2.*np.pi*np.dot(qv,Rn))
+            eiqpr[iL]= cmath.exp(1j*2.*np.pi*np.dot(qpv,Rn))
+        EIQR = GPU_ARRAY(eiqr, np.complex128)
+        EIQPR= GPU_ARRAY(eiqpr, np.complex128)
+        NL = EIQR.length()
+        # ph. vectors -> EQ
+        eq = ph.eql[iq]
+        eqp = ph.eql[iqp]
         for jax in range(3*nat):
-            ia = atoms.index_to_ia_map[jax] - 1
-            # atomic coordinates
-            Ra = atoms.atoms_dict[ia]['coordinates']
-            EIQR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
-        # (q',l') list
-        QP_LST = np.zeros(len(qlp_list), dtype=np.int32)
-        ILP_LST= np.zeros(len(qlp_list), dtype=np.int32)
-        iqlp = 0
-        for iqp, ilp in qlp_list:
-            QP_LST[iqlp] = iqp
-            ILP_LST[iqlp] = ilp
-            WQLP[iqlp] = wu[iqp][ilp]*THz_to_ev
-            iqlp += 1
-        # set e_q'(l') array
-        EUQLP = np.zeros(len(qlp_list)*3*nat, dtype=np.complex128)
-        jj = 0
-        for iqp, ilp in qlp_list:
-            euqp = u[iqp]
-            for jax in range(3*nat):
-                EUQLP[jj] = euqp[jax,ilp]
-                jj += 1
-        # iterate over (q',l')
-        nqlp = len(qlp_list)
+            ia = atoms.index_to_ia_map[jax]
+            m_ia = atoms.atoms_mass[ia]
+            eq[jax,:] = eq[jax,:] / np.sqrt(m_ia)
+            eqp[jax,:] = eqp[jax,:] / np.sqrt(m_ia)
+            # Ang/ev^1/2 ps^-1
+        print(eq[10,0])
+        EQ = GPU_ARRAY(eq, np.complex128)
+        EQP = GPU_ARRAY(eqp, np.complex128)
+        #print(EQ.cpu_array[2,100])
+        #  call GPU function
+        compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
+                cuda.In(AQL.to_gpu()), cuda.In(AQPL.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(WQPL.to_gpu()), cuda.In(EIG.to_gpu()), 
+                cuda.In(FX.to_gpu()), cuda.In(EQ.to_gpu()), cuda.In(EQP.to_gpu()), cuda.In(EIQR.to_gpu()), cuda.In(EIQPR.to_gpu()), 
+                cuda.Out(GQQP.to_gpu()), block=gpu.block, grid=gpu.grid)
+        exit()
         # first compute raman term
         # if needed
         if self.calc_raman:
