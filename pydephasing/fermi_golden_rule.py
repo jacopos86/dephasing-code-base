@@ -5,7 +5,7 @@ from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
 from pydephasing.GPU_arrays_handler import GPU_ARRAY
-from common.phys_constants import THz_to_ev, kb
+from common.phys_constants import THz_to_ev, kb, hbar
 from pydephasing.grids import set_w_grid, set_time_grid_B, set_time_grid_A
 from pydephasing.set_param_object import p
 
@@ -176,8 +176,6 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
             compute_T1 = gpu_mod.get_function("compute_T1_oneph_w_resolved")
         # weights
         WQ = GPU_ARRAY(wq, np.double)
-        # linewidth
-        ETA = np.double(eta)
         # ph. freq.
         WQL = GPU_ARRAY(wql, np.double)
         GQL = GPU_ARRAY(gq, np.complex128)
@@ -195,10 +193,19 @@ class GeneralizedFermiGoldenRuleGPU(GeneralizedFermiGoldenRuleBase):
         for it in range(1):
             KT = np.double(kb*temp[it])
             if self.REAL_TIME:
-                compute_T1(NST, NQL, NT, KT, ETA, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), 
-                        cuda.In(TIME.to_gpu()), cuda.In(WQ.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(GQL.to_gpu()),
-                        cuda.Out(GOFT.to_gpu()), cuda.Out(INTGOFT.to_gpu()), block=gpu.block, grid=gpu.grid)
+                # \bar{t}
+                TBAR = np.double(hbar / eta)
+                if mpi.rank == mpi.root:
+                    log.info("\t " + p.sep)
+                    log.info("\t tbar coefficient : " + str(TBAR) + " ps")
+                    log.info("\t " + p.sep)
+                compute_T1(NST, NQL, NT, KT, TBAR, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), 
+                        cuda.In(TIME.to_gpu()), cuda.In(WQ.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(EIG.to_gpu()), 
+                        cuda.In(GQL.to_gpu()), cuda.Out(GOFT.to_gpu()), cuda.Out(INTGOFT.to_gpu()), 
+                        block=gpu.block, grid=gpu.grid)
             if self.FREQ_DOMAIN:
-                compute_T1(NST, NW, KT, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()),
-                        cuda.In(WGR.to_gpu()), cuda.In(WQ.to_gpu()), cuda.In(WQL.to_gpu()), 
+                # linewidth
+                ETA = np.double(eta)
+                compute_T1(NST, NW, KT, ETA, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()),
+                        cuda.In(WGR.to_gpu()), cuda.In(WQ.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(EIG.to_gpu()),
                         block=gpu.block, grid=gpu.grid)
