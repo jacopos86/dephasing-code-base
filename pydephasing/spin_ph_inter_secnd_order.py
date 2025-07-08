@@ -127,7 +127,6 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         # compute Hessian
         if self.hessian:
             Faxby = self.compute_hessian_term(interact_dict, Hsp)
-        exit()
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
@@ -249,23 +248,6 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
                     for msc in range(nqs):
                         self.FAX[iax+msr*nqs+msc] = Fax[msr,msc,jax]
         #
-        # define Faxby
-        F0 = np.abs(np.max(Faxby))
-        jaxby_lst = []
-        for jax in range(n):
-            for jby in range(n):
-                if np.abs(Faxby[jax,jby])/F0 > self.toler:
-                    jaxby_lst.append((jax,jby))
-        jaxby_lst.append((110,1))
-        jaxby_lst.append((110,2))
-        # define local Faxby
-        #
-        naxby = len(jaxby_lst)
-        self.JAXBY_LST = collections.defaultdict(list)
-        for jaxby in range(naxby):
-            jax, jby = jaxby_lst[jaxby]
-            self.JAXBY_LST[jax].append(jby)
-        #
         # set GPU input arrays RAMAN/FAXBY INDEX
         self.JAXBY_KEYS = [key for key, lst in self.JAXBY_LST.items() if len(lst) > 0]
         #
@@ -357,7 +339,9 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         FX = GPU_ARRAY(Fax, np.complex128)
         # Hessian term
         if Faxby is not None:
+            print("max Faxby: ", np.max(Faxby.real))
             FXXp = GPU_ARRAY(Faxby, np.complex128)
+            compute_gqqp = gpu_mod.get_function("compute_gqqp_2nd_Raman")
         else:
             compute_gqqp = gpu_mod.get_function("compute_gqqp")
         # -> GPU parallelized arrays
@@ -392,16 +376,18 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         EQP = GPU_ARRAY(eqp, np.complex128)
         #print(EQ.cpu_array[2,100])
         #  call GPU function
-        compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
+        if Faxby is None:
+            compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
                 cuda.In(AQL.to_gpu()), cuda.In(AQPL.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(WQPL.to_gpu()), cuda.In(EIG.to_gpu()), 
                 cuda.In(FX.to_gpu()), cuda.In(EQ.to_gpu()), cuda.In(EQP.to_gpu()), cuda.In(EIQR.to_gpu()), cuda.In(EIQPR.to_gpu()), 
                 cuda.Out(GQQP.to_gpu()), block=gpu.block, grid=gpu.grid)
+        else:
+            compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
+                cuda.In(FX.to_gpu()), cuda.In(FXXp.to_gpu()), cuda.Out(GQQP.to_gpu()), block=gpu.block, grid=gpu.grid)
         exit()
         # first compute raman term
         # if needed
         if self.calc_raman:
-            # LEN FAX_IND
-            nax = len(self.JAX_KEYS)
             # run over jax index
             for jjax in range(nax):
                 jax = self.JAX_KEYS[jjax]
