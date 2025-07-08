@@ -66,6 +66,47 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         self.Fhf_axby = mpi.collect_array(Faxby) * 2.*np.pi * hbar
         # eV / ang^2
     #
+    # set ZFS 2nd order gradient force
+    def set_Faxby_zfs(self, hessZFS, Hsp):
+        n = len(Hsp.basis_vectors)
+        nat = hessZFS.struct_0.nat
+        # hessian force
+        Faxby = np.zeros((n, n, 3*nat, 3*nat), dtype=np.complex128)
+        # jax list
+        jax_list = mpi.split_list(range(3*nat))
+        # run over jax index
+        for jax in jax_list:
+            for jby in range(jax, 3*nat):
+                ShDS = np.zeros((n,n), dtype=np.complex128)
+                hD = np.zeros((3,3))
+                hD[:,:] = hessZFS.U_grad2D_U[jax,jby,:,:]
+                # THz / ang^2
+                ShDS = hD[0,0] * np.matmul(Hsp.Sx, Hsp.Sx)
+                ShDS+= hD[0,1] * np.matmul(Hsp.Sx, Hsp.Sy)
+                ShDS+= hD[1,0] * np.matmul(Hsp.Sy, Hsp.Sx)
+                ShDS+= hD[1,1] * np.matmul(Hsp.Sy, Hsp.Sy)
+                ShDS+= hD[0,2] * np.matmul(Hsp.Sx, Hsp.Sz)
+                ShDS+= hD[2,0] * np.matmul(Hsp.Sz, Hsp.Sx)
+                ShDS+= hD[1,2] * np.matmul(Hsp.Sy, Hsp.Sz)
+                ShDS+= hD[2,1] * np.matmul(Hsp.Sz, Hsp.Sy)
+                ShDS+= hD[2,2] * np.matmul(Hsp.Sz, Hsp.Sz)
+                # matrix elements in the basis
+                # of unpert. Hamiltonian
+                for i1 in range(len(Hsp.qs)):
+                    qs1 = Hsp.qs[i1]['eigv']
+                    for i2 in range(len(Hsp.qs)):
+                        qs2 = Hsp.qs[i2]['eigv']
+                        # <qs1|ShDS|qs2>
+                        Faxby[i1,i2,jax,jby] = compute_matr_elements(ShDS, qs1, qs2)
+                if jby != jax:
+                    Faxby[:,:,jby,jax] = Faxby[:,:,jax,jby]
+        mpi.comm.Barrier()
+        # collect data
+        Faxby = mpi.collect_array(Faxby)
+        # convert THz / ang^2 -> eV / ang^2
+        Faxby = Faxby * 2. * np.pi * hbar
+        return Faxby
+    #
     #  compute secnd. order spin-phonon coupling
     #  and first order
     #  g_qqp = <s1|Hsp^(2)|s2>e_q(X) e_qp(Xp)^*
@@ -86,6 +127,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         # compute Hessian
         if self.hessian:
             Faxby = self.compute_hessian_term(interact_dict, Hsp)
+        exit()
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
@@ -107,6 +149,10 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
                 log.info("\t " + p.sep)
                 log.info("\t START ZFS HESSIAN CALCULATION")
             hessZFS = interact_dict['grad2ZFS']
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\t Hess DZFS - shape: " + str(hessZFS.grad2Dtensor.shape))
+                log.info("\t " + p.sep)
             Faxby = self.set_Faxby_zfs(hessZFS, Hsp)
             if mpi.rank == mpi.root:
                 log.info("\t END ZFS HESSIAN CALCULATION")
