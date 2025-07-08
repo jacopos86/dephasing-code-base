@@ -56,3 +56,14 @@ cmplx *EIQPR, cmplx *GQQP) {
         }
     }
 }
+
+/*
+    compute g_qqp with second order Raman term
+*/
+
+__global__ void compute_gqqp_2nd_Raman(int nat, int nl, int nst, int nmd, int *INIT_INDEX, int *SIZE_LIST, int *MODES_LIST,
+cmplx *FX, cmplx *FXY, cmplx *GQQP) {
+    /* internal variables */
+    const int i = threadIdx.x + blockDim.x * blockIdx.x;
+
+}
