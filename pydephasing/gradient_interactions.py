@@ -444,10 +444,15 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		# compute noise
 		self.compute_noise(displ_structs)
 		if mpi.rank == mpi.root:
+			log.info("\n")
+			log.info("\t " + p.sep)
+			log.info("\t Noise Matrix: ")
 			print_2D_matrix(self.Dns)
+			log.info("\t " + p.sep)
+			log.info("\n")
 		mpi.comm.Barrier()
 		# read restart file if available
-		file_name = "{}".format(p.work_dir + '/restart/grad2_Dtensor.yml')
+		file_name = "{}".format(p.work_dir + '/restart/hess_Dtensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			with open(file_name, 'r') as f:
@@ -714,9 +719,9 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 	#
 	# write grad_ax,by D to file
 	#
-	def write_grad2Dtensor_to_file(self, write_dir):
+	def write_hessDtensor_to_file(self, write_dir):
 		# write data on file
-		file_name = "grad2_Dtensor.yml"
+		file_name = "hess_Dtensor.yml"
 		file_name = "{}".format(write_dir + '/' + file_name)
 		fil = Path(file_name)
 		if not fil.exists():
