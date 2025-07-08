@@ -54,13 +54,12 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
         if p.hessian:
             # set 2nd order tensor
             grad2ZFS = generate_2nd_orderZFS_grad_instance(p.work_dir, p.grad_info)
-            grad2ZFS.set_gs_zfs_tensor()
             # set secon order grad
             grad2ZFS.compute_2nd_order_gradients(struct_list_2nd)
             mpi.comm.Barrier()
             # save data to restart
             if mpi.rank == mpi.root:
-                grad2ZFS.write_grad2Dtensor_to_file(p.work_dir+'/restart')
+                grad2ZFS.write_hessDtensor_to_file(p.work_dir+'/restart')
         mpi.comm.Barrier()
         # debug mode
         if mpi.rank == mpi.root:
