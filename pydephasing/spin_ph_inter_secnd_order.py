@@ -187,7 +187,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         # compute g_qqp
         for iq, iqp in qqp_list:
             file_name = 'G-iq-' + str(iq) + '-iqp-' + str(iqp) + '.npy'
-            file_path = p.work_dir + '/restart/' + file_name
+            file_path = p.write_dir + '/restart/' + file_name
             file_path = "{}".format(file_path)
             fil = Path(file_path)
             if not fil.exists():
@@ -255,7 +255,7 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         illp_list = np.array(list(product(range(ph.nmodes), range(ph.nmodes))))
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(illp_list)
         MODES_LIST = GPU_ARRAY(illp_list, np.int32)
-        print(illp_list[850])
+        #print(illp_list[850])
         # set e^iqR
         eiqr = np.zeros(atoms.supercell_size, dtype=np.complex128)
         eiqpr= np.zeros(atoms.supercell_size, dtype=np.complex128)
