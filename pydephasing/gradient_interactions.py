@@ -184,7 +184,7 @@ class gradient_ZFS(perturbation_ZFS):
 	# set ZFS gradients
 	#
 	def set_tensor_gradient(self, displ_structs):
-		file_name = "{}".format(p.work_dir + '/restart/grad_Dtensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/grad_Dtensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			with open(file_name, 'r') as f:
@@ -359,7 +359,7 @@ class gradient_ZFS(perturbation_ZFS):
 		#
 	# set grad D tensor
 	def set_UgradDU_tensor(self):
-		file_name = "{}".format(p.work_dir + '/restart/grad_Dtensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/grad_Dtensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			with open(file_name, 'r') as f:
@@ -452,7 +452,7 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 			log.info("\n")
 		mpi.comm.Barrier()
 		# read restart file if available
-		file_name = "{}".format(p.work_dir + '/restart/hess_Dtensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/hess_Dtensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			with open(file_name, 'r') as f:
@@ -1298,7 +1298,7 @@ class gradient_HFI(perturbation_HFI):
 	#
 	def set_tensor_gradient(self, displ_structs):
 		# check file exists
-		file_name = "{}".format(p.work_dir + '/restart/grad_Htensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/grad_Htensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			return
@@ -1356,7 +1356,7 @@ class gradient_HFI(perturbation_HFI):
 	# set grad Ahfi D diag basis set
 	def set_U_gradAhfi_U_tensor(self):
 		# check file exists
-		file_name = "{}".format(p.work_dir + '/restart/grad_Htensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/grad_Htensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			with open(file_name, 'r') as f:
