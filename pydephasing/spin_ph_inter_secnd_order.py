@@ -196,7 +196,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
                 else:
                     gqqp = self.compute_gqqp(nat, iq, iqp, qgr, ph, Hsp, Fax, Faxby)
                 # save data
-                np.savez(file_path, G=gqqp, illp=[])
+                np.savez(file_path, G=gqqp)
             else:
                 pass
 
@@ -220,7 +220,6 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
         gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
-        GQQP = GPU_ARRAY(gqqp, np.complex128)
         print(gqqp.shape)
         print("iq, iqp", mpi.rank, iq, iqp)
         # load file 
@@ -256,7 +255,6 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         illp_list = np.array(list(product(range(ph.nmodes), range(ph.nmodes))))
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(illp_list)
         MODES_LIST = GPU_ARRAY(illp_list, np.int32)
-        print(SIZE_LIST.cpu_array)
         print(illp_list[850])
         # set e^iqR
         eiqr = np.zeros(atoms.supercell_size, dtype=np.complex128)
@@ -288,14 +286,13 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
             compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
                 cuda.In(AQL.to_gpu()), cuda.In(AQPL.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(WQPL.to_gpu()), cuda.In(EIG.to_gpu()), 
                 cuda.In(FX.to_gpu()), cuda.In(EQ.to_gpu()), cuda.In(EQP.to_gpu()), cuda.In(EIQR.to_gpu()), cuda.In(EIQPR.to_gpu()), 
-                cuda.Out(GQQP.to_gpu()), block=gpu.block, grid=gpu.grid)
+                cuda.Out(gqqp), block=gpu.block, grid=gpu.grid)
         else:
             compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
                 cuda.In(AQL.to_gpu()), cuda.In(AQPL.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(WQPL.to_gpu()), cuda.In(EIG.to_gpu()), 
                 cuda.In(FX.to_gpu()), cuda.In(FXXp.to_gpu()), cuda.In(EQ.to_gpu()), cuda.In(EQP.to_gpu()), cuda.In(EIQR.to_gpu()), 
-                cuda.In(EIQPR.to_gpu()), cuda.Out(GQQP.to_gpu()), block=gpu.block, grid=gpu.grid)
-        print('OK')
-        return F_lq_lqp
+                cuda.In(EIQPR.to_gpu()), cuda.Out(gqqp), block=gpu.block, grid=gpu.grid)
+        return gqqp
     #
     # compute the Raman contribution to 
     # force matrix elements
