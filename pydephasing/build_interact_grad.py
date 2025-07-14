@@ -48,7 +48,7 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
         mpi.comm.Barrier()
         # save data to restart
         if mpi.rank == mpi.root:
-            gradZFS.write_gradDtensor_to_file(p.work_dir+'/restart')
+            gradZFS.write_gradDtensor_to_file(p.write_dir+'/restart')
         mpi.comm.Barrier()
         # zfs 2nd order
         if p.hessian:
@@ -59,7 +59,7 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
             mpi.comm.Barrier()
             # save data to restart
             if mpi.rank == mpi.root:
-                grad2ZFS.write_hessDtensor_to_file(p.work_dir+'/restart')
+                grad2ZFS.write_hessDtensor_to_file(p.write_dir+'/restart')
         mpi.comm.Barrier()
         # debug mode
         if mpi.rank == mpi.root:
@@ -85,7 +85,7 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
         mpi.comm.Barrier()
         # save data to restart
         if mpi.rank == mpi.root:
-            gradHFI.write_gradHtensor_to_file(p.work_dir+'/restart')
+            gradHFI.write_gradHtensor_to_file(p.write_dir+'/restart')
         mpi.comm.Barrier()
         # hfi 2nd order
         if p.hessian:
