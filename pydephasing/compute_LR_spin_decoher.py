@@ -30,9 +30,9 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # compute index maps
     atoms.set_atoms_data()
     # check restart exist otherwise create
-    if not os.path.isdir(p.work_dir+'/restart'):
+    if not os.path.isdir(p.write_dir+'/restart'):
         if mpi.rank == mpi.root:
-            os.mkdir(p.work_dir+'/restart')
+            os.mkdir(p.write_dir+'/restart')
     mpi.comm.Barrier()
     # extract interaction gradients
     interact_dict = calc_interaction_grad(ZFS_CALC, HFI_CALC)
