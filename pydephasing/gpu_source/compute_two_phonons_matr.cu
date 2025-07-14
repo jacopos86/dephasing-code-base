@@ -18,7 +18,7 @@ cmplx *EIQPR, cmplx *GQQP) {
     const int sx = SIZE_LIST[idx];
     const int i0x = INIT_INDEX[idx];
     /* cycle over modes pairs */
-    for (int ix=i0x; ix<i0x+sx; ix++) {
+    for (int ix=i0x; ix<i0x+1; ix++) {
         /* modes pair indexes */
         int IL = MODES_LIST[2*ix];
         int ILP = MODES_LIST[2*ix+1];
@@ -43,8 +43,11 @@ cmplx *EIQPR, cmplx *GQQP) {
                                     int INX = jax+ap*3*nat+b*nst*3*nat;
                                     int INXP = jby+b*3*nat+a*nst*3*nat;
                                     F += FX[INXP] * FX[INX] * (1/(-WQPL[ILP]-EIG[b]+EIG[a]) + 1/(-WQL[IL]-EIG[b]+EIG[ap]));
+                                    INX = jax+b*3*nat+a*nst*3*nat;
+                                    INXP = jby+ap*3*nat+b*nst*3*nat;
+                                    F += FX[INX] * FX[INXP] * (1/(WQL[IL]-EIG[b]+EIG[a]) + 1/(WQPL[ILP]-EIG[b]+EIG[ap]));
                                 }
-                                GQQP[INDG] += AQL[IL] * eq_1 * EIQR[n1] * F * EIQPR[n2] * eq_2 * AQPL[ILP];
+                                GQQP[INDG] += 0.5 * AQL[IL] * eq_1 * EIQR[n1] * F * EIQPR[n2] * eq_2 * AQPL[ILP];
                             }
                         }
                     }
@@ -92,10 +95,12 @@ cmplx *EIQPR, cmplx *GQQP) {
                                 for (int b=0; b<nst; b++) {
                                     int INX = jax+ap*3*nat+b*nst*3*nat;
                                     int INXP = jby+b*3*nat+a*nst*3*nat;
-                                    F += FX[INXP] * FX[INX] * (1/(-WQPL[ILP]-EIG[b]+EIG[a]));
-                                }
-                                
-                                GQQP[INDG] += AQL[IL] * eq_1 * EIQR[n1] * F * EIQPR[n2] * eq_2 * AQPL[ILP];
+                                    F += FX[INXP] * FX[INX] * (1/(-WQPL[ILP]-EIG[b]+EIG[a]) + 1/(-WQL[IL]-EIG[b]+EIG[ap]));
+                                    INX = jax+b*3*nat+a*nst*3*nat;
+                                    INXP = jby+ap*3*nat+b*nst*3*nat;
+                                    F += FX[INX] * FX[INXP] * (1/(WQL[IL]-EIG[b]+EIG[a]) + 1/(WQPL[ILP]-EIG[b]+EIG[ap]));
+                                }            
+                                GQQP[INDG] += 0.5 * AQL[IL] * eq_1 * EIQR[n1] * F * EIQPR[n2] * eq_2 * AQPL[ILP];
                             }
                         }
                     }
