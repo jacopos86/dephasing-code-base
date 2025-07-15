@@ -18,7 +18,7 @@ cmplx *EIQPR, cmplx *GQQP) {
     const int sx = SIZE_LIST[idx];
     const int i0x = INIT_INDEX[idx];
     /* cycle over modes pairs */
-    for (int ix=i0x; ix<i0x+1; ix++) {
+    for (int ix=i0x; ix<i0x+sx; ix++) {
         /* modes pair indexes */
         int IL = MODES_LIST[2*ix];
         int ILP = MODES_LIST[2*ix+1];
@@ -99,7 +99,9 @@ cmplx *EIQPR, cmplx *GQQP) {
                                     INX = jax+b*3*nat+a*nst*3*nat;
                                     INXP = jby+ap*3*nat+b*nst*3*nat;
                                     F += FX[INX] * FX[INXP] * (1/(WQL[IL]-EIG[b]+EIG[a]) + 1/(WQPL[ILP]-EIG[b]+EIG[ap]));
-                                }            
+                                }
+                                int INXXP = jby+jax*3*nat+ap*9*nat*nat+a*nst*9*nat*nat;
+                                F += FXY[INXXP];
                                 GQQP[INDG] += 0.5 * AQL[IL] * eq_1 * EIQR[n1] * F * EIQPR[n2] * eq_2 * AQPL[ILP];
                             }
                         }
