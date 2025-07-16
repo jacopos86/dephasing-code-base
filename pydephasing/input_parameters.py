@@ -459,6 +459,21 @@ class real_time_input(dynamical_data_input):
         if 'dynamics' in data:
             for i in data['dynamics']:
                 self.dynamical_mode.append(i)
+    #
+    # check parameters consistency
+    def check_consistency(self):
+        # dynamical mode
+        assert(len(self.dynamical_mode) == 2)
+        if self.order_2_correct:
+            if self.dynamical_mode[1] == 0:
+                log.warning("\t inconsistent choice of dynamical_mode and order_2_correct: \n")
+                log.warning("\t set order_2_correct to False for consistency")
+                self.order_2_correct = False
+        if self.dynamical_mode[1] > 0:
+            if self.order_2_correct == False:
+                log.warning("\t inconsistent choice of dynamical_mode and order_2_correct: \n")
+                log.warning("\t set order_2_correct to True for consistency")
+                self.order_2_correct = True
                 
 class static_data_input(data_input):
     # initialization
