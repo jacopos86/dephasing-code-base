@@ -186,7 +186,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         qqp_list = mpi.split_list(qqp_list)
         # compute g_qqp
         for iq, iqp in qqp_list:
-            file_name = 'G-iq-' + str(iq) + '-iqp-' + str(iqp) + '.npy'
+            file_name = 'G-iq-' + str(iq) + '-iqp-' + str(iqp) + '.npz'
             file_path = p.write_dir + '/restart/' + file_name
             file_path = "{}".format(file_path)
             fil = Path(file_path)
@@ -199,6 +199,16 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
                 np.savez(file_path, G=gqqp)
             else:
                 pass
+            log.info("\t " + p.sep)
+            log.info("\t iq " + str(iq) + " - iqp " + str(iqp) + " -> calculation complete")
+            log.info("\t " + p.sep)
+        mpi.comm.Barrier()
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t CALCULATION OF GQQP COMPLETE")
+            log.info("\t " + p.sep)
+            log.info("\n")
 
 # --------------------------------------------------------
 #       GPU class
