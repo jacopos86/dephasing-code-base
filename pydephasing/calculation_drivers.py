@@ -188,6 +188,7 @@ def spin_qubit_driver(yml_file):
             log.info("\t " + p.sep)
         # read input file
         p.read_yml_data(yml_file)
+        p.check_consistency()
         # compute dephas
         if calc_type2 == "homo":
             if mpi.rank == mpi.root:
