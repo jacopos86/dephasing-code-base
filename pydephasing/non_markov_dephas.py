@@ -5,6 +5,7 @@
 # -> if 2nd order correction add lindblad for two-phonons term
 # if evolve coherently the additional terms
 import os
+import numpy as np
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
@@ -18,6 +19,8 @@ from pydephasing.nuclear_spin_config import nuclear_spins_config
 from pydephasing.spin_hamiltonian import set_spin_hamiltonian
 from pydephasing.set_real_time_solver import set_real_time_solver
 from pydephasing.magnetic_field import magnetic_field
+from pydephasing.phonons_module import PhononsClass
+from pydephasing.spin_ph_handler import spin_ph_handler
 #
 def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # main driver of the calculation non markovian
@@ -55,6 +58,11 @@ def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         nuclear_config.set_nuclear_spins(nat, config_index)
     # set up the spin Hamiltonian
     Hsp = set_spin_hamiltonian(struct_0, p.B0, nuclear_config)
+    # set up spin phonon interaction
+    sp_ph_inter = spin_ph_handler(p.order_2_correct, ZFS_CALC, HFI_CALC, p.hessian)
+    if mpi.rank == mpi.root:
+        log.debug("\t ZFS_CALC: " + str(sp_ph_inter.ZFS_CALC))
+        log.debug("\t HFI_CALC: " + str(sp_ph_inter.HFI_CALC))
     # spin density matrix
     rho = spin_dmatr()
     rho.initialize(p.psi0)
@@ -80,10 +88,27 @@ def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\t " + p.sep)
         log.info("\n")
     mpi.comm.Barrier()
+    # extract phonon data
+    ph = PhononsClass()
+    ph.set_ph_data(qgr)
+    # compute spin phonon matrix
+    if mpi.rank == mpi.root:
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t START SPIN-PHONON COUPLING CALCULATION")
+    sp_ph_inter.compute_spin_ph_coupl(nat, Hsp, ph, qgr, interact_dict, nuclear_config)
+    if mpi.rank == mpi.root:
+        log.info("\n")
+        log.info("\t END SPIN-PHONON COUPLING CALCULATION")
+        log.info("\t " + p.sep)
+    print('g_ql', np.max(sp_ph_inter.g_ql.real))
     # set real time solver (time in ps)
     Bfield = magnetic_field(p.Bt)
     solver = set_real_time_solver(HFI_CALC)
-    solver.evolve(p.dt, p.T, rho, Hsp, Bfield)
+    if np.sum(p.dynamical_mode) == 0:
+        solver.evolve(p.dt, p.T, rho, Hsp, Bfield)
+    else:
+        solver.evolve(p.dt, p.T, rho, Hsp, Bfield, ph, sp_ph_inter)
     exit()
     # spin phonon
     # density matrix
