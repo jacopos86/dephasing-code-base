@@ -107,7 +107,7 @@ def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     if np.sum(p.dynamical_mode) == 0:
         solver.evolve(p.dt, p.T, rho, Hsp, Bfield)
     else:
-        solver.evolve(p.dt, p.T, rho, Hsp, Bfield, ph, sp_ph_inter)
+        solver.evolve(p.dt, p.T, rho, Hsp, Bfield, ph, sp_ph_inter, qgr)
     exit()
     # spin phonon
     # density matrix
