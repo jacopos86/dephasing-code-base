@@ -131,6 +131,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
+        self.ql_list = ql_list
         nan_indices = np.isnan(self.g_ql)
         assert nan_indices.any() == False
         print("max Fx", np.max(Fax.real))
@@ -199,9 +200,9 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
                 np.savez(file_path, G=gqqp)
             else:
                 pass
-            log.info("\t " + p.sep)
-            log.info("\t iq " + str(iq) + " - iqp " + str(iqp) + " -> calculation complete")
-            log.info("\t " + p.sep)
+            log.debug("\t " + p.sep)
+            log.debug("\t iq " + str(iq) + " - iqp " + str(iqp) + " -> calculation complete")
+            log.debug("\t " + p.sep)
         mpi.comm.Barrier()
         if mpi.rank == mpi.root:
             log.info("\n")
@@ -209,6 +210,14 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
             log.info("\t CALCULATION OF GQQP COMPLETE")
             log.info("\t " + p.sep)
             log.info("\n")
+    #
+    # read gqqp from file
+    def read_gqqp_from_file(self, file_path):
+        npz_file = np.load(file_path)
+        if 'G' not in npz_file:
+            log.error("'G' NOT FOUND IN: " + npz_file)
+        gqqp = npz_file['G']
+        return gqqp
 
 # --------------------------------------------------------
 #       GPU class
