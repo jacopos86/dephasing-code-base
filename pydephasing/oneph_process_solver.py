@@ -65,6 +65,8 @@ class OnephSolver(RealTimeSolver):
         ilq_list = np.array(list(product(range(ph.nmodes), range(qgr.nq))))
         assert(len(ilq_list) == qgr.nq*ph.nmodes)
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(ilq_list)
+        exit()
+        MODES_LIST = GPU_ARRAY(ilq_list, np.int32)
         # eigenvalues array
         eig = np.zeros(n)
         for a in range(n):
@@ -72,9 +74,9 @@ class OnephSolver(RealTimeSolver):
         EIG = GPU_ARRAY(eig, np.double)
         # phonon energies
         WQL = GPU_ARRAY(np.array(ph.uql) * THz_to_ev, np.double)
-        
         # load file
         gpu_src = Path(CUDA_SOURCE_DIR+'compute_scatter_operator.cu').read_text()
         gpu_mod = SourceModule(gpu_src)
         compute_P_eph = gpu_mod.get_function("compute_P1_eph")
-        compute_P_eph(NM, NST, cuda.Out(P_eph), block=gpu.block, grid=gpu.grid)
+        compute_P_eph(NM, NST, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
+                      cuda.Out(P_eph), block=gpu.block, grid=gpu.grid)
