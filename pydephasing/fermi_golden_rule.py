@@ -1,4 +1,5 @@
 import numpy as np
+import random
 from abc import ABC
 from pathlib import Path
 from pydephasing.mpi import mpi
@@ -83,12 +84,13 @@ class GeneralizedFermiGoldenRuleBase(ABC):
         inv_T1 = self.compute_T1_oneph(ql_list, wq, gq, eig, wql, T, p.eta)
     # compute relax time
     # two phonons
-    def compute_relax_time_two_ph(self, H, inter_model, ph, qgr, T):
+    def compute_relax_time_two_ph(self, nat, H, inter_model, interact_dict, ph, qgr, T):
         n = len(H.basis_vectors)
         # read gqqp for (q,qp) pair
         qqp_list = qgr.build_irred_qqp_pairs()
         # parallelize over (q,q')
         qqp_list = mpi.split_list(qqp_list)
+        Fax, Faxby = inter_model.compute_forces(nat, H, interact_dict)
         for iq, iqp in qqp_list:
             file_name = 'G-iq-' + str(iq) + '-iqp-' + str(iqp) + '.npz'
             file_path = p.write_dir + '/restart/' + file_name
@@ -101,9 +103,19 @@ class GeneralizedFermiGoldenRuleBase(ABC):
                 gqqp = inter_model.read_gqqp_from_file(file_path)
             assert(gqqp.shape[0] == gqqp.shape[1] == n)
             assert(gqqp.shape[2] == gqqp.shape[3] == ph.nmodes)
-            print(mpi.rank, np.max(gqqp.real), np.min(gqqp.real), np.mean(gqqp.real), iq, iqp)
-            for i in range(ph.nmodes):
-                print(gqqp[0,0,i,100])
+            for i in range(1):
+                il1 = random.randint(0, ph.nmodes-1)
+                il2 = random.randint(0, ph.nmodes-1)
+                #il1=112
+                #il2=188
+                # compute single gqqp coeff.
+                g12 = inter_model.compute_gqqp_l12(nat, iq, iqp, il1, il2, qgr, ph, H, Fax, Faxby)
+                #assert(np.allclose(g12, gqqp[:,:,il1,il2]))
+                for k1 in range(n):
+                    for k2 in range(n):
+                        print(g12[k1,k2], gqqp[k1,k2,il1,il2])
+                print(i, iq, iqp, il1, il2, g12)
+                print(iq, iqp, np.max(gqqp.real), np.max(gqqp.imag))
             exit()
         exit()
     # compute T2 times
