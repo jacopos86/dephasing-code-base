@@ -111,7 +111,11 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\t END SPIN-PHONON COUPLING CALCULATION")
         log.info("\t " + p.sep)
     print('g_ql', np.max(sp_ph_inter.g_ql.real))
-    FGR.compute_relax_time_one_ph(Hsp, sp_ph_inter, ph, qgr, p.temperatures)
+    #
+    if p.order_2_correct:
+        FGR.compute_relax_time_two_ph(Hsp, sp_ph_inter, ph, qgr, p.temperatures)
+    else:
+        FGR.compute_relax_time_one_ph(Hsp, sp_ph_inter, ph, qgr, p.temperatures)
     exit()
     #
     # compute ZFS fluctuations
@@ -127,13 +131,6 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\t ENERGY FLUCTUATIONS CALC. CONCLUDED")
         log.info("\t " + p.sep)
     #
-    # if w_resolved define freq. grid
-    if p.w_resolved:
-        p.set_w_grid(wu)
-    Fax = sp_ph_inter.Fzfs_ax
-    print(max(Fax))
-    import sys
-    sys.exit()
     # 2nd order calculation
     if p.order_2_correct:
         # F_axby = <1|S Grad_ax,by D S|1> - <0|S Grad_ax,by D S|0>
