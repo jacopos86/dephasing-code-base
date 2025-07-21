@@ -63,6 +63,7 @@ class GeneralizedFermiGoldenRuleBase(ABC):
         print(ql_list.shape)
         print(gq.shape)
         print(T)
+        exit()
         # energy eigenvalues
         n = len(H.basis_vectors)
         eig = np.zeros(n)
@@ -80,6 +81,31 @@ class GeneralizedFermiGoldenRuleBase(ABC):
             wq[iql] = qgr.wq[iq]
         # T1 times
         inv_T1 = self.compute_T1_oneph(ql_list, wq, gq, eig, wql, T, p.eta)
+    # compute relax time
+    # two phonons
+    def compute_relax_time_two_ph(self, H, inter_model, ph, qgr, T):
+        n = len(H.basis_vectors)
+        # read gqqp for (q,qp) pair
+        qqp_list = qgr.build_irred_qqp_pairs()
+        # parallelize over (q,q')
+        qqp_list = mpi.split_list(qqp_list)
+        for iq, iqp in qqp_list:
+            file_name = 'G-iq-' + str(iq) + '-iqp-' + str(iqp) + '.npz'
+            file_path = p.write_dir + '/restart/' + file_name
+            file_path = "{}".format(file_path)
+            fil = Path(file_path)
+            if not fil.exists():
+                log.error("file : " + file_path + " NOT FOUND")
+                exit(1)
+            else:
+                gqqp = inter_model.read_gqqp_from_file(file_path)
+            assert(gqqp.shape[0] == gqqp.shape[1] == n)
+            assert(gqqp.shape[2] == gqqp.shape[3] == ph.nmodes)
+            print(mpi.rank, np.max(gqqp.real), np.min(gqqp.real), np.mean(gqqp.real), iq, iqp)
+            for i in range(ph.nmodes):
+                print(gqqp[0,0,i,100])
+            exit()
+        exit()
     # compute T2 times
     def compute_decoher_times_one_ph(self, H, inter_model, ph):
         # quantum states
