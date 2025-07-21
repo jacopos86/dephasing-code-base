@@ -107,6 +107,24 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         Faxby = Faxby * 2. * np.pi * hbar
         return Faxby
     #
+    #  compute forces
+    def compute_forces(self, nat, Hsp, interact_dict, sp_config=None):
+        n = len(Hsp.basis_vectors)
+        Fax = np.zeros((n,n,3*nat), dtype=np.complex128)
+        Faxby = None
+        # ZFS calc.
+        if self.ZFS_CALC:
+            gradZFS = interact_dict['gradZFS']
+            Fax += self.set_gaxD_force(gradZFS, Hsp)
+        # HFI calc
+        if self.HFI_CALC:
+            gradHFI = interact_dict['gradHFI']
+            Fax += self.set_Fax_hfi(gradHFI, Hsp, sp_config)
+        # compute Hessian
+        if self.hessian:
+            Faxby = self.compute_hessian_term(interact_dict, Hsp)
+        return Fax, Faxby
+    #
     #  compute secnd. order spin-phonon coupling
     #  and first order
     #  g_qqp = <s1|Hsp^(2)|s2>e_q(X) e_qp(Xp)^*
@@ -168,6 +186,55 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
                 log.info("\t " + p.sep)
         return Faxby
     #
+    # compute single gqqp coefficient
+    #
+    def compute_gqqp_l12(self, nat, iq, iqp, il1, il2, qgr, ph, H, Fx, Fxy):
+        n = len(H.basis_vectors)
+        g12 = np.zeros((n,n), dtype=np.complex128)
+        # modes
+        ql_list = [(iq, il1)]
+        Aq1 = ph.compute_ph_amplitude_q(nat, ql_list)
+        ql_list = [(iqp, il2)]
+        Aq2 = ph.compute_ph_amplitude_q(nat, ql_list)
+        # phase
+        eiq1r = np.zeros(atoms.supercell_size, dtype=np.complex128)
+        eiq2r = np.zeros(atoms.supercell_size, dtype=np.complex128)
+        qv = qgr.qpts[iq]
+        qpv = qgr.qpts[iqp]
+        for iL in range(atoms.supercell_size):
+            Rn = atoms.supercell_grid[iL]
+            eiq1r[iL] = cmath.exp(1j*2.*np.pi*np.dot(qv,Rn))
+            eiq2r[iL] = cmath.exp(1j*2.*np.pi*np.dot(qpv,Rn))
+        # eig
+        eig = np.zeros(n)
+        for a in range(n):
+            eig[a] = H.qs[a]['eig']
+        # ph. vectors -> eq
+        wq1 = ph.uql[iq][il1]*THz_to_ev
+        wq2 = ph.uql[iqp][il2]*THz_to_ev
+        eq1 = ph.eql[iq]
+        eq2 = ph.eql[iqp]
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax]
+            m_ia = atoms.atoms_mass[ia]
+            eq1[jax,:] = eq1[jax,:] / np.sqrt(m_ia)
+            eq2[jax,:] = eq2[jax,:] / np.sqrt(m_ia)
+            # ang/eV^1/2 ps^-1
+        # run over states
+        for a in range(n):
+            for ap in range(n):
+                for jax in range(3*nat):
+                    for jby in range(3*nat):
+                        for n1 in range(atoms.supercell_size):
+                            for n2 in range(atoms.supercell_size):
+                                F = 0.
+                                for b in range(n):
+                                    F += Fx[a,b,jby] * Fx[b,ap,jax] * (1./(-wq2-eig[b]+eig[a]) + 1./(-wq1-eig[b]+eig[ap]))
+                                    F += Fx[a,b,jax] * Fx[b,ap,jby] * (1./(wq1-eig[b]+eig[a]) + 1./(wq2-eig[b]+eig[ap]))
+                                if Fxy is not None:
+                                    F += Fxy[a,ap,jax,jby]
+                                g12[a,ap] += 0.5 * Aq1 * eq1[jax,il1] * eiq1r[n1] * F * eiq2r[n2] * eq2[jby,il2] * Aq2
+        return g12
     #
     # compute g_{ab}(q,qp)
     # = \sum_{nn';ss'} Aq e^{iq Rn}e_q(s) <a|H^(2)|b> Aqp e^{iqp Rn'}e_qp(s')
