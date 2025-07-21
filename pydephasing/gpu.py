@@ -59,7 +59,12 @@ class GPU_obj:
             rest -= 1
             i += 1
         assert sum(lengths) == len(list_data)
-        init_index = np.zeros(self.gpu_size, dtype=int)
+        ARR_SIZE = min(len(list_data), self.gpu_size)
+        init_index = np.zeros(ARR_SIZE, dtype=int)
+        size_list = np.zeros(ARR_SIZE, dtype=int)
+        size_list[:] = lengths[:ARR_SIZE]
+        print(size_list)
+        exit()
         for i in range(1, self.gpu_size):
             init_index[i] = init_index[i-1] + lengths[i-1]
         return GPU_ARRAY(init_index, np.int32), GPU_ARRAY(lengths, np.int32)
