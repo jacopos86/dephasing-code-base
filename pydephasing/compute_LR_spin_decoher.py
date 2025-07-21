@@ -113,7 +113,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     print('g_ql', np.max(sp_ph_inter.g_ql.real))
     #
     if p.order_2_correct:
-        FGR.compute_relax_time_two_ph(Hsp, sp_ph_inter, ph, qgr, p.temperatures)
+        FGR.compute_relax_time_two_ph(nat, Hsp, sp_ph_inter, interact_dict, ph, qgr, p.temperatures)
     else:
         FGR.compute_relax_time_one_ph(Hsp, sp_ph_inter, ph, qgr, p.temperatures)
     exit()
@@ -130,21 +130,6 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\n")
         log.info("\t ENERGY FLUCTUATIONS CALC. CONCLUDED")
         log.info("\t " + p.sep)
-    #
-    # 2nd order calculation
-    if p.order_2_correct:
-        # F_axby = <1|S Grad_ax,by D S|1> - <0|S Grad_ax,by D S|0>
-        # F should be in eV/ang^2 units
-        # TODO : uncomment here 
-        #'''
-        sp_ph_inter.set_Faxby_zfs(grad2ZFS, Hsp)
-        Faxby = sp_ph_inter.Fzfs_axby
-        print(np.max(Faxby))
-        #'''
-        Faxby = np.zeros((3*nat, 3*nat), dtype=np.complex128)
-        # eV / ang^2
-    else:
-        Faxby = None
     # set q pts. grid
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)
