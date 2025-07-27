@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import pytest
 from abc import ABC
 from pathlib import Path
 from pydephasing.mpi import mpi
@@ -110,10 +111,9 @@ class GeneralizedFermiGoldenRuleBase(ABC):
                 #il2=188
                 # compute single gqqp coeff.
                 g12 = inter_model.compute_gqqp_l12(nat, iq, iqp, il1, il2, qgr, ph, H, Fax, Faxby)
-                #assert(np.allclose(g12, gqqp[:,:,il1,il2]))
                 for k1 in range(n):
                     for k2 in range(n):
-                        print(g12[k1,k2], gqqp[k1,k2,il1,il2])
+                        assert(g12[k1,k2] == pytest.approx(gqqp[k1,k2,il1,il2]))
                 print(i, iq, iqp, il1, il2, g12)
                 print(iq, iqp, np.max(gqqp.real), np.max(gqqp.imag))
             exit()
