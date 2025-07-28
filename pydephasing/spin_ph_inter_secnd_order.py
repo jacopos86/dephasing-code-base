@@ -186,7 +186,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
                 log.info("\t " + p.sep)
         return Faxby
     #
-    # compute single gqqp coefficient
+    # compute single gqqp coefficient -> this is needed for comparison
     #
     def compute_gqqp_l12(self, nat, iq, iqp, il1, il2, qgr, ph, H, Fx, Fxy):
         n = len(H.basis_vectors)
