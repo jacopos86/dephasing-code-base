@@ -104,18 +104,16 @@ class GeneralizedFermiGoldenRuleBase(ABC):
                 gqqp = inter_model.read_gqqp_from_file(file_path)
             assert(gqqp.shape[0] == gqqp.shape[1] == n)
             assert(gqqp.shape[2] == gqqp.shape[3] == ph.nmodes)
-            for i in range(1):
+            for i in range(2):
                 il1 = random.randint(0, ph.nmodes-1)
                 il2 = random.randint(0, ph.nmodes-1)
-                #il1=112
-                #il2=188
                 # compute single gqqp coeff.
                 g12 = inter_model.compute_gqqp_l12(nat, iq, iqp, il1, il2, qgr, ph, H, Fax, Faxby)
+                print(mpi.rank, i, iq, iqp, il1, il2)
                 for k1 in range(n):
                     for k2 in range(n):
                         assert(g12[k1,k2] == pytest.approx(gqqp[k1,k2,il1,il2]))
-                print(i, iq, iqp, il1, il2, g12)
-                print(iq, iqp, np.max(gqqp.real), np.max(gqqp.imag))
+                #print(iq, iqp, np.max(gqqp.real), np.max(gqqp.imag))
             exit()
         exit()
     # compute T2 times
