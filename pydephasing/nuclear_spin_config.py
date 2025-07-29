@@ -8,12 +8,12 @@
 import numpy as np
 from scipy import integrate
 import yaml
-from pydephasing.utility_functions import set_cross_prod_matrix, norm_realv, ODE_solver
-from pydephasing.phys_constants import gamma_n
+from common.phys_constants import gamma_n
 from pydephasing.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
 import matplotlib.pyplot as plt
+from common.matrix_operations import norm_realv
 import random
 import logging
 #
@@ -39,8 +39,6 @@ class nuclear_spins_config():
 		m = max(np.abs(np.min(th)), np.max(th))
 		th[:] = th[:] * np.pi / m
 		if log.level <= logging.DEBUG:
-			#count, bins, ignored = plt.hist(th, 30, density=True)
-			#plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ), linewidth=2, color='r')
 			plt.hist(th, 30, density=True)
 			plt.ylabel("theta distrib.")
 			plt.show()
@@ -65,6 +63,9 @@ class nuclear_spins_config():
 			Iv[1,isp] = sth * sphi
 			Iv[2,isp] = cth
 		return Iv
+	# set nuclear spins Hamiltonian
+	def set_nuclear_spins_hamilt(self):
+		pass
 	# set electron spin magnetization vector
 	def set_electron_magnet_vector(self, Hss):
 		Mt = Hss.Mt
@@ -104,7 +105,7 @@ class nuclear_spins_config():
 			isp += 1
 		# set atom's site
 		random.seed(ic)
-		sites = random.sample(range(1, nat+1), self.nsp)
+		sites = random.sample(range(0, nat), self.nsp)
 		if mpi.rank == mpi.root:
 			log.info("\t nuclear spin sites : " + str(sites))
 		# define dictionary
