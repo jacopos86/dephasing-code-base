@@ -59,5 +59,4 @@ clean :
 	fi ;
 test :
 	. $(VENV)/bin/activate ; \
-	export TESTS=$(ROOT)/$(TESTS_DIR) ; \
-	$(PYTHON) -m unittest -v $(UNIT_TEST_DIR)/unit_test1.py
+	pytest
