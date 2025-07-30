@@ -70,7 +70,6 @@ class data_input(ABC):
             self.work_dir = data['working_dir']
         if 'output_dir' in data:
             self.write_dir = data['output_dir']
-            self.write_dir = self.work_dir + '/' + self.write_dir
             # create output directory
             if mpi.rank == mpi.root:
                 isExist = os.path.isdir(self.write_dir)

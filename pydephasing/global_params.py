@@ -2,6 +2,7 @@ import yaml
 import site
 #
 MPI_ROOT = 0
+ngpus = 0
 # find code directory
 site_packages = site.getsitepackages()[0].strip().split('/')
 i=0

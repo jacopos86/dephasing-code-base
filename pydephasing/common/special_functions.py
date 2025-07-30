@@ -1,4 +1,5 @@
 import numpy as np
+from math import exp
 
 #
 # special functions module

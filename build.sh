@@ -134,7 +134,7 @@ EOF
 
 	cat > inputA.yml <<EOF
 working_dir : ${wdT2}
-output_dir : T2-SP-DEPHC_A
+output_dir : ${wdT2}/T2-SP-DEPHC_A
 displ_poscar_dir :
    - DISPLACEMENT-FILES-01
    - DISPLACEMENT-FILES-0001
@@ -170,7 +170,7 @@ EOF
 
 	cat > inputB.yml <<EOF
 working_dir : ${wdT2}
-output_dir : T2-SP-DEPHC_B
+output_dir : ${wdT2}/T2-SP-DEPHC_B
 displ_poscar_dir :
    - DISPLACEMENT-FILES-01
    - DISPLACEMENT-FILES-0001
@@ -212,7 +212,7 @@ EOF
 
 	cat > inputC.yml <<EOF
 working_dir : ${wdT2}
-output_dir : T2-SP-DEPHC_C
+output_dir : ${wdT2}/T2-SP-DEPHC_C
 displ_poscar_dir :
    - DISPLACEMENT-FILES-01
    - DISPLACEMENT-FILES-0001

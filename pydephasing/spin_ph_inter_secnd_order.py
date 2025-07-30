@@ -4,7 +4,7 @@ import collections
 from itertools import product
 from common.phys_constants import hbar, mp, THz_to_ev
 from common.matrix_operations import compute_matr_elements
-from common.GPU_arrays_handler import GPU_ARRAY
+from pydephasing.GPU_arrays_handler import GPU_ARRAY
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
 from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
@@ -66,6 +66,65 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         self.Fhf_axby = mpi.collect_array(Faxby) * 2.*np.pi * hbar
         # eV / ang^2
     #
+    # set ZFS 2nd order gradient force
+    def set_Faxby_zfs(self, hessZFS, Hsp):
+        n = len(Hsp.basis_vectors)
+        nat = hessZFS.struct_0.nat
+        # hessian force
+        Faxby = np.zeros((n, n, 3*nat, 3*nat), dtype=np.complex128)
+        # jax list
+        jax_list = mpi.split_list(range(3*nat))
+        # run over jax index
+        for jax in jax_list:
+            for jby in range(jax, 3*nat):
+                ShDS = np.zeros((n,n), dtype=np.complex128)
+                hD = np.zeros((3,3))
+                hD[:,:] = hessZFS.U_grad2D_U[jax,jby,:,:]
+                # THz / ang^2
+                ShDS = hD[0,0] * np.matmul(Hsp.Sx, Hsp.Sx)
+                ShDS+= hD[0,1] * np.matmul(Hsp.Sx, Hsp.Sy)
+                ShDS+= hD[1,0] * np.matmul(Hsp.Sy, Hsp.Sx)
+                ShDS+= hD[1,1] * np.matmul(Hsp.Sy, Hsp.Sy)
+                ShDS+= hD[0,2] * np.matmul(Hsp.Sx, Hsp.Sz)
+                ShDS+= hD[2,0] * np.matmul(Hsp.Sz, Hsp.Sx)
+                ShDS+= hD[1,2] * np.matmul(Hsp.Sy, Hsp.Sz)
+                ShDS+= hD[2,1] * np.matmul(Hsp.Sz, Hsp.Sy)
+                ShDS+= hD[2,2] * np.matmul(Hsp.Sz, Hsp.Sz)
+                # matrix elements in the basis
+                # of unpert. Hamiltonian
+                for i1 in range(len(Hsp.qs)):
+                    qs1 = Hsp.qs[i1]['eigv']
+                    for i2 in range(len(Hsp.qs)):
+                        qs2 = Hsp.qs[i2]['eigv']
+                        # <qs1|ShDS|qs2>
+                        Faxby[i1,i2,jax,jby] = compute_matr_elements(ShDS, qs1, qs2)
+                if jby != jax:
+                    Faxby[:,:,jby,jax] = Faxby[:,:,jax,jby]
+        mpi.comm.Barrier()
+        # collect data
+        Faxby = mpi.collect_array(Faxby)
+        # convert THz / ang^2 -> eV / ang^2
+        Faxby = Faxby * 2. * np.pi * hbar
+        return Faxby
+    #
+    #  compute forces
+    def compute_forces(self, nat, Hsp, interact_dict, sp_config=None):
+        n = len(Hsp.basis_vectors)
+        Fax = np.zeros((n,n,3*nat), dtype=np.complex128)
+        Faxby = None
+        # ZFS calc.
+        if self.ZFS_CALC:
+            gradZFS = interact_dict['gradZFS']
+            Fax += self.set_gaxD_force(gradZFS, Hsp)
+        # HFI calc
+        if self.HFI_CALC:
+            gradHFI = interact_dict['gradHFI']
+            Fax += self.set_Fax_hfi(gradHFI, Hsp, sp_config)
+        # compute Hessian
+        if self.hessian:
+            Faxby = self.compute_hessian_term(interact_dict, Hsp)
+        return Fax, Faxby
+    #
     #  compute secnd. order spin-phonon coupling
     #  and first order
     #  g_qqp = <s1|Hsp^(2)|s2>e_q(X) e_qp(Xp)^*
@@ -90,6 +149,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
+        self.ql_list = ql_list
         nan_indices = np.isnan(self.g_ql)
         assert nan_indices.any() == False
         print("max Fx", np.max(Fax.real))
@@ -107,6 +167,10 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
                 log.info("\t " + p.sep)
                 log.info("\t START ZFS HESSIAN CALCULATION")
             hessZFS = interact_dict['grad2ZFS']
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\t Hess DZFS - shape: " + str(hessZFS.grad2Dtensor.shape))
+                log.info("\t " + p.sep)
             Faxby = self.set_Faxby_zfs(hessZFS, Hsp)
             if mpi.rank == mpi.root:
                 log.info("\t END ZFS HESSIAN CALCULATION")
@@ -122,6 +186,55 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
                 log.info("\t " + p.sep)
         return Faxby
     #
+    # compute single gqqp coefficient -> this is needed for comparison
+    #
+    def compute_gqqp_l12(self, nat, iq, iqp, il1, il2, qgr, ph, H, Fx, Fxy):
+        n = len(H.basis_vectors)
+        g12 = np.zeros((n,n), dtype=np.complex128)
+        # modes
+        ql_list = [(iq, il1)]
+        Aq1 = ph.compute_ph_amplitude_q(nat, ql_list)
+        ql_list = [(iqp, il2)]
+        Aq2 = ph.compute_ph_amplitude_q(nat, ql_list)
+        # phase
+        eiq1r = np.zeros(atoms.supercell_size, dtype=np.complex128)
+        eiq2r = np.zeros(atoms.supercell_size, dtype=np.complex128)
+        qv = qgr.qpts[iq]
+        qpv = qgr.qpts[iqp]
+        for iL in range(atoms.supercell_size):
+            Rn = atoms.supercell_grid[iL]
+            eiq1r[iL] = cmath.exp(1j*2.*np.pi*np.dot(qv,Rn))
+            eiq2r[iL] = cmath.exp(1j*2.*np.pi*np.dot(qpv,Rn))
+        # eig
+        eig = np.zeros(n)
+        for a in range(n):
+            eig[a] = H.qs[a]['eig']
+        # ph. vectors -> eq
+        wq1 = ph.uql[iq][il1]*THz_to_ev
+        wq2 = ph.uql[iqp][il2]*THz_to_ev
+        eq1 = ph.eql[iq]
+        eq2 = ph.eql[iqp]
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax]
+            m_ia = atoms.atoms_mass[ia]
+            eq1[jax,:] = eq1[jax,:] / np.sqrt(m_ia)
+            eq2[jax,:] = eq2[jax,:] / np.sqrt(m_ia)
+            # ang/eV^1/2 ps^-1
+        # run over states
+        for a in range(n):
+            for ap in range(n):
+                for jax in range(3*nat):
+                    for jby in range(3*nat):
+                        for n1 in range(atoms.supercell_size):
+                            for n2 in range(atoms.supercell_size):
+                                F = 0.
+                                for b in range(n):
+                                    F += Fx[a,b,jby] * Fx[b,ap,jax] * (1./(-wq2-eig[b]+eig[a]) + 1./(-wq1-eig[b]+eig[ap]))
+                                    F += Fx[a,b,jax] * Fx[b,ap,jby] * (1./(wq1-eig[b]+eig[a]) + 1./(wq2-eig[b]+eig[ap]))
+                                if Fxy is not None:
+                                    F += Fxy[a,ap,jax,jby]
+                                g12[a,ap] += 0.5 * Aq1 * eq1[jax,il1] * eiq1r[n1] * F * eiq2r[n2] * eq2[jby,il2] * Aq2
+        return g12
     #
     # compute g_{ab}(q,qp)
     # = \sum_{nn';ss'} Aq e^{iq Rn}e_q(s) <a|H^(2)|b> Aqp e^{iqp Rn'}e_qp(s')
@@ -141,8 +254,8 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         qqp_list = mpi.split_list(qqp_list)
         # compute g_qqp
         for iq, iqp in qqp_list:
-            file_name = 'G-iq-' + str(iq) + '-iqp-' + str(iqp) + '.npy'
-            file_path = p.work_dir + '/restart/' + file_name
+            file_name = 'G-iq-' + str(iq) + '-iqp-' + str(iqp) + '.npz'
+            file_path = p.write_dir + '/restart/' + file_name
             file_path = "{}".format(file_path)
             fil = Path(file_path)
             if not fil.exists():
@@ -151,9 +264,27 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
                 else:
                     gqqp = self.compute_gqqp(nat, iq, iqp, qgr, ph, Hsp, Fax, Faxby)
                 # save data
-                np.savez(file_path, G=gqqp, illp=[])
+                np.savez(file_path, G=gqqp)
             else:
                 pass
+            log.debug("\t " + p.sep)
+            log.debug("\t iq " + str(iq) + " - iqp " + str(iqp) + " -> calculation complete")
+            log.debug("\t " + p.sep)
+        mpi.comm.Barrier()
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t CALCULATION OF GQQP COMPLETE")
+            log.info("\t " + p.sep)
+            log.info("\n")
+    #
+    # read gqqp from file
+    def read_gqqp_from_file(self, file_path):
+        npz_file = np.load(file_path)
+        if 'G' not in npz_file:
+            log.error("'G' NOT FOUND IN: " + npz_file)
+        gqqp = npz_file['G']
+        return gqqp
 
 # --------------------------------------------------------
 #       GPU class
@@ -166,325 +297,88 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         self.HFI_CALC = HFI_CALC
         # add Hessian contribution
         self.hessian = HESSIAN
-        # atom res. forces
-        self.FAX = None
-        # Q vectors
-        self.NQ = 0
-        self.QV = None
-        # atom list
-        self.R_LST = None
-        # mass list
-        self.M_LST = None
-        print('GPU OK')
+    #  -------------------------------------------------------------------------
     #
-    # prepare order 2 phr force calculation
-    def set_up_2nd_order_force_phr(self, nat, qpts, Fax, Faxby, H):
-        #
-        n = 3*nat
-        if p.deph:
-            self.CALCTYP = np.int32(0)
-        elif p.relax:
-            self.CALCTYP = np.int32(1)
-        if self.calc_raman:
-            # prepare force arrays
-            nqs = H.eig.shape[0]
-            F0 = np.abs(np.max(Fax))
-            jax_lst = []
-            for jax in range(n):
-                for msr in range(nqs):
-                    for msc in range(nqs):
-                        if np.abs(Fax[msr,msc,jax])/F0 > self.toler:
-                            jax_lst.append(jax)
-            jax_lst = list(set(jax_lst))
-            # define FAX matrix
-            nax = len(jax_lst)
-            self.FAX = np.zeros(nqs*nqs*nax, dtype=np.complex128)
-            IFAX_LST = np.zeros(nax, dtype=np.int32)
-            for jjax in range(nax):
-                jax = jax_lst[jjax]
-                iax = nqs*nqs*jjax
-                IFAX_LST[jjax] = iax
-                for msr in range(nqs):
-                    for msc in range(nqs):
-                        self.FAX[iax+msr*nqs+msc] = Fax[msr,msc,jax]
-        #
-        # define Faxby
-        F0 = np.abs(np.max(Faxby))
-        jaxby_lst = []
-        for jax in range(n):
-            for jby in range(n):
-                if np.abs(Faxby[jax,jby])/F0 > self.toler:
-                    jaxby_lst.append((jax,jby))
-        jaxby_lst.append((110,1))
-        jaxby_lst.append((110,2))
-        # define local Faxby
-        #
-        naxby = len(jaxby_lst)
-        self.JAXBY_LST = collections.defaultdict(list)
-        for jaxby in range(naxby):
-            jax, jby = jaxby_lst[jaxby]
-            self.JAXBY_LST[jax].append(jby)
-        #
-        # set GPU input arrays RAMAN/FAXBY INDEX
-        self.JAXBY_KEYS = [key for key, lst in self.JAXBY_LST.items() if len(lst) > 0]
-        #
-        # raman calc. indexes
-        if self.calc_raman:
-            # RAMAN_IND MAPS TO JAX_LST
-            self.FBY_IND   = collections.defaultdict(list)
-            self.FAX_IND   = collections.defaultdict(list)
-            self.JBY_LST   = collections.defaultdict(list)
-            self.FAXBY_IND = collections.defaultdict(list)
-            self.FAXBY     = collections.defaultdict(list)
-            for jax in range(3*nat):
-                if jax in jax_lst and jax not in self.JAXBY_KEYS:
-                    self.JBY_LST[jax] = np.array(jax_lst, dtype=np.int32)
-                    self.FAX_IND[jax]   = np.int32(jax_lst.index(jax)*nqs*nqs)
-                    self.FBY_IND[jax]   = np.array(IFAX_LST, dtype=np.int32)
-                    self.FAXBY_IND[jax] =-np.ones(len(jax_lst), dtype=np.int32)
-                    self.FAXBY[jax]     = np.zeros(len(jax_lst), dtype=np.double)
-                elif jax not in jax_lst and jax in self.JAXBY_KEYS:
-                    self.FAXBY_IND[jax] = np.array(range(len(self.JAXBY_LST[jax])), dtype=np.int32)
-                    self.FAXBY[jax]     = np.array(self.FAXBY[jax], dtype=np.double)
-                    self.JBY_LST[jax]   = np.array(self.JAXBY_LST[jax], dtype=np.int32)
-                    self.FAX_IND[jax]   = np.int32(-1)
-                    self.FBY_IND[jax]   =-np.ones(len(self.JAXBY_LST[jax]), dtype=np.int32)
-                    self.FAXBY[jax]     = np.zeros(len(self.JAXBY_LST[jax]), dtype=np.double)
-                    jjby = 0
-                    for jby in self.JAXBY_LST[jax]:
-                        self.FAXBY[jax][jjby] = Faxby[jax,jby]
-                        jjby += 1
-                elif jax in jax_lst and jax in self.JAXBY_KEYS:
-                    self.JBY_LST[jax] = list(set(jax_lst + self.JAXBY_LST[jax]))
-                    self.JBY_LST[jax] = np.array(self.JBY_LST[jax], dtype=np.int32)
-                    FBY_TMP   =-np.ones(len(self.JBY_LST[jax]), dtype=np.int32)
-                    FAXBY_TMP =-np.ones(len(self.JBY_LST[jax]), dtype=np.int32)
-                    self.FAXBY[jax]   = np.zeros(len(self.JBY_LST[jax]), dtype=np.double)
-                    for ij in range(len(self.JBY_LST[jax])):
-                        jby = self.JBY_LST[jax][ij]
-                        if jby in jax_lst:
-                            FBY_TMP[ij]   = nqs*nqs*jax_lst.index(jby)
-                        if jby in self.JAXBY_LST[jax]:
-                            FAXBY_TMP[ij] = self.JAXBY_LST[jax].index(jby)
-                            self.FAXBY[jax][ij] = Faxby[jax,jby]
-                    self.FBY_IND[jax]   = FBY_TMP
-                    self.FAXBY_IND[jax] = FAXBY_TMP
-                    self.FAX_IND[jax]   = np.int32(jax_lst.index(jax)*nqs*nqs)
-                else:
-                    pass
-            self.JAX_KEYS = [key for key, lst in self.FBY_IND.items() if len(lst) > 0]
-        else:
-            self.FAXBY     = collections.defaultdict(list)
-            for jax in self.JAXBY_KEYS:
-                self.FAXBY[jax] = np.zeros(len(self.JAXBY_LST[jax]), dtype=np.double)
-                for ij in range(len(self.JAXBY_LST[jax])):
-                    jby = self.JAXBY_LST[jax][ij]
-                    self.FAXBY[jax][ij] = Faxby[jax,jby]
-        # Q vectors list
-        nq = len(qpts)
-        self.NQ = np.int32(nq)
-        self.QV = np.zeros(3*nq, dtype=np.double)
-        iiq = 0
-        for iq in range(nq):
-            qv = qpts[iq]
-            for ix in range(3):
-                self.QV[iiq] = qv[ix]
-                iiq += 1
-        # Ra list
-        self.R_LST = np.zeros(n, dtype=np.double)
-        for jax in range(n):
-            ia = atoms.index_to_ia_map[jax] - 1
-            Ra = atoms.atoms_dict[ia]['coordinates']
-            idx = jax%3
-            self.R_LST[jax] = Ra[idx]
-        # M list
-        self.M_LST = np.zeros(n, dtype=np.double)
-        for jax in range(n):
-            ia = atoms.index_to_ia_map[jax] - 1
-            m_ia = atoms.atoms_dict[ia]['mass']
-            m_ia = m_ia * mp
-            self.M_LST[jax] = m_ia
+    #       driver function
     #
-    # driver function
+    # --------------------------------------------------------------------------
     def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, Fax, Faxby=None):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
         gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
         print(gqqp.shape)
-        print(mpi.rank, iq, iqp)
-        # load file
+        print("iq, iqp", mpi.rank, iq, iqp)
+        # load file 
         gpu_src = Path(CUDA_SOURCE_DIR+'compute_two_phonons_matr.cu').read_text()
-        gpu_mod = SourceModule(gpu_src)
+        gpu_mod = SourceModule(gpu_src, options=["-I"+CUDA_SOURCE_DIR])
         # prepare input quantities
         NAT = np.int32(nat)
+        NMD = np.int32(ph.nmodes)
         # phonon energies
         WQL = GPU_ARRAY(np.array(ph.uql[iq]) * THz_to_ev, np.double)
         WQPL= GPU_ARRAY(np.array(ph.uql[iqp]) * THz_to_ev, np.double)
+        # amplitudes
+        ql_list = list(product([iq], range(ph.nmodes)))
+        AQL = GPU_ARRAY(ph.compute_ph_amplitude_q(nat, ql_list), np.double)
+        qpl_list = list(product([iqp], range(ph.nmodes)))
+        AQPL = GPU_ARRAY(ph.compute_ph_amplitude_q(nat, qpl_list), np.double)
         # energy eigenvalues array -> EIG
         eig = np.zeros(n)
         for a in range(n):
             eig[a] = Hsp.qs[a]['eig']
-        EIG = GPU_ARRAY(eig, np.float32)
+        EIG = GPU_ARRAY(eig, np.double)
+        NST = EIG.length()
         # FX -> allocate GPU array
         FX = GPU_ARRAY(Fax, np.complex128)
         # Hessian term
         if Faxby is not None:
+            print("max Faxby: ", np.max(Faxby.real))
             FXXp = GPU_ARRAY(Faxby, np.complex128)
+            compute_gqqp = gpu_mod.get_function("compute_gqqp_2nd_Raman")
+        else:
+            compute_gqqp = gpu_mod.get_function("compute_gqqp")
         # -> GPU parallelized arrays
         illp_list = np.array(list(product(range(ph.nmodes), range(ph.nmodes))))
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(illp_list)
         MODES_LIST = GPU_ARRAY(illp_list, np.int32)
-        print(illp_list)
-        exit()
+        #print(illp_list[850])
         # set e^iqR
-        EIQR = np.zeros(3*nat, dtype=np.complex128)
+        eiqr = np.zeros(atoms.supercell_size, dtype=np.complex128)
+        eiqpr= np.zeros(atoms.supercell_size, dtype=np.complex128)
+        qv = qgr.qpts[iq]
+        qpv= qgr.qpts[iqp]
+        for iL in range(atoms.supercell_size):
+            Rn = atoms.supercell_grid[iL]
+            eiqr[iL] = cmath.exp(1j*2.*np.pi*np.dot(qv,Rn))
+            eiqpr[iL]= cmath.exp(1j*2.*np.pi*np.dot(qpv,Rn))
+        EIQR = GPU_ARRAY(eiqr, np.complex128)
+        EIQPR= GPU_ARRAY(eiqpr, np.complex128)
+        NL = EIQR.length()
+        # ph. vectors -> EQ
+        eq = ph.eql[iq]
+        eqp = ph.eql[iqp]
         for jax in range(3*nat):
-            ia = atoms.index_to_ia_map[jax] - 1
-            # atomic coordinates
-            Ra = atoms.atoms_dict[ia]['coordinates']
-            EIQR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
-        # (q',l') list
-        QP_LST = np.zeros(len(qlp_list), dtype=np.int32)
-        ILP_LST= np.zeros(len(qlp_list), dtype=np.int32)
-        iqlp = 0
-        for iqp, ilp in qlp_list:
-            QP_LST[iqlp] = iqp
-            ILP_LST[iqlp] = ilp
-            WQLP[iqlp] = wu[iqp][ilp]*THz_to_ev
-            iqlp += 1
-        # set e_q'(l') array
-        EUQLP = np.zeros(len(qlp_list)*3*nat, dtype=np.complex128)
-        jj = 0
-        for iqp, ilp in qlp_list:
-            euqp = u[iqp]
-            for jax in range(3*nat):
-                EUQLP[jj] = euqp[jax,ilp]
-                jj += 1
-        # iterate over (q',l')
-        nqlp = len(qlp_list)
-        # first compute raman term
-        # if needed
-        if self.calc_raman:
-            # LEN FAX_IND
-            nax = len(self.JAX_KEYS)
-            # run over jax index
-            for jjax in range(nax):
-                jax = self.JAX_KEYS[jjax]
-                IAX = self.FAX_IND[jax]
-                # run over (qp,lp)
-                iqlp0 = 0
-                while (iqlp0 < nqlp):
-                    iqlp1 = iqlp0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
-                    size = min(iqlp1,nqlp) - iqlp0
-                    SIZE = np.int32(size)
-                    # local QLP_LST
-                    QLP_LST = np.array(range(iqlp0, min(iqlp1,nqlp)), dtype=np.int32)
-                    assert len(QLP_LST) == size
-                    F_LQ_LQP = np.zeros((4,size), dtype=np.complex128)
-                    # first set GRID calculations
-                    nbyt = len(self.JBY_LST[jax])
-                    jjby0 = 0
-                    while jjby0 < nbyt:
-                        jjby1 = jjby0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
-                        nby = min(jjby1,nbyt) - jjby0
-                        NBY = np.int32(nby)
-                        # local jby list
-                        JBY_LST = np.zeros(nby, dtype=np.int32)
-                        JBY_LST[:] = self.JBY_LST[jax][jjby0:min(jjby1,nbyt)]
-                        # build local IFBY_LST
-                        FBY_IND = np.zeros(nby, dtype=np.int32)
-                        FBY_IND[:] = self.FBY_IND[jax][jjby0:min(jjby1,nbyt)]
-                        FAXBY_IND = np.zeros(nby, dtype=np.int32)
-                        FAXBY_IND[:] = self.FAXBY_IND[jax][jjby0:min(jjby1,nbyt)]
-                        FAXBY = np.zeros(nby, dtype=np.double)
-                        FAXBY[:] = self.FAXBY[jax][jjby0:min(jjby1,nbyt)]
-                        # Raman force
-                        F_RAMAN = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        if IAX > -1:
-                            compute_F_raman(self.IQS0, self.IQS1, self.NQS, IAX, cuda.In(FBY_IND), NBY, cuda.In(QLP_LST), WQL, 
-                                cuda.In(WQLP), SIZE, cuda.In(self.FAX), cuda.In(self.EIG), self.CALCTYP, cuda.Out(F_RAMAN), 
-                                block=gpu.block, grid=gpu.grid)
-                        # intead of doing this give F_RAMAN in input
-                        # to fql_qlp calculation directly here
-                        # THIS SHOULD SAVE A LOT OF TIME
-                        # F_lq_lqp array
-                        FLQLQP  = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        FLMQLQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        FLQLMQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        FLMQLMQP= np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        # Fr[jjax,jjby0:min(jjby1,naxr),iqlp0:min(iqlp1,nqlp)] += gpu.recover_raman_force_from_grid(F_RAMAN, nby, size)
-                        compute_Flq_lqp_raman(NAT, NBY, SIZE, cuda.In(EUQLP), cuda.In(self.R_LST),
-                            cuda.In(self.QV), cuda.In(self.M_LST), cuda.In(QP_LST), cuda.In(QLP_LST), 
-                            cuda.In(FAXBY_IND), cuda.In(JBY_LST), cuda.In(F_RAMAN), cuda.In(FAXBY),
-                            cuda.Out(FLQLQP), cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), cuda.Out(FLMQLMQP),
-                            block=gpu.block, grid=gpu.grid)
-                        # compute eff. force
-                        F_LQ_LQP += gpu.recover_eff_force_from_grid(FLQLQP, FLMQLQP, FLQLMQP, FLMQLMQP, nby, size)
-                        jjby0 = jjby1
-                    # reconstruct final array
-                    for iqlp in range(iqlp0,min(iqlp1,nqlp)):
-                        F_lq_lqp[:,jax,iqlp] += F_LQ_LQP[:,iqlp-iqlp0]
-                    # new iqlp0
-                    iqlp0 = iqlp1
-                # compute final force
-                # each jax
-                F_lq_lqp[0,jax,:] = EIQR[jax] * euq[jax,il] * F_lq_lqp[0,jax,:] / np.sqrt(self.M_LST[jax])
-                F_lq_lqp[2,jax,:] = EIQR[jax] * euq[jax,il] * F_lq_lqp[2,jax,:] / np.sqrt(self.M_LST[jax])
-                F_lq_lqp[1,jax,:] = np.conj(EIQR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[1,jax,:] / np.sqrt(self.M_LST[jax])
-                F_lq_lqp[3,jax,:] = np.conj(EIQR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[3,jax,:] / np.sqrt(self.M_LST[jax])
+            ia = atoms.index_to_ia_map[jax]
+            m_ia = atoms.atoms_mass[ia]
+            eq[jax,:] = eq[jax,:] / np.sqrt(m_ia)
+            eqp[jax,:] = eqp[jax,:] / np.sqrt(m_ia)
+            # Ang/ev^1/2 ps^-1
+        print(eq[10,0])
+        EQ = GPU_ARRAY(eq, np.complex128)
+        EQP = GPU_ARRAY(eqp, np.complex128)
+        #print(EQ.cpu_array[2,100])
+        #  call GPU function
+        if Faxby is None:
+            compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
+                cuda.In(AQL.to_gpu()), cuda.In(AQPL.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(WQPL.to_gpu()), cuda.In(EIG.to_gpu()), 
+                cuda.In(FX.to_gpu()), cuda.In(EQ.to_gpu()), cuda.In(EQP.to_gpu()), cuda.In(EIQR.to_gpu()), cuda.In(EIQPR.to_gpu()), 
+                cuda.Out(gqqp), block=gpu.block, grid=gpu.grid)
         else:
-            #
-            #  compute ph. resolved
-            #  force
-            jaxby_keys = [key for key, lst in self.JAXBY_LST.items() if len(lst) > 0]
-            for jax in jaxby_keys:
-                # run over (q',l')
-                iqlp0 = 0
-                while (iqlp0 < nqlp):
-                    iqlp1= iqlp0 + gpu.BLOCK_SIZE[0]*gpu.BLOCK_SIZE[1]*gpu.BLOCK_SIZE[2]
-                    size = min(iqlp1, nqlp)-iqlp0
-                    # local QLP_LST
-                    QLP_LST = np.array(range(iqlp0, min(iqlp1,nqlp)), dtype=np.int32)
-                    assert len(QLP_LST) == size
-                    F_LQ_LQP = np.zeros((4,size), dtype=np.complex128)
-                    SIZE = np.int32(size)
-                    # run over (jby)
-                    jjby0 = 0
-                    while jjby0 < len(self.JAXBY_LST[jax]):
-                        jjby1 = jjby0 + gpu.GRID_SIZE[0]*gpu.GRID_SIZE[1]
-                        nby = min(jjby1, len(self.JAXBY_LST[jax])) - jjby0
-                        JBY_LST = np.zeros(nby, dtype=np.int32)
-                        FAXBY   = np.zeros(nby, dtype=np.double)
-                        for jjby in range(jjby0, min(jjby1, len(self.JAXBY_LST[jax]))):
-                            JBY_LST[jjby-jjby0] = self.JAXBY_LST[jax][jjby]
-                            FAXBY[jjby-jjby0]   = self.FAXBY[jax][jjby]
-                        NBY = np.int32(nby)
-                        # F_lq_lqp array
-                        FLQLQP  = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        FLMQLQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        FLQLMQP = np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        FLMQLMQP= np.zeros(gpu.gpu_size, dtype=np.complex128)
-                        # call gpu function
-                        compute_Flq_lqp(NAT, NBY, SIZE, cuda.In(QP_LST), cuda.In(QLP_LST), cuda.In(JBY_LST),
-                                cuda.In(EUQLP), cuda.In(self.R_LST), cuda.In(self.QV), cuda.In(self.M_LST),
-                                cuda.In(FAXBY), cuda.Out(FLQLQP), cuda.Out(FLMQLQP), cuda.Out(FLQLMQP), 
-                                cuda.Out(FLMQLMQP), block=gpu.block, grid=gpu.grid)
-                        #
-                        # recover phr force
-                        F_LQ_LQP += gpu.recover_eff_force_from_grid(FLQLQP, FLMQLQP, FLQLMQP, FLMQLMQP, nby, size)
-                        jjby0 = jjby1
-                    # reconstruct final array
-                    for iqlp in range(iqlp0, min(iqlp1,nqlp)):
-                        F_lq_lqp[:,jax,iqlp] += F_LQ_LQP[:,iqlp-iqlp0]
-                    iqlp0 = iqlp1
-                # compute final force
-                # each jax
-                F_lq_lqp[0,jax,:] = EIQR[jax] * euq[jax,il] * F_lq_lqp[0,jax,:] / np.sqrt(self.M_LST[jax])
-                F_lq_lqp[2,jax,:] = EIQR[jax] * euq[jax,il] * F_lq_lqp[2,jax,:] / np.sqrt(self.M_LST[jax])
-                F_lq_lqp[1,jax,:] = np.conj(EIQR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[1,jax,:] / np.sqrt(self.M_LST[jax])
-                F_lq_lqp[3,jax,:] = np.conj(EIQR[jax]) * np.conj(euq[jax,il]) * F_lq_lqp[3,jax,:] / np.sqrt(self.M_LST[jax])
-        print('OK')
-        return F_lq_lqp
+            compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
+                cuda.In(AQL.to_gpu()), cuda.In(AQPL.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(WQPL.to_gpu()), cuda.In(EIG.to_gpu()), 
+                cuda.In(FX.to_gpu()), cuda.In(FXXp.to_gpu()), cuda.In(EQ.to_gpu()), cuda.In(EQP.to_gpu()), cuda.In(EIQR.to_gpu()), 
+                cuda.In(EIQPR.to_gpu()), cuda.Out(gqqp), block=gpu.block, grid=gpu.grid)
+        return gqqp
     #
     # compute the Raman contribution to 
     # force matrix elements

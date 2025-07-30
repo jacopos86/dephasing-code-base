@@ -21,6 +21,7 @@ from pydephasing.mpi import mpi
 from pydephasing.build_unpert_struct import build_gs_struct_base
 from tqdm import tqdm
 from abc import ABC
+from common.print_objects import print_2D_matrix
 #
 class perturbation_ZFS(ABC):
 	def __init__(self, out_dir):
@@ -183,7 +184,7 @@ class gradient_ZFS(perturbation_ZFS):
 	# set ZFS gradients
 	#
 	def set_tensor_gradient(self, displ_structs):
-		file_name = "{}".format(p.work_dir + '/restart/grad_Dtensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/grad_Dtensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			with open(file_name, 'r') as f:
@@ -358,7 +359,7 @@ class gradient_ZFS(perturbation_ZFS):
 		#
 	# set grad D tensor
 	def set_UgradDU_tensor(self):
-		file_name = "{}".format(p.work_dir + '/restart/grad_Dtensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/grad_Dtensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			with open(file_name, 'r') as f:
@@ -443,10 +444,15 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 		# compute noise
 		self.compute_noise(displ_structs)
 		if mpi.rank == mpi.root:
+			log.info("\n")
+			log.info("\t " + p.sep)
+			log.info("\t Noise Matrix: ")
 			print_2D_matrix(self.Dns)
+			log.info("\t " + p.sep)
+			log.info("\n")
 		mpi.comm.Barrier()
 		# read restart file if available
-		file_name = "{}".format(p.work_dir + '/restart/grad2_Dtensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/hess_Dtensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			with open(file_name, 'r') as f:
@@ -713,9 +719,9 @@ class gradient_2nd_ZFS(perturbation_ZFS):
 	#
 	# write grad_ax,by D to file
 	#
-	def write_grad2Dtensor_to_file(self, write_dir):
+	def write_hessDtensor_to_file(self, write_dir):
 		# write data on file
-		file_name = "grad2_Dtensor.yml"
+		file_name = "hess_Dtensor.yml"
 		file_name = "{}".format(write_dir + '/' + file_name)
 		fil = Path(file_name)
 		if not fil.exists():
@@ -1292,7 +1298,7 @@ class gradient_HFI(perturbation_HFI):
 	#
 	def set_tensor_gradient(self, displ_structs):
 		# check file exists
-		file_name = "{}".format(p.work_dir + '/restart/grad_Htensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/grad_Htensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			return
@@ -1350,7 +1356,7 @@ class gradient_HFI(perturbation_HFI):
 	# set grad Ahfi D diag basis set
 	def set_U_gradAhfi_U_tensor(self):
 		# check file exists
-		file_name = "{}".format(p.work_dir + '/restart/grad_Htensor.yml')
+		file_name = "{}".format(p.write_dir + '/restart/grad_Htensor.yml')
 		fil = Path(file_name)
 		if fil.exists():
 			with open(file_name, 'r') as f:
