@@ -11,3 +11,4 @@ tqdm
 gputil
 gdown
 tensorflow
+pytest
