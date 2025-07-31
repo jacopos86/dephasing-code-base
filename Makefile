@@ -59,4 +59,4 @@ clean :
 	fi ;
 test :
 	. $(VENV)/bin/activate ; \
-	pytest
+	$(PYTHON) -m pytest ./pydephasing/unit_tests/test_1.py
