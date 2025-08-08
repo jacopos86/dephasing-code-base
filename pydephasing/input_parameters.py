@@ -142,7 +142,7 @@ class data_input(ABC):
         # orientation
         if 'random_orientation' in data:
             self.rnd_orientation = data['random_orientation']
-            
+
 class dynamical_data_input(data_input):
     # initialization
     def __init__(self):
@@ -503,7 +503,7 @@ class static_data_input(data_input):
         # reaad common shared data
         #
         self.read_yml_common_data(data)
-        # 
+        #
         # read nuclear spin dynamics
         # variables
         if 'T_nuc' in data:
@@ -516,7 +516,7 @@ class static_data_input(data_input):
         # dynamical decoupling -> number of pulses
         if 'npulses' in data:
             self.n_pulses = data['npulses']
-        
+
 class preproc_data_input():
     # initialization
     def __init__(self):
