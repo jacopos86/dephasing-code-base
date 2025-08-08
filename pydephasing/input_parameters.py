@@ -9,8 +9,8 @@ import yaml
 from abc import ABC
 from pydephasing.log import log
 from pydephasing.mpi import mpi
-from common.phys_constants import THz_to_ev
-from common.matrix_operations import norm_cmplxv
+from .common.phys_constants import THz_to_ev
+from .common.matrix_operations import norm_cmplxv
 from pydephasing.input_parser import parser
 from pydephasing.grids import set_temperatures
 #
@@ -142,7 +142,7 @@ class data_input(ABC):
         # orientation
         if 'random_orientation' in data:
             self.rnd_orientation = data['random_orientation']
-            
+
 class dynamical_data_input(data_input):
     # initialization
     def __init__(self):
@@ -459,7 +459,7 @@ class real_time_input(dynamical_data_input):
         if 'dynamics' in data:
             for i in data['dynamics']:
                 self.dynamical_mode.append(i)
-                
+
 class static_data_input(data_input):
     # initialization
     def __init__(self):
@@ -488,7 +488,7 @@ class static_data_input(data_input):
         # reaad common shared data
         #
         self.read_yml_common_data(data)
-        # 
+        #
         # read nuclear spin dynamics
         # variables
         if 'T_nuc' in data:
@@ -501,7 +501,7 @@ class static_data_input(data_input):
         # dynamical decoupling -> number of pulses
         if 'npulses' in data:
             self.n_pulses = data['npulses']
-        
+
 class preproc_data_input():
     # initialization
     def __init__(self):
