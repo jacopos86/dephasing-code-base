@@ -10,7 +10,7 @@ from pydephasing.gradient_interactions import gradient_Eg
 from pydephasing.utility_functions import print_zpl_fluct
 from pydephasing.extract_ph_data import extract_ph_data
 from pydephasing.T2_classes import T2i_ofT, Delta_ofT, tauc_ofT, lw_ofT
-from pydephasing.input_parameters import p
+from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 #
 def compute_homo_exc_dephas():
