@@ -1,4 +1,20 @@
 {
   "python.analysis.extraPaths": ["./", "./pydephasing", "./pydeph/bin/"],
-  "python.defaultInterpreterPath": "./pydeph/bin/python3"
+  "python.defaultInterpreterPath": "./pydeph/bin/python3",
+  // Associate .cu files with CUDA C++
+  "files.associations": {
+    "*.cu": "cuda-cpp",
+    "*.cuh": "cuda-cpp"
+  },
+  // Use the C++ formatter for CUDA files
+  "[cuda-cpp]": {
+    "editor.defaultFormatter": "ms-vscode.cpptools",
+    "editor.formatOnSave": true
+  },
+  // Optional: Disable Pylance for .cu files (in case it's acting up)
+  "python.analysis.exclude": [
+    "**/*.cu"
+  ],
+  // Enable IntelliSense for CUDA with the C++ extension
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
 }
