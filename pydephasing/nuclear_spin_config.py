@@ -9,7 +9,7 @@ import numpy as np
 from scipy import integrate
 import yaml
 from common.phys_constants import gamma_n
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
 import matplotlib.pyplot as plt

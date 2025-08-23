@@ -1,5 +1,5 @@
 from pydephasing.global_params import GPU_ACTIVE
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 #
 #  check GPU status
 if GPU_ACTIVE:

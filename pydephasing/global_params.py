@@ -23,7 +23,7 @@ CUDA_SOURCE_DIR = None
 if GPU_ACTIVE:
     import pycuda.autoinit
     import pycuda.driver as cuda
-    from pydephasing.gpu import GPU_obj
+    from parallelization.gpu import GPU_obj
     print('Detected {} CUDA Capable device(s)'.format(cuda.Device.count()))
     ngpus = cuda.Device.count()
     if ngpus > 0:

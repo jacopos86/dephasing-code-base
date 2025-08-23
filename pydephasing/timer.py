@@ -1,5 +1,5 @@
 import time
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 # set timer module
 class timer_class:
     def __init__(self):

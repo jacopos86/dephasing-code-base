@@ -13,7 +13,7 @@ from pydephasing.T2_classes import T2i_class, Delta_class, tauc_class, lw_class,
 from common.phys_constants import hbar
 from pydephasing.log import log
 from pydephasing.set_param_object import p
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from common.taylor_series import TaylorSeries
 from abc import ABC, abstractmethod
 import warnings

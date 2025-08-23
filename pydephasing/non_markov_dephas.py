@@ -5,7 +5,7 @@
 # -> if 2nd order correction add lindblad for two-phonons term
 # if evolve coherently the additional terms
 import os
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from pydephasing.log import log
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
@@ -15,8 +15,8 @@ from pydephasing.electr_ph_dens_matr import elec_ph_dmatr
 from pydephasing.spin_dens_matr import spin_dmatr
 from pydephasing.q_grid import qgridClass
 from pydephasing.nuclear_spin_config import nuclear_spins_config
-from pydephasing.spin_hamiltonian import set_spin_hamiltonian
-from pydephasing.set_real_time_solver import set_real_time_solver
+from spin_model.spin_hamiltonian import set_spin_hamiltonian
+from real_time.set_real_time_solver import set_real_time_solver
 from pydephasing.magnetic_field import magnetic_field
 #
 def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
