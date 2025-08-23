@@ -1,7 +1,7 @@
 import h5py
 import logging
 import numpy as np
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from common.phys_constants import eps, kb, hbar
 from pydephasing.set_param_object import p
 from pydephasing.log import log

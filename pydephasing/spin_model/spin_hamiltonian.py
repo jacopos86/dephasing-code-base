@@ -8,7 +8,7 @@ from numpy import linalg as LA
 from common.special_functions import delta
 from common.phys_constants import gamma_e, eps, THz_to_ev
 from pydephasing.log import log
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from abc import ABC
 
 #
