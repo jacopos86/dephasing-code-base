@@ -3,7 +3,7 @@ import cmath
 from abc import ABC
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from common.phys_constants import hbar, THz_to_ev
 from common.matrix_operations import compute_matr_elements
 from pydephasing.log import log

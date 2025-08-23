@@ -3,7 +3,7 @@ import math
 from collections import Counter
 import numpy as np
 import logging
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.log import log
 from common.phys_constants import eps

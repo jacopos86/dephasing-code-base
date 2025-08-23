@@ -1,4 +1,4 @@
-from pydephasing.real_time_solver_base import RealTimeSolver
+from real_time.real_time_solver_base import RealTimeSolver
 from pydephasing.log import log
 
 #

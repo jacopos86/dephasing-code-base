@@ -1,4 +1,4 @@
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from pydephasing.log import log
 from pydephasing.input_parser import parser
 from pydephasing.set_param_object import p

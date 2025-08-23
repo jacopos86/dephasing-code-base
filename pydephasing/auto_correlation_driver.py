@@ -7,7 +7,7 @@ import numpy as np
 import logging
 from common.phys_constants import eps
 from pydephasing.log import log
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.extract_ph_data import set_ql_list_red_qgrid, set_iqlp_list
 from tqdm import tqdm

@@ -17,7 +17,7 @@ from pydephasing.atomic_list_struct import atoms
 import matplotlib.pyplot as plt
 import math
 from pydephasing.log import log
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from pydephasing.build_unpert_struct import build_gs_struct_base
 from tqdm import tqdm
 from abc import ABC

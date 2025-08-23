@@ -12,6 +12,10 @@ scr.sh
 pydephasing/__pycache__
 pydephasing/unit_tests/__pycache__
 pydephasing/common/__pycache__
+pydephasing/real_time/__pycache__
+pydephasing/parallelization/__pycache__
+pydephasing/spin_model/__pycache__
+utils/__pycache__/
 pydeph
 EXAMPLES.tar.gz
 EXAMPLES

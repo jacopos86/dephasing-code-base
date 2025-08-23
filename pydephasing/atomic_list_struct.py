@@ -2,7 +2,7 @@ import numpy as np
 import yaml
 from pydephasing.log import log
 from pydephasing.set_param_object import p
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from common.phys_constants import mp
 # define atomic structure global list
 class AtomicStructureClass:

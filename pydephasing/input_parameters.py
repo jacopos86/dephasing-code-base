@@ -8,7 +8,7 @@ import numpy as np
 import yaml
 from abc import ABC
 from pydephasing.log import log
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from common.phys_constants import THz_to_ev
 from common.matrix_operations import norm_cmplxv
 from pydephasing.input_parser import parser
