@@ -7,12 +7,12 @@ import os
 import numpy as np
 import yaml
 from abc import ABC
-from pydephasing.log import log
+from utilities.log import log
 from parallelization.mpi import mpi
 from common.phys_constants import THz_to_ev
 from common.matrix_operations import norm_cmplxv
-from pydephasing.input_parser import parser
-from pydephasing.grids import set_temperatures
+from utilities.input_parser import parser
+from common.grids import set_temperatures
 #
 class data_input(ABC):
     # initialization

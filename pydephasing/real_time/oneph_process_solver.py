@@ -1,5 +1,5 @@
 from real_time.real_time_solver_base import RealTimeSolver
-from pydephasing.log import log
+from utilities.log import log
 
 #
 #   set one-phonon processes solver

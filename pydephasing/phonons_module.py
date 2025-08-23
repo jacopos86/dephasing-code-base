@@ -4,7 +4,7 @@ import numpy as np
 from parallelization.mpi import mpi
 from common.phys_constants import eps, kb, hbar
 from pydephasing.set_param_object import p
-from pydephasing.log import log
+from utilities.log import log
 from math import exp
 #
 #  phonons class

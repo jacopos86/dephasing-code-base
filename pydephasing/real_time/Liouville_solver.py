@@ -1,5 +1,5 @@
 from real_time.real_time_solver_base import RealTimeSolver
-from pydephasing.log import log
+from utilities.log import log
 from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from common.phys_constants import hbar

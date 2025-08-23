@@ -1,6 +1,6 @@
-from pydephasing.input_parser import parser
+from utilities.input_parser import parser
 from parallelization.mpi import mpi
-from pydephasing.log import log
+from utilities.log import log
 from pydephasing.set_param_object import p
 from real_time.Liouville_solver import LiouvilleSolverSpin, LiouvilleSolverHFI
 from real_time.oneph_process_solver import OnephSolver

@@ -6,7 +6,7 @@
 # if evolve coherently the additional terms
 import os
 from parallelization.mpi import mpi
-from pydephasing.log import log
+from utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.build_interact_grad import calc_interaction_grad

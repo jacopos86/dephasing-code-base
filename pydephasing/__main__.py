@@ -1,9 +1,9 @@
 from pydephasing.set_param_object import p
 from pydephasing.create_displ_struct_files import gen_poscars, gen_2ndorder_poscar
 from parallelization.mpi import mpi
-from pydephasing.log import log
-from pydephasing.timer import timer
-from pydephasing.input_parser import parser
+from utilities.log import log
+from utilities.timer import timer
+from utilities.input_parser import parser
 from pydephasing.calculation_drivers import energy_linewidth_driver, spin_qubit_driver
 #
 # set up parallelization

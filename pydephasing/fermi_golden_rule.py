@@ -4,11 +4,11 @@ import pytest
 from abc import ABC
 from pathlib import Path
 from parallelization.mpi import mpi
-from pydephasing.log import log
+from utilities.log import log
 from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
 from parallelization.GPU_arrays_handler import GPU_ARRAY
 from common.phys_constants import THz_to_ev, kb, hbar
-from pydephasing.grids import set_w_grid, set_time_grid_B, set_time_grid_A
+from common.grids import set_w_grid, set_time_grid_B, set_time_grid_A
 from pydephasing.set_param_object import p
 
 #

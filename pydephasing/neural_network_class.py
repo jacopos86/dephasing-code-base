@@ -1,4 +1,4 @@
-from pydephasing.log import log
+from utilities.log import log
 from sklearn.neural_network import MLPRegressor
 from sklearn.model_selection import train_test_split
 from tensorflow import keras

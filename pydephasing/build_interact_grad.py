@@ -4,7 +4,7 @@
 import logging
 from pydephasing.set_param_object import p
 from parallelization.mpi import mpi
-from pydephasing.log import log
+from utilities.log import log
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
 from pydephasing.gradient_interactions import gradient_ZFS, gradient_HFI, gradient_2nd_HFI
 from pydephasing.gradient_interactions import generate_2nd_orderZFS_grad_instance

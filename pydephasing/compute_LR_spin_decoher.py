@@ -6,7 +6,7 @@ import logging
 import numpy as np
 import os
 from parallelization.mpi import mpi
-from pydephasing.log import log
+from utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 from spin_model.spin_hamiltonian import set_spin_hamiltonian

@@ -1,4 +1,4 @@
-from pydephasing.input_parser import parser
+from utilities.input_parser import parser
 from pydephasing.input_parameters import preproc_data_input, static_data_input, linear_resp_input, real_time_input
 # input parameters object
 p = None

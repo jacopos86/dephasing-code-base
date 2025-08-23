@@ -9,7 +9,7 @@ from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
 from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
 from spin_model.spin_ph_inter import SpinPhononClass
-from pydephasing.log import log
+from utilities.log import log
 from parallelization.mpi import mpi
 from pathlib import Path
 

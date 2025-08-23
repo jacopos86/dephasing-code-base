@@ -1,6 +1,6 @@
 import numpy as np
 import yaml
-from pydephasing.log import log
+from utilities.log import log
 from pydephasing.set_param_object import p
 from parallelization.mpi import mpi
 from common.phys_constants import mp

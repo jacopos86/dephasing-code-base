@@ -1,5 +1,5 @@
 import numpy as np
-from pydephasing.log import log
+from utilities.log import log
 from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from common.print_objects import print_2D_matrix

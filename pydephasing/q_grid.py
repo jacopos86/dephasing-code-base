@@ -5,7 +5,7 @@ import numpy as np
 import logging
 from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
-from pydephasing.log import log
+from utilities.log import log
 from common.phys_constants import eps
 #
 #   q grid class

@@ -2,8 +2,8 @@ import numpy as np
 from parallelization.mpi import mpi
 from common.phys_constants import hbar
 from pydephasing.set_param_object import p
-from pydephasing.log import log
-from pydephasing.input_parser import parser
+from utilities.log import log
+from utilities.input_parser import parser
 import yaml
 # T2 inverse class
 class T2i_class(object):

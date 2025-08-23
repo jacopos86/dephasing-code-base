@@ -9,7 +9,7 @@ from pymatgen.core.structure import Structure
 import scipy.linalg as la
 import h5py
 import yaml
-from pydephasing.log import log
+from utilities.log import log
 from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
