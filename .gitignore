@@ -15,6 +15,7 @@ pydephasing/common/__pycache__
 pydephasing/real_time/__pycache__
 pydephasing/parallelization/__pycache__
 pydephasing/spin_model/__pycache__
+pydephasing/utilities/__pycache__
 utils/__pycache__/
 pydeph
 EXAMPLES.tar.gz
