@@ -240,12 +240,92 @@ B0 :
    - 0.0
    - 0.0
    - 1.0
+Bt :
+   var : t
+   expr_x : '0'
+   expr_y : '0'
+   expr_z : 1e-6*sin(1e-5*t+pi/2)
 psi0 :
    - 1.0
    - 1.0
    - 0.0
 EOF
 
+	cat > inputD.yml <<EOF
+working_dir : ${wdT2}
+output_dir : ${wdT2}/T2-SP-DEPHC_D
+displ_poscar_dir :
+   - DISPLACEMENT-FILES-01
+   - DISPLACEMENT-FILES-0001
+displ_2nd_poscar_dir :
+   - DISPLACEMENT-FILES-2NDORDER
+displ_outcar_dir :
+   - DISPL-01
+   - DISPL-0001
+displ_2nd_outcar_dir :
+   - DISPL-2NDORDER
+grad_info_file : info.yml
+unpert_dir : GS
+yaml_pos_file : phonopy_disp.yaml
+hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
+2nd_order_correct : True
+hessian : True
+atom_res : False
+phonon_res : False
+nwg : 1000
+w_max : 10.0
+eta : 6.6E-8
+min_freq : 1.E-2
+temperature :
+   - 1.0
+   - 10.0
+   - 100.0
+   - 200.0
+   - 300.0
+   - 400.0
+B0 :
+   - 0.0
+   - 0.0
+   - 1.0
+EOF
+
+	cat > inputE.yml <<EOF
+working_dir : ${wdT2}
+output_dir : ${wdT2}/T2-SP-DEPHC_E
+displ_poscar_dir :
+   - DISPLACEMENT-FILES-01
+   - DISPLACEMENT-FILES-0001
+displ_2nd_poscar_dir :
+   - DISPLACEMENT-FILES-2NDORDER
+displ_outcar_dir :
+   - DISPL-01
+   - DISPL-0001
+displ_2nd_outcar_dir :
+   - DISPL-2NDORDER
+grad_info_file : info.yml
+unpert_dir : GS
+yaml_pos_file : phonopy_disp.yaml
+hd5_eigen_file : mesh-nosymm_3x3x3.hdf5
+2nd_order_correct : True
+hessian : False
+atom_res : False
+phonon_res : False
+nwg : 1000
+w_max : 10.0
+eta : 6.6E-8
+min_freq : 1.E-2
+temperature :
+   - 1.0
+   - 10.0
+   - 100.0
+   - 200.0
+   - 300.0
+   - 400.0
+B0 :
+   - 0.0
+   - 0.0
+   - 1.0
+EOF
 	DIR=${wdT2}/"DISPLACEMENT-FILES-01"
 	if [ ! -d "$DIR" ]; then
 		cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-01 ${wdT2}

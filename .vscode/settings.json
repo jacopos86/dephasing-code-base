@@ -1,0 +1,4 @@
+{
+  "python.analysis.extraPaths": ["./", "./pydephasing", "./pydeph/bin/"],
+  "python.defaultInterpreterPath": "./pydeph/bin/python3"
+}
