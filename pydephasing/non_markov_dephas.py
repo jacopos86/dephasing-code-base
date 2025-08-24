@@ -5,13 +5,13 @@
 # -> if 2nd order correction add lindblad for two-phonons term
 # if evolve coherently the additional terms
 import os
+import numpy as np
 from parallelization.mpi import mpi
 from utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.build_interact_grad import calc_interaction_grad
 from pydephasing.build_unpert_struct import build_gs_spin_struct
-from pydephasing.electr_ph_dens_matr import elec_ph_dmatr
 from pydephasing.spin_dens_matr import spin_dmatr
 from pydephasing.q_grid import qgridClass
 from pydephasing.nuclear_spin_config import nuclear_spins_config
@@ -29,12 +29,13 @@ def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # compute index maps
     atoms.set_atoms_data()
     # check restart exist otherwise create
-    if not os.path.isdir(p.work_dir+'/restart'):
+    if not os.path.isdir(p.write_dir+'/restart'):
         if mpi.rank == mpi.root:
-            os.mkdir(p.work_dir+'/restart')
+            os.mkdir(p.write_dir+'/restart')
     mpi.comm.Barrier()
     # extract interaction gradients
-    interact_dict = calc_interaction_grad(ZFS_CALC, HFI_CALC)
+    if np.sum(p.dynamical_mode) > 0:
+        interact_dict = calc_interaction_grad(ZFS_CALC, HFI_CALC)
     mpi.comm.Barrier()
     # n. atoms
     nat = atoms.nat
@@ -58,49 +59,51 @@ def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # set up the spin Hamiltonian
     Hsp = set_spin_hamiltonian(struct_0, p.B0, nuclear_config)
     # set up spin phonon interaction
-    sp_ph_inter = spin_ph_handler(p.order_2_correct, ZFS_CALC, HFI_CALC, p.hessian)
-    if mpi.rank == mpi.root:
-        log.debug("\t ZFS_CALC: " + str(sp_ph_inter.ZFS_CALC))
-        log.debug("\t HFI_CALC: " + str(sp_ph_inter.HFI_CALC))
+    if np.sum(p.dynamical_mode) > 0:
+        sp_ph_inter = spin_ph_handler(p.order_2_correct, ZFS_CALC, HFI_CALC, p.hessian)
+        if mpi.rank == mpi.root:
+            log.debug("\t ZFS_CALC: " + str(sp_ph_inter.ZFS_CALC))
+            log.debug("\t HFI_CALC: " + str(sp_ph_inter.HFI_CALC))
     # spin density matrix
     rho = spin_dmatr()
     rho.initialize(p.psi0)
     # set q grid
-    qgr = qgridClass()
-    qgr.set_qgrid()
-    if mpi.rank == 0:
-        log.info("\n")
-        log.info("\t " + p.sep)
-        log.info("\t Q MESH INFORMATION")
-        log.info("\n")
-        log.info("\n")
-        log.info("\t nq: " + str(qgr.nq))
-        log.info("\t grid size: " + str(qgr.grid_size))
-        if qgr.nq > 10:
-            for iq in range(10):
-                log.info("\t wq[" + str(iq+1) + "]: " + str(qgr.wq[iq]))
-            log.info("\t ...")
-        else:
-            for iq in range(qgr.nq):
-                log.info("\t wq[" + str(iq+1) + "]: " + str(qgr.wq[iq]))
-        log.info("\n")
-        log.info("\t " + p.sep)
-        log.info("\n")
-    mpi.comm.Barrier()
-    # extract phonon data
-    ph = PhononsClass()
-    ph.set_ph_data(qgr)
-    # compute spin phonon matrix
-    if mpi.rank == mpi.root:
-        log.info("\n")
-        log.info("\t " + p.sep)
-        log.info("\t START SPIN-PHONON COUPLING CALCULATION")
-    sp_ph_inter.compute_spin_ph_coupl(nat, Hsp, ph, qgr, interact_dict, nuclear_config)
-    if mpi.rank == mpi.root:
-        log.info("\n")
-        log.info("\t END SPIN-PHONON COUPLING CALCULATION")
-        log.info("\t " + p.sep)
-    print('g_ql', np.max(sp_ph_inter.g_ql.real))
+    if np.sum(p.dynamical_mode) > 0:
+        qgr = qgridClass()
+        qgr.set_qgrid()
+        if mpi.rank == 0:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t Q MESH INFORMATION")
+            log.info("\n")
+            log.info("\n")
+            log.info("\t nq: " + str(qgr.nq))
+            log.info("\t grid size: " + str(qgr.grid_size))
+            if qgr.nq > 10:
+                for iq in range(10):
+                    log.info("\t wq[" + str(iq+1) + "]: " + str(qgr.wq[iq]))
+                log.info("\t ...")
+            else:
+                for iq in range(qgr.nq):
+                    log.info("\t wq[" + str(iq+1) + "]: " + str(qgr.wq[iq]))
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\n")
+        mpi.comm.Barrier()
+        # extract phonon data
+        ph = PhononsClass()
+        ph.set_ph_data(qgr)
+        # compute spin phonon matrix
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t START SPIN-PHONON COUPLING CALCULATION")
+        sp_ph_inter.compute_spin_ph_coupl(nat, Hsp, ph, qgr, interact_dict, nuclear_config)
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t END SPIN-PHONON COUPLING CALCULATION")
+            log.info("\t " + p.sep)
+        print('g_ql', np.max(sp_ph_inter.g_ql.real))
     # set real time solver (time in ps)
     Bfield = magnetic_field(p.Bt)
     solver = set_real_time_solver(HFI_CALC)
@@ -108,8 +111,3 @@ def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         solver.evolve(p.dt, p.T, rho, Hsp, Bfield)
     else:
         solver.evolve(p.dt, p.T, rho, Hsp, Bfield, ph, sp_ph_inter, qgr)
-    exit()
-    # spin phonon
-    # density matrix
-    rho_q = elec_ph_dmatr().generate_instance()
-    rho_q.set_modes_list(qgr)
