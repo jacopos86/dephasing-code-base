@@ -19,7 +19,7 @@ from spin_model.spin_hamiltonian import set_spin_hamiltonian
 from real_time.set_real_time_solver import set_real_time_solver
 from pydephasing.magnetic_field import magnetic_field
 from pydephasing.phonons_module import PhononsClass
-from pydephasing.spin_ph_handler import spin_ph_handler
+from spin_model.spin_ph_handler import spin_ph_handler
 #
 def compute_nmark_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # main driver of the calculation non markovian
