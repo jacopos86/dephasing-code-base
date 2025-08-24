@@ -1,6 +1,6 @@
 import numpy as np
 from itertools import product
-from pydephasing.real_time_solver_base import RealTimeSolver
+from real_time.real_time_solver_base import RealTimeSolver
 from utilities.log import log
 from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
@@ -12,7 +12,7 @@ if GPU_ACTIVE:
     from pydephasing.global_params import CUDA_SOURCE_DIR, gpu
     from pycuda.compiler import SourceModule
     import pycuda.driver as cuda
-    from common.GPU_arrays_handler import GPU_ARRAY
+    from parallelization.GPU_arrays_handler import GPU_ARRAY
 
 #
 #   set one-phonon processes solver
