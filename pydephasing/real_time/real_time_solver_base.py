@@ -1,5 +1,7 @@
 from abc import ABC
 import numpy as np
+from pathlib import Path
+import yaml
 
 #    This module implements
 #    the real time solver class
@@ -21,3 +23,11 @@ class RealTimeSolver(ABC):
         #self.T = T
         #self.dt = dt
         return time
+    # write time object to file
+    def write_obj_to_file(self, t, var_oft, units, file_name):
+        # write data on file
+        fil = Path(file_name)
+        if not fil.exists():
+            data = {'time': t, 'quantity': var_oft, 'units': units}
+            with open(file_name, 'w') as out_file:
+                yaml.dump(data, out_file)
