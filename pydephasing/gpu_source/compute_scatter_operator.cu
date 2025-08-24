@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <pycuda-complex.hpp>
 #include <math.h>
 #include <cuComplex.h>
@@ -19,7 +20,7 @@ __global__ void compute_P1_eph(int nm, int nst, int NTHR, int *INIT_INDEX, int *
     {
         printf("%d    -     %d\n", nm, nst);
         printf("%d        -       %d    -     %d\n", idx, MODES_LIST[2 * idx], MODES_LIST[2 * idx + 1]);
-        printf("%d                              \n", NTHR)
+        printf("%d                              \n", NTHR);
     }
     if (idx == 27)
     {
