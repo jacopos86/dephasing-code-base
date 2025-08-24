@@ -1,5 +1,8 @@
 import numpy as np
 import random
+import pycuda.gpuarray as gpuarray
+from parallelization.GPU_arrays_handler import GPU_ARRAY
+
 # GPU class
 class GPU_obj:
     def __init__(self, block_dim, grid_dim):
@@ -29,6 +32,7 @@ class GPU_obj:
             lst = []
             lst = random.sample(data, lengths[i])
             for x in lst:
+                print(x)
                 data.remove(x)
             thread_list.append(lst)
         assert len(data) == 0
@@ -41,6 +45,31 @@ class GPU_obj:
                 data_list[k] = thread_list[i][j]
                 k += 1
         return data_list, init_index, lengths
+    def create_index_list(self, shape):
+        print(shape)
+    def distribute_data_on_grid(self, data):
+        list_data = list(data)
+        # divide data in approx. equal parts
+        lengths = np.zeros(self.gpu_size, dtype=int)
+        lengths[:] = len(list_data) / self.gpu_size
+        rest = len(list_data) % self.gpu_size
+        i = 0
+        while rest > 0:
+            lengths[i] += 1
+            rest -= 1
+            i += 1
+        assert sum(lengths) == len(list_data)
+        ARR_SIZE = min(len(list_data), self.gpu_size)
+        init_index = np.zeros(ARR_SIZE, dtype=int)
+        size_list = np.zeros(ARR_SIZE, dtype=int)
+        size_list[:] = lengths[:ARR_SIZE]
+        print(size_list)
+        exit()
+        for i in range(1, self.gpu_size):
+            init_index[i] = init_index[i-1] + lengths[i-1]
+        return GPU_ARRAY(init_index, np.int32), GPU_ARRAY(lengths, np.int32)
+    def reshape_array(self, index_list, gpu_array):
+        pass
     def recover_data_from_grid(self, data):
         arr = np.zeros(self.nthr_block, dtype=type(data[0]))
         for th_x in range(self.BLOCK_SIZE[0]):

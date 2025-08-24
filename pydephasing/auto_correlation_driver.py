@@ -5,14 +5,12 @@
 #
 import numpy as np
 import logging
-from pydephasing.phys_constants import eps
-from pydephasing.log import log
-from pydephasing.mpi import mpi
+from common.phys_constants import eps
+from utilities.log import log
+from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.extract_ph_data import set_ql_list_red_qgrid, set_iqlp_list
 from tqdm import tqdm
-from pydephasing.ph_resolved_quant import compute_ph_amplitude_q, transf_1st_order_force_phr, phr_force_2nd_order
-import matplotlib.pyplot as plt
 #
 # spin-exc-ph dephasing class -> homogeneous
 class acf_ph(object):

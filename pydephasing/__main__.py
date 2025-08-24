@@ -1,9 +1,9 @@
 from pydephasing.set_param_object import p
 from pydephasing.create_displ_struct_files import gen_poscars, gen_2ndorder_poscar
-from pydephasing.mpi import mpi
-from pydephasing.log import log
-from pydephasing.timer import timer
-from pydephasing.input_parser import parser
+from parallelization.mpi import mpi
+from utilities.log import log
+from utilities.timer import timer
+from utilities.input_parser import parser
 from pydephasing.calculation_drivers import energy_linewidth_driver, spin_qubit_driver
 #
 # set up parallelization
@@ -34,7 +34,7 @@ if nargs < 4:
             log.info("\n")
             log.info("\t " + p.sep)
             log.warning("\t CODE USAGE: \n")
-            log.warning("\t -> python pydephasing -ct1 [LR, LBLD, NMARK, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
+            log.warning("\t -> python pydephasing -ct1 [LR, RT, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
         log.error("\t WRONG EXECUTION PARAMETERS: PYDEPHASING STOPS")
 else:
     if mpi.rank == mpi.root:
@@ -76,7 +76,7 @@ if calc_type1 == "init":
 elif calc_type1 == "postproc":
     # post process output data from VASP
     pass
-elif calc_type1 == "LR" or calc_type1 == "LBLD" or calc_type1 == "NMARK":
+elif calc_type1 == "LR" or calc_type1 == "RT":
     co = parser.parse_args().co[0]
     if co == "energy":
         energy_linewidth_driver(yml_file)

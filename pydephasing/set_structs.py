@@ -9,9 +9,10 @@ from pymatgen.core.structure import Structure
 import scipy.linalg as la
 import h5py
 import yaml
-from pydephasing.log import log
-from pydephasing.mpi import mpi
+from utilities.log import log
+from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
+from pydephasing.atomic_list_struct import atoms
 #
 #  atom dictionary class
 #
@@ -97,6 +98,15 @@ class AtomicStructDict:
 class UnpertStruct:
 	def __init__(self, ipath):
 		self.ipath = ipath + "/"
+		# electronic parameters
+		self.nkpt= None
+		self.nbnd= None
+		self.eigv = None
+		self.occ = None
+		self.nup = None
+		self.ndw = None
+		self.S = None
+		self.spin_multiplicity = None
 	### read POSCAR file
 	def read_poscar(self):
 		poscar = Poscar.from_file("{}".format(self.ipath+"POSCAR"), read_velocities=False)
@@ -107,7 +117,72 @@ class UnpertStruct:
 		struct_dict.build_dict(struct)
 		atoms_key = struct_dict.atoms_key
 		self.nat = len(list(struct_dict.dictionary[atoms_key]))
+		assert self.nat == atoms.nat
 		log.debug("\t n. atoms: " + str(self.nat))
+	### extract energy eigenvalues + occup.
+	def extract_energy_eigv(self):
+		if mpi.rank == mpi.root:
+			log.info("\n")
+			log.info("\t " + p.sep)
+		f = open(self.ipath+"OUTCAR", 'r')
+		lines = f.readlines()
+		for i in range(len(lines)):
+			line = lines[i].strip().split()
+			if len(line) > 2:
+				if line[0] == "k-points":
+					if line[1] == "NKPTS":
+						self.nkpt = int(line[3])
+					if line[-2] == "NBANDS=":
+						self.nbnd = int(line[-1])
+		if mpi.rank == mpi.root:
+			log.info("\t n. kpts: " + str(self.nkpt))
+			log.info("\t n. bands: " + str(self.nbnd))
+		self.eigv = np.zeros((self.nbnd, self.nkpt, 2))
+		self.occ  = np.zeros((self.nbnd, self.nkpt, 2))
+		for i in range(len(lines)):
+			line = lines[i].strip().split()
+			if len(line) > 2:
+				if line[0] == "spin" and line[1] == "component":
+					spi = int(line[2])-1
+					ki = int(lines[i+2].strip().split()[1])-1
+					i0 = i+4
+					for j in range(i0, i0+self.nbnd):
+						line2 = lines[j].strip().split()
+						if len(line2) == 3:
+							bi = int(line2[0])-1
+							self.eigv[bi,ki,spi] = float(line2[1])
+							self.occ[bi,ki,spi]  = float(line2[2])
+	### read OUTCAR
+	### extract spin state
+	def extract_spin_state(self):
+		self.extract_energy_eigv()
+		# read file
+		f = open(self.ipath+"OUTCAR", 'r')
+		lines = f.readlines()
+		for i in range(len(lines)):
+			line = lines[i].strip().split()
+			if len(line) > 4:
+				if line[0] == "Total" and line[1] == "magnetic" and line[2] == "moment":
+					mag_mom = float(line[4])
+					if mpi.rank == mpi.root:
+						log.info("\t total magnetic moment: " + str(mag_mom))
+		# compute occup. diff.
+		self.nup = 0.
+		self.ndw = 0.
+		for ki in range(self.nkpt):
+			for bi in range(self.nbnd):
+				self.nup += 1./self.nkpt * self.occ[bi,ki,0]
+				self.ndw += 1./self.nkpt * self.occ[bi,ki,1]
+		if mpi.rank == mpi.root:
+			log.info("\t n. up states = " + str(self.nup))
+			log.info("\t n. dw states = " + str(self.ndw))
+		self.S = 0.5 * np.abs(self.nup - self.ndw)
+		assert int(2.*self.S) == int(round(mag_mom))
+		self.spin_multiplicity = 2.*self.S + 1
+		if mpi.rank == mpi.root:
+			log.info("\t SPIN MULTIPLICITY : " + str(self.spin_multiplicity))
+			log.info("\t " + p.sep)
+			log.info("\n")
 	### read ZFS from OUTCAR
 	def read_zfs(self):
 		# read file

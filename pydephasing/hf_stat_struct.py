@@ -1,6 +1,6 @@
 import yaml
 import numpy as np
-from pydephasing.log import log
+from utilities.log import log
 from pydephasing.set_structs import UnpertStruct
 from pydephasing.set_param_object import p
 #

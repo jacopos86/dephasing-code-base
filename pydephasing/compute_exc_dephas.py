@@ -4,8 +4,8 @@
 # and it returns it for further processing
 import numpy as np
 import logging
-from pydephasing.mpi import mpi
-from pydephasing.log import log
+from parallelization.mpi import mpi
+from utilities.log import log
 from pydephasing.gradient_interactions import gradient_Eg
 from pydephasing.utility_functions import print_zpl_fluct
 from pydephasing.extract_ph_data import extract_ph_data

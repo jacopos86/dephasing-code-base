@@ -1,26 +1,24 @@
-VENV = pydeph
+ROOT = $(shell pwd)
+VENV = $(ROOT)/pydeph
 PYTHON = $(VENV)/bin/python3
 PIP = $(VENV)/bin/pip
-ROOT = $(shell pwd)
-EXAMPLES_DIR = EXAMPLES
-EXAMPLES_TAR_FILE = EXAMPLES.tar.gz
+EXAMPLES_TAR_FILE = $(ROOT)/EXAMPLES.tar.gz
 EXAMPLES_URL = "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
-UNIT_TEST_DIR = pydephasing/unit_tests
-TESTS_DIR = TESTS
+UNIT_TEST_DIR = $(ROOT)/pydephasing/unit_tests
 
-configure : requirements.txt
+configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
 	python3 -m venv $(VENV); \
-	. $(VENV)/bin/activate; \
-	$(PIP) install -r requirements.txt 
+	. $(VENV)/bin/activate;
+ifeq (, $(shell which nvcc))
+	$(PIP) install -r $(ROOT)/requirements.txt
+else
+	$(PIP) install -r $(ROOT)/requirements_GPU.txt
+endif
 build :
 	. $(VENV)/bin/activate; \
 	if [ ! -f $(EXAMPLES_TAR_FILE) ] ; \
 	then \
 		gdown --fuzzy $(EXAMPLES_URL) ; \
-	fi ; \
-	if [ ! -d $(EXAMPLES_DIR) ] ; \
-	then \
-		tar -xvzf $(EXAMPLES_TAR_FILE) ; \
 	fi ; \
 	./build.sh
 install :
@@ -29,32 +27,47 @@ install :
 .PHONY :
 	clean
 clean :
-	rm -rf ./pydephasing/*~ ; \
-	if [ -d ./pydephasing/__pycache__ ] ; \
+	rm -rf $(ROOT)/pydephasing/*~ ; \
+	if [ -d $(ROOT)/pydephasing/__pycache__ ] ; \
 	then \
-		rm -rf ./pydephasing/__pycache__ ; \
+		rm -rf $(ROOT)/pydephasing/__pycache__ ; \
 	fi ; \
-	if [ -d ./build ] ; \
+	if [ -d $(ROOT)/build ] ; \
 	then \
-		rm -rf ./build ; \
+		rm -rf $(ROOT)/build ; \
 	fi ; \
-	if [ -d ./__pycache__ ] ; \
+	if [ -d $(ROOT)/__pycache__ ] ; \
 	then \
-		rm -rf ./__pycache__ ; \
+		rm -rf $(ROOT)/__pycache__ ; \
 	fi ; \
-	if [ -d ./pydephasing/unit_tests/__pycache__ ] ; \
+	if [ -d $(UNIT_TEST_DIR)/__pycache__ ] ; \
 	then \
-		rm -rf ./pydephasing/unit_tests/__pycache__ ; \
+		rm -rf $(UNIT_TEST_DIR)/__pycache__ ; \
+	fi ; \
+	if [ -d $(ROOT)/pydephasing/common/__pycache__ ] ; \
+	then \
+		rm -rf $(ROOT)/pydephasing/common/__pycache__ ; \
+	fi ; \
+	if [ -d $(ROOT)/pydephasing/real_time/__pycache__ ] ; \
+	then \
+		rm -rf $(ROOT)/pydephasing/real_time/__pycache__ ; \
+	fi ; \
+	if [ -d $(ROOT)/pydephasing/parallelization/__pycache__ ] ; \
+	then \
+		rm -rf $(ROOT)/pydephasing/parallelization/__pycache__ ; \
+	fi ; \
+	if [ -d $(ROOT)/pydephasing/spin_model/__pycache__ ] ; \
+	then \
+		rm -rf $(ROOT)/pydephasing/spin_model/__pycache__ ; \
 	fi ; \
 	if [ -d $(VENV) ] ; \
 	then \
 		rm -rf $(VENV) ; \
 	fi ; \
-	if [ -f ./config.yml ] ; \
+	if [ -f $(ROOT)/config.yml ] ; \
 	then \
-		rm ./config.yml ; \
+		rm $(ROOT)/config.yml ; \
 	fi ;
 test :
 	. $(VENV)/bin/activate ; \
-	export TESTS=$(ROOT)/$(TESTS_DIR) ; \
-	$(PYTHON) -m unittest -v $(UNIT_TEST_DIR)/unit_test1.py
+	$(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_1.py
