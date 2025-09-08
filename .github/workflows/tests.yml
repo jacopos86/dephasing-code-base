@@ -36,7 +36,7 @@ jobs:
 
       - name: Build project
         run: |
-          echo -e "INFO\nn\nn\nn" | make build
+          echo -e "INFO\nn\nn\ny" | make build
 
       - name: Install package
         run: make install
