@@ -5,6 +5,7 @@ from pydephasing.set_param_object import p
 from pydephasing.compute_LR_spin_decoher import compute_spin_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
 from pydephasing.non_markov_dephas import compute_nmark_dephas
+from pydephasing.compute_LR_elec_decoher import compute_elec_dephas
 from quantum.compute_QA_spin_decoher import compute_dephas_QA
 
 #
@@ -147,6 +148,12 @@ def spin_qubit_driver(yml_file):
                 log.info("\t INHOMOGENEOUS STATIC SPIN - DEPHASING")
                 log.info("\n")
                 log.info("\t " + p.sep)
+        elif calc_type2 == "electronic":
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\n")
+                log.info("\t ELECTRONIC DEPHASING CALCULATION")
+                log.info("\n")
         else:
             if mpi.rank == mpi.root:
                 log.info("\n")
@@ -162,6 +169,8 @@ def spin_qubit_driver(yml_file):
         # compute auto correl. function first
         if calc_type2 == "stat" or calc_type2 == "statdd":
             T2_calc_handler = compute_hfi_stat_dephas()
+        elif calc_type2 == "electronic":
+            T2_calc_handler = compute_elec_dephas()
         else:
             T2_calc_handler = compute_spin_dephas(ZFS_CALC, HFI_CALC)
         #
