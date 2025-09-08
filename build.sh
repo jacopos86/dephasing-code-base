@@ -7,8 +7,8 @@ wd=$(pwd)
 # log level
 echo "log level: "
 read log_level
-echo "LOG_LEVEL : $log_level" >> config.yml 
- 
+echo "LOG_LEVEL : $log_level" >> config.yml
+
 # colored or file logging
 echo "redirect to log file? (y/n)"
 read set_log_file
@@ -24,7 +24,7 @@ else
 	exit 1
 fi
 echo "COLORED_LOGGING : $color_logging" >> config.yml
- 
+
 # log file
 if [ "$color_logging" = "FALSE" ]
 then
@@ -32,7 +32,7 @@ then
 	read log_file
 	echo "LOGFILE : $log_file" >> config.yml
 fi
- 
+
 # GPU
 echo "perform GPU calculation? "
 read gpu_calc
@@ -88,7 +88,13 @@ if [ "$CLEAN_TESTS" = "TRUE" ]
 then
 	if [ ! -d ${wd}/EXAMPLES ]
 	then
-		tar -xvzf EXAMPLES.tar.gz
+		if [ "$CI" = "true" ]; then
+			echo "Extracting EXAMPLES.tar.gz..."
+			tar -xzf EXAMPLES.tar.gz
+			echo "Extraction complete."
+		else
+			tar -xvzf EXAMPLES.tar.gz
+		fi
 	fi
 	if [ -d TESTS ]
 	then
