@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, develop]
   pull_request:
-    branches: [main, master, develop]
+    branches: [main, develop]
 
 jobs:
   test:
@@ -30,7 +30,8 @@ jobs:
         run: make configure
 
       - name: Build project
-        run: make build
+        run: |
+          echo -e "INFO\nn\nn\nn" | make build
 
       - name: Install package
         run: make install
