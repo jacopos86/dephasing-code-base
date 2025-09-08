@@ -1,0 +1,15 @@
+pycuda
+h5py
+matplotlib
+mpi4py
+numpy
+pymatgen
+PyYAML
+scipy
+colorlog
+scikit-learn
+tqdm
+gputil
+gdown
+tensorflow
+pytest
