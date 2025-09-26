@@ -5,6 +5,7 @@ from pydephasing.set_param_object import p
 from pydephasing.compute_LR_spin_decoher import compute_spin_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
 from pydephasing.compute_zfs_hfi_dephas import compute_full_dephas
+from pydephasing.compute_QA_spin_decoher import compute_dephas_QA
 
 #
 #   different calculation drivers
@@ -226,6 +227,12 @@ def spin_qubit_driver(yml_file):
             log.info("\n")
             log.info("\t " + p.sep)
             log.info("\n")
+            # read input file
+            p.read_yml_data(yml_file)
+            # compute auto correl. function first
+            ZFS_CALC = True
+            HFI_CALC = False
+            T2_calc_handler = compute_dephas_QA(ZFS_CALC, HFI_CALC)
     else:
         if mpi.rank == mpi.root:
             log.info("\n")
