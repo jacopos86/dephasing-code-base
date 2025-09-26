@@ -1,4 +1,3 @@
-pycuda
 h5py
 matplotlib
 mpi4py
@@ -12,4 +11,5 @@ tqdm
 gputil
 gdown
 tensorflow
+pytest
 qiskit

@@ -5,12 +5,12 @@
 import logging
 import numpy as np
 import os
-from pydephasing.mpi import mpi
-from pydephasing.log import log
+from parallelization.mpi import mpi
+from utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
-from pydephasing.spin_hamiltonian import set_spin_hamiltonian
-from pydephasing.spin_ph_handler import spin_ph_handler
+from spin_model.spin_hamiltonian import set_spin_hamiltonian
+from spin_model.spin_ph_handler import spin_ph_handler
 from pydephasing.ph_amplitude_module import PhononAmplitude
 from pydephasing.auto_correlation_spph_mod import acf_sp_ph
 from pydephasing.T2_calc_handler import set_T2_calc_handler
@@ -20,6 +20,7 @@ from pydephasing.q_grid import qgridClass
 from pydephasing.build_interact_grad import calc_interaction_grad
 from pydephasing.build_unpert_struct import build_gs_spin_struct
 from pydephasing.nuclear_spin_config import nuclear_spins_config
+from pydephasing.fermi_golden_rule import GeneralizedFermiGoldenRule
 #
 def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # main driver code for the calculation of dephasing time
@@ -29,9 +30,9 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # compute index maps
     atoms.set_atoms_data()
     # check restart exist otherwise create
-    if not os.path.isdir(p.work_dir+'/restart'):
+    if not os.path.isdir(p.write_dir+'/restart'):
         if mpi.rank == mpi.root:
-            os.mkdir(p.work_dir+'/restart')
+            os.mkdir(p.write_dir+'/restart')
     mpi.comm.Barrier()
     # extract interaction gradients
     interact_dict = calc_interaction_grad(ZFS_CALC, HFI_CALC)
@@ -62,6 +63,14 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     if mpi.rank == mpi.root:
         log.debug("\t ZFS_CALC: " + str(sp_ph_inter.ZFS_CALC))
         log.debug("\t HFI_CALC: " + str(sp_ph_inter.HFI_CALC))
+    # set Fermi Golden Rule object
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info("\t TIME RESOLVED: " + str(p.time_resolved))
+        log.info("\t FREQ. RESOLVED: " + str(p.w_resolved))
+        log.info("\t " + p.sep)
+    FGR = GeneralizedFermiGoldenRule().generate_instance(p.time_resolved, p.w_resolved)
+    FGR.set_grids()
     # set q grid
     qgr = qgridClass()
     qgr.set_qgrid()
@@ -101,7 +110,12 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\n")
         log.info("\t END SPIN-PHONON COUPLING CALCULATION")
         log.info("\t " + p.sep)
-    print(np.max(sp_ph_inter.g_ql.real))
+    print('g_ql', np.max(sp_ph_inter.g_ql.real))
+    #
+    if p.order_2_correct:
+        FGR.compute_relax_time_two_ph(nat, Hsp, sp_ph_inter, interact_dict, ph, qgr, p.temperatures)
+    else:
+        FGR.compute_relax_time_one_ph(Hsp, sp_ph_inter, ph, qgr, p.temperatures)
     exit()
     #
     # compute ZFS fluctuations
@@ -116,28 +130,6 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\n")
         log.info("\t ENERGY FLUCTUATIONS CALC. CONCLUDED")
         log.info("\t " + p.sep)
-    #
-    # if w_resolved define freq. grid
-    if p.w_resolved:
-        p.set_w_grid(wu)
-    Fax = sp_ph_inter.Fzfs_ax
-    print(max(Fax))
-    import sys
-    sys.exit()
-    # 2nd order calculation
-    if p.order_2_correct:
-        # F_axby = <1|S Grad_ax,by D S|1> - <0|S Grad_ax,by D S|0>
-        # F should be in eV/ang^2 units
-        # TODO : uncomment here 
-        #'''
-        sp_ph_inter.set_Faxby_zfs(grad2ZFS, Hsp)
-        Faxby = sp_ph_inter.Fzfs_axby
-        print(np.max(Faxby))
-        #'''
-        Faxby = np.zeros((3*nat, 3*nat), dtype=np.complex128)
-        # eV / ang^2
-    else:
-        Faxby = None
     # set q pts. grid
     if p.ph_resolved:
         p.set_wql_grid(wu, nq, nat)

@@ -1,5 +1,5 @@
 import yaml
-from pydephasing.log import log
+from utilities.log import log
 from pydephasing.set_param_object import p
 import os
 import numpy as np

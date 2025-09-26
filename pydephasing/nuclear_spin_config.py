@@ -9,8 +9,8 @@ import numpy as np
 from scipy import integrate
 import yaml
 from common.phys_constants import gamma_n
-from pydephasing.mpi import mpi
-from pydephasing.log import log
+from parallelization.mpi import mpi
+from utilities.log import log
 from pydephasing.set_param_object import p
 import matplotlib.pyplot as plt
 from common.matrix_operations import norm_realv

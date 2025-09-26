@@ -1,5 +1,5 @@
-from pydephasing.spin_ph_inter import SpinPhononFirstOrder
-from pydephasing.spin_ph_inter_secnd_order import SpinPhononSecndOrder
+from spin_model.spin_ph_inter import SpinPhononFirstOrder
+from spin_model.spin_ph_inter_secnd_order import SpinPhononSecndOrder
 
 #
 #    function to handle the

@@ -2,6 +2,7 @@
 #   This module defines
 #   the spin Hamiltonian 
 #
+
 import numpy as np
 from numpy import linalg as LA
 import yaml
@@ -12,7 +13,6 @@ from pydephasing.mpi import mpi
 from pydephasing.qubitization_module import qubitize_spin_hamilt
 import logging
 from abc import ABC
-import matplotlib.pyplot as plt
 
 #
 #   function : set spin Hamiltonian
@@ -129,7 +129,7 @@ class spin_triplet_hamiltonian(spin_hamiltonian):
 		eig0 = LA.eig(self.H0)[0]
 		np.testing.assert_almost_equal(eig, eig0, decimal=5)
 	# hyperfine interaction
-	def hperfine_coupl(self, site, I, Ahfi):
+	def hyperfine_coupl(self, site, I, Ahfi):
 		# hyperfine coupl. in eV from MHz
 		Ahfi_ev = Ahfi * 1.E-6 * THz_to_ev
 		I_Ahf = np.einsum("i,ij->j", I, Ahfi_ev[site,:,:])
@@ -154,7 +154,7 @@ class spin_triplet_hamiltonian(spin_hamiltonian):
 			for isp in range(nuclear_config.nsp):
 				I = nuclear_config.nuclear_spins[isp]['I']
 				site = nuclear_config.nuclear_spins[isp]['site']
-				H0 += self.hperfine_coupl(site, I, unprt_struct.Ahfi)
+				H0 += self.hyperfine_coupl(site, I, unprt_struct.Ahfi)
 		# store eigenstates
 		eig, eigv = LA.eig(H0)
 		for s in range(3):
@@ -162,100 +162,18 @@ class spin_triplet_hamiltonian(spin_hamiltonian):
 		# check eigenvalues
 		self.set_SDS(unprt_struct)
 	# set Hamiltonian time t
-	def set_hamilt_oft(self, t, unprt_struct, B, nuclear_config=None):
+	def set_hamilt_oft(self, t, B, unprt_struct=None, nuclear_config=None):
 		# get unpert. Hamiltonian
-		H = self.H0
+		H = np.copy(self.H0)
 		# add ext. magnetic field
-		H -=gamma_e * (B[0] * self.Sx + B[1] * self.Sy + B[2] * self.Sz)
+		H -=gamma_e * (B[0][t] * self.Sx + B[1][t] * self.Sy + B[2][t] * self.Sz)
 		# hyperfine interaction
 		if nuclear_config is not None:
 			for isp in range(nuclear_config.nsp):
 				It = nuclear_config.nuclear_spins[isp]['I'][t]
 				site = nuclear_config.nuclear_spins[isp]['site']
-				H += self.hperfine_coupl(site, It, unprt_struct.Ahfi)
+				H += self.hyperfine_coupl(site, It, unprt_struct.Ahfi)
 		return H
-	# set time array
-	def set_time(self, dt, T):
-		# set time in ps units
-		# for spin vector evolution
-		# n. time steps
-		nt = int(T / dt)
-		self.time = np.linspace(0., T, nt)
-		#
-		nt = int(T / (dt/2.))
-		self.time_dense = np.linspace(0., T, nt)
-	# compute magnetization array
-	def set_magnetization(self):
-		# compute magnet. expect. value
-		nt = len(self.time)
-		self.Mt = np.zeros((3,nt))
-		# run on t
-		for i in range(nt):
-			vx = np.dot(self.Sx, self.tripl_psit[:,i])
-			self.Mt[0,i] = np.dot(self.tripl_psit[:,i].conjugate(), vx).real
-			#
-			vy = np.dot(self.Sy, self.tripl_psit[:,i])
-			self.Mt[1,i] = np.dot(self.tripl_psit[:,i].conjugate(), vy).real
-			#
-			vz = np.dot(self.Sz, self.tripl_psit[:,i])
-			self.Mt[2,i] = np.dot(self.tripl_psit[:,i].conjugate(), vz).real
-		# plot spin magnetization
-		if log.level <= logging.DEBUG:
-			plt.ylim([-1.5, 1.5])
-			plt.plot(self.time, self.Mt[0,:].real, label="X")
-			plt.plot(self.time, self.Mt[1,:].real, label="Y")
-			plt.plot(self.time, self.Mt[2,:].real, label="Z")
-			plt.legend()
-			plt.show()
-	# compute spin vector
-	def compute_spin_vector_evol(self, struct0, psi0, B):
-		# initial state : psi0
-		# magnetic field : B (gauss)
-		# H = SDS + gamma_e B S
-		# 1) compute SDS
-		self.set_SDS(struct0)
-		# n. time steps
-		nt = len(self.time_dense)
-		Ht = np.zeros((3,3,nt), dtype=np.complex128)
-		# 2) set Ht in eV units
-		# run over time steps
-		for i in range(nt):
-			Ht[:,:,i] = Ht[:,:,i] + hbar * self.SDS[:,:]
-			# eV
-			# add B field
-			Ht[:,:,i] = Ht[:,:,i] + gamma_e * hbar * (B[0] * self.Sx[:,:] + B[1] * self.Sy[:,:] + B[2] * self.Sz[:,:])
-		dt = self.time[1]-self.time[0]
-		# ps units
-		# triplet wave function evolution
-		self.tripl_psit = triplet_evolution(Ht, psi0, dt)
-		# set magnetization vector Mt
-		self.set_magnetization()
-	# write spin vector on file
-	def write_spin_vector_on_file(self, out_dir):
-		# time steps
-		nt = len(self.time)
-		# write on file
-		namef = out_dir + "/spin-vector.yml"
-		# set dictionary
-		dict = {'time' : 0, 'Mt' : 0}
-		dict['time'] = self.time
-		dict['Mt'] = self.Mt
-		# save data
-		with open(namef, 'w') as out_file:
-			yaml.dump(dict, out_file)
-		# mag. vector
-		namef = out_dir + "/occup-prob.yml"
-		# set dictionary
-		dict2 = {'time' : 0, 'occup' : 0}
-		occup = np.zeros((3,nt))
-		# run over t
-		for i in range(nt):
-			occup[:,i] = np.dot(self.tripl_psit[:,i].conjugate(), self.tripl_psit[:,i]).real
-		dict2['time'] = self.time
-		dict2['occup']= occup
-		# save data
-		with open(namef, 'w') as out_file:
-			yaml.dump(dict2, out_file)
 
 #
 #   spin doublet 

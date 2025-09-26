@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 include-package-data = false
 
 [tool.setuptools.packages.find]
-include = ["pydeph", "pydephasing", "pydephasing/common"]
+include = ["pydeph", "pydephasing", "pydephasing/common", "pydephasing/real_time", "pydephasing/parallelization", "pydephasing/spin_model", "pydephasing/unit_tests"]
 exclude = ["clean_vers_files", "TESTS"]
 
 [project]

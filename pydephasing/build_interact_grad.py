@@ -3,8 +3,8 @@
 #  to compute interaction gradients
 import logging
 from pydephasing.set_param_object import p
-from pydephasing.mpi import mpi
-from pydephasing.log import log
+from parallelization.mpi import mpi
+from utilities.log import log
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
 from pydephasing.gradient_interactions import gradient_ZFS, gradient_HFI, gradient_2nd_HFI
 from pydephasing.gradient_interactions import generate_2nd_orderZFS_grad_instance
@@ -48,19 +48,18 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
         mpi.comm.Barrier()
         # save data to restart
         if mpi.rank == mpi.root:
-            gradZFS.write_gradDtensor_to_file(p.work_dir+'/restart')
+            gradZFS.write_gradDtensor_to_file(p.write_dir+'/restart')
         mpi.comm.Barrier()
         # zfs 2nd order
         if p.hessian:
             # set 2nd order tensor
             grad2ZFS = generate_2nd_orderZFS_grad_instance(p.work_dir, p.grad_info)
-            grad2ZFS.set_gs_zfs_tensor()
             # set secon order grad
             grad2ZFS.compute_2nd_order_gradients(struct_list_2nd)
             mpi.comm.Barrier()
             # save data to restart
             if mpi.rank == mpi.root:
-                grad2ZFS.write_grad2Dtensor_to_file(p.work_dir+'/restart')
+                grad2ZFS.write_hessDtensor_to_file(p.write_dir+'/restart')
         mpi.comm.Barrier()
         # debug mode
         if mpi.rank == mpi.root:
@@ -86,7 +85,7 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
         mpi.comm.Barrier()
         # save data to restart
         if mpi.rank == mpi.root:
-            gradHFI.write_gradHtensor_to_file(p.work_dir+'/restart')
+            gradHFI.write_gradHtensor_to_file(p.write_dir+'/restart')
         mpi.comm.Barrier()
         # hfi 2nd order
         if p.hessian:

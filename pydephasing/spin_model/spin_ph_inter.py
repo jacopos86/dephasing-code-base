@@ -3,10 +3,10 @@ import cmath
 from abc import ABC
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
-from pydephasing.mpi import mpi
+from parallelization.mpi import mpi
 from common.phys_constants import hbar, THz_to_ev
 from common.matrix_operations import compute_matr_elements
-from pydephasing.log import log
+from utilities.log import log
 #
 # set of routines 
 # for spin phonon dephasing class
@@ -115,8 +115,8 @@ class SpinPhononClass(ABC):
         iql = 0
         for iq, il in ql_list:
             qv = qgr.qpts[iq]
-            for n in range(atoms.supercell_size):
-                Rn = atoms.supercell_grid[n]
+            for iL in range(atoms.supercell_size):
+                Rn = atoms.supercell_grid[iL]
                 for jax in range(3*nat):
                     ia = atoms.index_to_ia_map[jax]
                     m_ia = atoms.atoms_mass[ia]             
@@ -157,6 +157,7 @@ class SpinPhononFirstOrder(SpinPhononClass):
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
+        self.ql_list = ql_list
         nan_indices = np.isnan(self.g_ql)
         assert nan_indices.any() == False
 
@@ -188,42 +189,6 @@ class SpinPhononSecndOrder00(SpinPhononClass):
         # collect data
         self.Fhf_axby = mpi.collect_array(Faxby) * 2.*np.pi * hbar
         # eV / ang^2
-
-class SpinPhononRelaxClass(SpinPhononClass):
-    def __init__(self):
-        super(SpinPhononRelaxClass, self).__init__()
-    # set up < 1 | S grad_axby D S | 0 > coefficients
-    # 2nd order spin phonon relaxation matrix elements
-    def set_gaxbyD_force(self, grad2ZFS, Hsp):
-        nat = grad2ZFS.struct_0.nat
-        # partition jax between proc.
-        jax_list = mpi.random_split(range(3*nat))
-        # S g^2D S matrix elements
-        Faxby = np.zeros((3*nat, 3*nat), dtype=np.complex128)
-        for jax in jax_list:
-            for jby in range(jax, 3*nat):
-                SggDS = np.zeros((3,3), dtype=np.complex128)
-                g2D = np.zeros((3,3))
-                g2D[:,:] = grad2ZFS.U_grad2D_U[jax,jby,:,:]
-                # THz / ang^2
-                SggDS =  g2D[0,0] * np.matmul(Hsp.Sx, Hsp.Sx)
-                SggDS += g2D[0,1] * np.matmul(Hsp.Sx, Hsp.Sy)
-                SggDS += g2D[1,0] * np.matmul(Hsp.Sy, Hsp.Sx)
-                SggDS += g2D[1,1] * np.matmul(Hsp.Sy, Hsp.Sy)
-                SggDS += g2D[0,2] * np.matmul(Hsp.Sx, Hsp.Sz)
-                SggDS += g2D[2,0] * np.matmul(Hsp.Sz, Hsp.Sx)
-                SggDS += g2D[1,2] * np.matmul(Hsp.Sy, Hsp.Sz)
-                SggDS += g2D[2,1] * np.matmul(Hsp.Sz, Hsp.Sy)
-                SggDS += g2D[2,2] * np.matmul(Hsp.Sz, Hsp.Sz)
-                #
-                Faxby[jax,jby] = self.compute_matr_elements(SggDS, self.qs1, self.qs0)
-                if jby != jax:
-                    Faxby[jby,jax] = Faxby[jax,jby]
-        # THz / ang^2 units
-        # collect data into single proc.
-        mpi.comm.Barrier()
-        Faxby =  mpi.collect_array(Faxby)
-        return Faxby
     # set < qs | I(aa) grad_axby Ahf(aa) S | qs > coefficients
     def set_gaxbyA_force(self, aa, grad2HFI, Hsp, Iaa, displ_structs):
         # nat
