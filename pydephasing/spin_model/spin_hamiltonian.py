@@ -9,7 +9,7 @@ from common.special_functions import delta
 from common.phys_constants import gamma_e, eps, THz_to_ev
 from utilities.log import log
 from parallelization.mpi import mpi
-import pydephasing.quantum_eigensolver
+from pydephasing.qubitization_module import qubitize_spin_hamilt
 from abc import ABC
 
 #
@@ -79,7 +79,8 @@ class spin_hamiltonian(ABC):
 		assert np.abs(self.Ssq[2,2] - self.s*(self.s+1.)) < eps
 	def check_degeneracy(self):
 		return False
-
+	def qubitize_hamiltonian(self):
+		qubitize_spin_hamilt(self.H0)
 #
 #   spin triplet Hamiltonian class
 #
