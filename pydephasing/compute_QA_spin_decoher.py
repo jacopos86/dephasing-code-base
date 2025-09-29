@@ -1,11 +1,11 @@
 import os
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
-from pydephasing.mpi import mpi
-from pydephasing.log import log
+from parallelization.mpi import mpi
+from utilities.log import log
 from pydephasing.build_interact_grad import calc_interaction_grad
 from pydephasing.build_unpert_struct import build_gs_spin_struct
-from pydephasing.spin_hamiltonian import set_spin_hamiltonian
+from spin_model.spin_hamiltonian import set_spin_hamiltonian
 from pydephasing.nuclear_spin_config import nuclear_spins_config
 #
 def compute_dephas_QA(ZFS_CALC, HFI_CALC, config_index=0):
