@@ -1,5 +1,5 @@
 from utilities.input_parser import parser
-from pydephasing.input_parameters import preproc_data_input, static_data_input, linear_resp_input, real_time_input
+from pydephasing.input_parameters import preproc_data_input, static_data_input, linear_resp_input, real_time_input, Q_real_time_input
 # input parameters object
 p = None
 calc_type1 = parser.parse_args().ct1[0]
@@ -15,4 +15,6 @@ else:
             p = static_data_input()
     elif ct1 == "RT":
         p = real_time_input()
+    elif ct1 == "QUANTUM":
+        p = Q_real_time_input()
 p.sep = "*"*94
