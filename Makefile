@@ -1,14 +1,16 @@
 ROOT = $(shell pwd)
 VENV = $(ROOT)/pydeph
-PYTHON = $(VENV)/bin/python3
+PYTHON_VERSION = python3
+PYTHON = $(VENV)/bin/python
 PIP = $(VENV)/bin/pip
 EXAMPLES_TAR_FILE = $(ROOT)/EXAMPLES.tar.gz
 EXAMPLES_URL = "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
 UNIT_TEST_DIR = $(ROOT)/pydephasing/unit_tests
 
 configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
-	python3 -m venv $(VENV); \
+	$(PYTHON_VERSION) -m venv $(VENV); \
 	. $(VENV)/bin/activate;
+	$(PIP) install --upgrade pip setuptools wheel
 ifeq (, $(shell which nvcc))
 	$(PIP) install -r $(ROOT)/requirements.txt
 else
@@ -71,4 +73,5 @@ clean :
 test :
 	. $(VENV)/bin/activate ; \
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_1.py
+	$(PYTHON) -m pytest -p no:warnings $(UNIT_TEST_DIR)/test_2.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_3.py
