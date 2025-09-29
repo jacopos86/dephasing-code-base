@@ -1,5 +1,5 @@
-from pydephasing.mpi import mpi
-from pydephasing.log import log
+from parallelization.mpi import mpi
+from utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.pauli_polynomial_class import PauliPolynomial
 
