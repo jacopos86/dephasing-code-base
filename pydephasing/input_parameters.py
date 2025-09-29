@@ -474,6 +474,25 @@ class real_time_input(dynamical_data_input):
                 log.warning("\t inconsistent choice of dynamical_mode and order_2_correct: \n")
                 log.warning("\t set order_2_correct to True for consistency")
                 self.order_2_correct = True
+
+class Q_real_time_input(dynamical_data_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        # qubutization mode
+        self.qubit_repr = None
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # qubitization mode
+        if 'qubit_repr' in data:
+            self.qubit_repr = data['qubit_repr']
                 
 class static_data_input(data_input):
     # initialization
