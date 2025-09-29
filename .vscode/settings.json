@@ -1,6 +1,8 @@
 {
-  "python.analysis.extraPaths": ["./", "./pydephasing", "./pydeph/bin/"],
+  "python.analysis.extraPaths": ["./", "./pydephasing", "./pydeph/bin/", "./pydeph/lib/python3.12/site-packages"],
   "python.defaultInterpreterPath": "./pydeph/bin/python3",
+  "python.analysis.indexing": true,
+  "python.analysis.useLibraryCodeForTypes": true,
   // Associate .cu files with CUDA C++
   "files.associations": {
     "*.cu": "cuda-cpp",
