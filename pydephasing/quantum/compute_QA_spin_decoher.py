@@ -5,7 +5,7 @@ from parallelization.mpi import mpi
 from utilities.log import log
 from pydephasing.build_interact_grad import calc_interaction_grad
 from pydephasing.build_unpert_struct import build_gs_spin_struct
-from spin_model.spin_hamiltonian import set_spin_hamiltonian
+from spin_model.spin_hamiltonian import set_spin_hamiltonian, quantum_spin_hamiltonian
 from pydephasing.nuclear_spin_config import nuclear_spins_config
 #
 def compute_dephas_QA(ZFS_CALC, HFI_CALC, config_index=0):
@@ -17,9 +17,9 @@ def compute_dephas_QA(ZFS_CALC, HFI_CALC, config_index=0):
     # first set atoms + index maps
     atoms.set_atoms_data()
     # check restart exists otherwise create one
-    if not os.path.isdir(p.work_dir+'/restart'):
+    if not os.path.isdir(p.write_dir+'/restart'):
         if mpi.rank == mpi.root:
-            os.mkdir(p.work_dir+'/restart')
+            os.mkdir(p.write_dir+'/restart')
     mpi.comm.Barrier()
     # extract interaction gradients
     interact_dict = calc_interaction_grad(ZFS_CALC, HFI_CALC)
@@ -44,5 +44,8 @@ def compute_dephas_QA(ZFS_CALC, HFI_CALC, config_index=0):
         nuclear_config = nuclear_spins_config(p.nsp, p.B0)
         nuclear_config.set_nuclear_spins(nat, config_index)
     # set up the spin Hamiltonian
-    Hsp = set_spin_hamiltonian(struct_0, p.B0, nuclear_config)
-    Hsp.qubitize_hamiltonian()
+    Hsp = set_spin_hamiltonian(struct_0, p.B0)
+    # qubitize the Hamiltonian
+    Hsys = quantum_spin_hamiltonian(Hsp, HFI_CALC)
+    if mpi.rank == mpi.root:
+        Hsys.print_info()
