@@ -238,11 +238,6 @@ def spin_qubit_driver(yml_file):
             log.info("\n")
         mpi.comm.Barrier()
         # full spin branch -> END
-    elif calc_type1 == "NMARK":
-        assert(calc_type2 == "full")
-        '''
-        NOT IMPLEMENTED
-        '''
     elif calc_type1 == "QUANTUM":
         if mpi.rank == mpi.root:
             log.info("\n")
