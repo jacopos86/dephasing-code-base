@@ -11,6 +11,7 @@ class PauliTerm:
     def __init__(self, ps=None, pc=None):
         self.p_str = ""
         self.p_coeff = 0j
+        self.__nq = None
         if ps is not None and pc is not None:
             self.p_str = ps
             self.p_coeff = pc
@@ -18,3 +19,5 @@ class PauliTerm:
             log.error("WRONG INITIALIZATION")
         elif ps is not None and pc is None:
             log.error("WRONG INITIALIZATION")
+    def set_number_qubits(self, nq):
+        self.__nq = nq
