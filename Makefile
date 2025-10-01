@@ -62,6 +62,10 @@ clean :
 	then \
 		rm -rf $(ROOT)/pydephasing/spin_model/__pycache__ ; \
 	fi ; \
+	if [ -d $(ROOT)/pydephasing/quantum/__pycache__ ] ; \
+	then \
+		rm -rf $(ROOT)/pydephasing/quantum/__pycache__ ; \
+	fi ; \
 	if [ -d $(VENV) ] ; \
 	then \
 		rm -rf $(VENV) ; \
