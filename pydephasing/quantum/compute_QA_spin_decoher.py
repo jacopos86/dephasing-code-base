@@ -29,6 +29,7 @@ def compute_dephas_QA(ZFS_CALC, HFI_CALC, config_index=0):
     # extract unperturbed struct.
     if mpi.rank == mpi.root:
         log.info("\t GS DATA DIR: " + p.gs_data_dir)
+        log.info("\t fermion -> qubit transformation: " + str(p.fermion2qubit))
     struct_0 = build_gs_spin_struct(p.gs_data_dir, HFI_CALC)
     # set nuclear spin configuration
     nuclear_config = None
@@ -43,9 +44,9 @@ def compute_dephas_QA(ZFS_CALC, HFI_CALC, config_index=0):
         # set spin config.
         nuclear_config = nuclear_spins_config(p.nsp, p.B0)
         nuclear_config.set_nuclear_spins(nat, config_index)
-    # set up the spin Hamiltonian
-    Hsp = set_spin_hamiltonian(struct_0, p.B0)
     # qubitize the Hamiltonian
-    Hsys = quantum_spin_hamiltonian(Hsp, HFI_CALC)
+    Hsys = quantum_spin_hamiltonian(HFI_CALC, p.qubit_ph)
+    Hsys.set_system_qubit_hamiltonian(struct_0, p.B0, nuclear_config)
     if mpi.rank == mpi.root:
         Hsys.print_info()
+    Hsys.qubitize_spin_hamilt()
