@@ -1,12 +1,20 @@
-from parallelization.mpi import mpi
 from utilities.log import log
-from pydephasing.set_param_object import p
-from quantum.pauli_polynomial_class import PauliPolynomial
 
 #
-#   This module defines the function to build
-#   the qubit Hamiltonian
-#   H = \sum_i c_i |{x,y,z}...{x,y,z}>
-#   H is written in the form of pauli polynomial
-#
+#   This module defines the basic Pauli term entity
+#   pt = c_i |zyxz...xxz>
+#   each term is a dictionary with key -> string of |xyxz...>
+#   pointing to a complex coefficient
+#   we override basic operations like +, +=, -, -=
 
+class PauliTerm:
+    def __init__(self, ps=None, pc=None):
+        self.p_str = ""
+        self.p_coeff = 0j
+        if ps is not None and pc is not None:
+            self.p_str = ps
+            self.p_coeff = pc
+        elif ps is None and pc is not None:
+            log.error("WRONG INITIALIZATION")
+        elif ps is not None and pc is None:
+            log.error("WRONG INITIALIZATION")
