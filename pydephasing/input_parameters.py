@@ -480,7 +480,8 @@ class Q_real_time_input(dynamical_data_input):
     def __init__(self):
         super().__init__()
         # qubutization mode
-        self.qubit_repr = None
+        self.fermion2qubit = None
+        self.qubit_ph = False
     def read_yml_data(self, input_file):
         try:
             f = open(input_file)
@@ -490,9 +491,12 @@ class Q_real_time_input(dynamical_data_input):
         data = yaml.load(f, Loader=yaml.Loader)
         f.close()
         self.read_yml_data_dyn(data)
+        # quantum phonons
+        if 'QUANTUM_PHONONS' in data:
+            self.qubit_ph = data['QUANTUM_PHONONS']
         # qubitization mode
-        if 'qubit_repr' in data:
-            self.qubit_repr = data['qubit_repr']
+        if 'fermion2qubit' in data:
+            self.fermion2qubit = data['fermion2qubit']
                 
 class static_data_input(data_input):
     # initialization
