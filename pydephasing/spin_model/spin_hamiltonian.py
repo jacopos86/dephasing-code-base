@@ -12,6 +12,7 @@ from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from abc import ABC
 from quantum.pauli_polynomial_class import PauliPolynomial
+from quantum.qubitization_module import PauliTerm
 
 #
 #   function : set spin Hamiltonian
@@ -210,13 +211,21 @@ class spin_doublet_hamiltonian(spin_hamiltonian):
 #      including environment DOF 
 
 class quantum_spin_hamiltonian:
-	def __init__(self, Hsp, NUCL_SPINS=False, PHONONS=False):
-		# spin Hamiltonian
-		self.Hsp = Hsp
+	def __init__(self, NUCL_SPINS=False, PHONONS=False):
 		# nuclear spins
 		self.NUCL_SPINS = NUCL_SPINS
 		# phonons
 		self.PHONONS = PHONONS
+		# isolated spin Hamiltonian object
+		self.Hsp = None
+		# nuclear spin config.
+		self.nuclear_config = None
+		# ph. object
+		self.ph = None
+		# system hamiltonian in qubit form
+		self.__Hsys_q = None
+		# n. qubits
+		self.__nq = None
 	def print_info(self):
 		log.info("\n")
 		log.info("\t " + p.sep)
@@ -228,19 +237,32 @@ class quantum_spin_hamiltonian:
 	def compute_number_qubits(self):
 		nq = len(self.Hsp.qs)
 		if self.NUCL_SPINS:
-			nq += self.nuclear_config.nsp
+			# spin states up / dw
+			nq += 2*self.nuclear_config.nsp
 		return nq
-	def qubitize_spin_hamilt(self, qs, nuclear_config=None):
+	def set_system_qubit_hamiltonian(self, struct_0, B, nuclear_config=None, ph=None):
+		#  first build isolated spin hamiltonian
+		self.Hsp = set_spin_hamiltonian(struct_0, B)
+		# set nuclear config. if available
+		if self.NUCL_SPINS:
+			self.nuclear_config = nuclear_config
+		# set ph. if present
+		if self.PHONONS:
+			self.ph = ph
+		# n. qubits required
+		self.__nq = self.compute_number_qubits()
+		if mpi.rank == mpi.root:
+			log.info("\t " + p.sep)
+			log.info("\t " + "n. qubits in simulation: " + str(self.__nq))
+			log.info("\t " + p.sep)
+		self.__Hsys_q = PauliPolynomial()
+	def qubitize_spin_hamilt(self):
     	#
     	#  This function convert the spin Hamiltonian
     	#  from fermion basis -> qubit basis
     	#
-		nq = self.compute_number_qubits()
-		if mpi.rank == mpi.root:
-			log.info("\t " + p.sep)
-			log.info("\t " + "n. qubits in simulation: " + str(nq))
-			log.info("\t " + p.sep)
 		#  build Pauli polynomial
-		Hq = PauliPolynomial(nq)
-		#  build spin states first
-		return Hq
+		Hq = PauliPolynomial()
+		self.__Hsys_q += Hq
+		if mpi.rank == mpi.root:
+			log.info("\t size Hsys_q polynomial: " + str(self.__Hsys_q.count_number_terms()))
