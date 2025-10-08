@@ -70,4 +70,5 @@ clean :
 	fi ;
 test :
 	. $(VENV)/bin/activate ; \
-	$(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_1.py
+	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_1.py
+	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_3.py
