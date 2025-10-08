@@ -12,7 +12,7 @@ from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from abc import ABC
 from quantum.pauli_polynomial_class import PauliPolynomial
-from quantum.qubitization_module import PauliTerm
+from quantum.qubitization_module import fermion_plus_operator, fermion_minus_operator
 
 #
 #   function : set spin Hamiltonian
@@ -255,14 +255,29 @@ class quantum_spin_hamiltonian:
 			log.info("\t " + p.sep)
 			log.info("\t " + "n. qubits in simulation: " + str(self.__nq))
 			log.info("\t " + p.sep)
-		self.__Hsys_q = PauliPolynomial()
+		self.__Hsys_q = PauliPolynomial(p.fermion2qubit)
 	def qubitize_spin_hamilt(self):
     	#
     	#  This function convert the spin Hamiltonian
     	#  from fermion basis -> qubit basis
     	#
 		#  build Pauli polynomial
-		Hq = PauliPolynomial()
+		Hq = PauliPolynomial(p.fermion2qubit)
+		print(Hq.return_polynomial(), Hq.count_number_terms())
 		self.__Hsys_q += Hq
+		print(self.__Hsys_q.return_polynomial(), self.__Hsys_q.count_number_terms())
 		if mpi.rank == mpi.root:
 			log.info("\t size Hsys_q polynomial: " + str(self.__Hsys_q.count_number_terms()))
+		c_jdagg = fermion_plus_operator(p.fermion2qubit, self.__nq, 0)
+		print(c_jdagg.return_polynomial(), c_jdagg.count_number_terms())
+		c_jdagg.visualize_polynomial()
+		c_j = fermion_minus_operator(p.fermion2qubit, self.__nq, 2)
+		c_j.visualize_polynomial()
+		cc_j = c_j + c_jdagg
+		cc_j.visualize_polynomial()
+		cc_j += c_j
+		cc_j.visualize_polynomial()
+		pt = cc_j.return_polynomial()[0]*cc_j.return_polynomial()[1]
+		pt.visualize()
+		pp = cc_j * cc_j
+		pp.visualize_polynomial()
