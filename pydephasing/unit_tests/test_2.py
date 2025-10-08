@@ -42,3 +42,7 @@ def test_bell_circuit():
     assert '00' in counts
     assert '11' in counts
     assert counts['00'] + counts['11'] > 900  # > 90% fidelity
+
+def test_pauli_words():
+    pt1 = PauliTerm(5, ps='eexyz', pc=1.)
+    assert pt1.p_coeff == pytest.approx(1., abs=1.e-7)
