@@ -41,3 +41,4 @@ def set_real_time_solver(HFI_CALC):
             log.info("\t COMPLETE NON MARKOVIAN SOLVER - ELEC-PH ORDER 1")
             log.info("\t " + p.sep)
             log.info("\n")
+        return OnephSolver(p.dynamical_mode[0])
