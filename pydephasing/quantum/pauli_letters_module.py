@@ -18,6 +18,8 @@ symbol_product_map = {
     ('y', 'y'): (1., 'e'),
     ('y', 'z'): (1j, 'x'),
     ('z', 'e'): (1., 'z'),
+    ('z', 'x'): (1j, 'y'),
+    ('z', 'y'): (-1j, 'x'),
     ('z', 'z'): (1., 'e')
 }
 
@@ -34,4 +36,4 @@ class PauliLetter:
         if not isinstance(pl, PauliLetter):
             log.error("product must be with pauli letter")
         phase, sym = symbol_product_map[(self.symbol, pl.symbol)]
-        return PauliLetter(sym, phase)
+        return PauliLetter(symbol=sym, phase=phase)
