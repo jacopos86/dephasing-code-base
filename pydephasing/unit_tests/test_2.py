@@ -1,5 +1,6 @@
 from qiskit import QuantumCircuit
 from qiskit.providers.aer import AerSimulator
+from quantum.qubitization_module import PauliTerm
 import pytest
 
 #
