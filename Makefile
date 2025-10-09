@@ -58,6 +58,10 @@ clean :
 	then \
 		rm -rf $(ROOT)/pydephasing/parallelization/__pycache__ ; \
 	fi ; \
+	if [ -d $(ROOT)/pydephasing/utilities/__pycache__ ] ; \
+	then \
+		rm -rf $(ROOT)/pydephasing/utilities/__pycache__ ; \
+	fi ; \
 	if [ -d $(ROOT)/pydephasing/spin_model/__pycache__ ] ; \
 	then \
 		rm -rf $(ROOT)/pydephasing/spin_model/__pycache__ ; \
@@ -65,6 +69,10 @@ clean :
 	if [ -d $(ROOT)/pydephasing/quantum/__pycache__ ] ; \
 	then \
 		rm -rf $(ROOT)/pydephasing/quantum/__pycache__ ; \
+	fi ; \
+	if [ -d $(ROOT)/utils/__pycache__ ] ; \
+	then \
+		rm -rf $(ROOT)/utils/__pycache__ ; \
 	fi ; \
 	if [ -d $(VENV) ] ; \
 	then \
