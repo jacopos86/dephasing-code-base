@@ -9,7 +9,9 @@ from common.special_functions import delta
 from common.phys_constants import gamma_e, eps, THz_to_ev
 from utilities.log import log
 from parallelization.mpi import mpi
+from pydephasing.set_param_object import p
 from abc import ABC
+from quantum.pauli_polynomial_class import PauliPolynomial, fermion_plus_operator, fermion_minus_operator
 
 #
 #   function : set spin Hamiltonian
@@ -35,8 +37,8 @@ def set_spin_hamiltonian(struct0, B0, nuclear_config=None):
 
 class spin_hamiltonian(ABC):
 	def __init__(self):
-		# unperturbed Hamiltonian
-		self.H0 = None
+		# quantum spin states
+		self.qs = None
 	def Splus_mtxel(self, j1, m1, j2, m2):
 		r = np.sqrt((j2 - m2) * (j2 + m2 + 1)) * delta(j1, j2) * delta(m1, m2+1)
 		return r
@@ -76,6 +78,8 @@ class spin_hamiltonian(ABC):
 		assert np.abs(self.Ssq[0,0] - self.s*(self.s+1.)) < eps
 		assert np.abs(self.Ssq[1,1] - self.s*(self.s+1.)) < eps
 		assert np.abs(self.Ssq[2,2] - self.s*(self.s+1.)) < eps
+	def return_spin_eigenstates(self):
+		return self.qs
 	def check_degeneracy(self):
 		return False
 
@@ -198,3 +202,77 @@ class spin_doublet_hamiltonian(spin_hamiltonian):
 	def set_Sz(self):
 		self.Sz[0,0] = 0.5
 		self.Sz[1,1] =-0.5
+
+#
+#   full spin Hamiltonian object :
+#      this object is created when we need the full 
+#      quantum representation of the Hamiltonian
+#      including environment DOF 
+
+class quantum_spin_hamiltonian:
+	def __init__(self, qbit_repr, NUCL_SPINS=False, PHONONS=False):
+		# nuclear spins
+		self.NUCL_SPINS = NUCL_SPINS
+		# phonons
+		self.PHONONS = PHONONS
+		# isolated spin Hamiltonian object
+		self.Hsp = None
+		# nuclear spin config.
+		self.nuclear_config = None
+		# ph. object
+		self.ph = None
+		# system hamiltonian in qubit form
+		self.__Hsys_q = None
+		# n. qubits
+		self.__nq = None
+		# qubit repr. mode
+		self.qbit_repr = qbit_repr
+	def print_info(self):
+		log.info("\n")
+		log.info("\t " + p.sep)
+		log.info("\t FULL SYSYTEM HAMILTONIAN DEFINITION")
+		log.info("\t PHONONS: " + str(self.PHONONS))
+		log.info("\t NUCLEAR SPINS: " + str(self.NUCL_SPINS))
+		log.info("\t QUBIT REPR. MODE: " + self.qbit_repr)
+		log.info("\t " + p.sep)
+		log.info("\n")
+	def compute_number_qubits(self):
+		nq = len(self.Hsp.qs)
+		if self.NUCL_SPINS:
+			# spin states up / dw
+			nq += 2*self.nuclear_config.nsp
+		return nq
+	def set_system_qubit_hamiltonian(self, struct_0, B, nuclear_config=None, ph=None):
+		#  first build isolated spin hamiltonian
+		self.Hsp = set_spin_hamiltonian(struct_0, B)
+		# set nuclear config. if available
+		if self.NUCL_SPINS:
+			self.nuclear_config = nuclear_config
+		# set ph. if present
+		if self.PHONONS:
+			self.ph = ph
+		# n. qubits required
+		self.__nq = self.compute_number_qubits()
+		if mpi.rank == mpi.root:
+			log.info("\t " + p.sep)
+			log.info("\t " + "n. qubits in simulation: " + str(self.__nq))
+			log.info("\t " + p.sep)
+		self.__Hsys_q = PauliPolynomial(self.qbit_repr)
+	def qubitize_spin_hamilt(self):
+    	#
+    	#  This function convert the spin Hamiltonian
+    	#  from fermion basis -> qubit basis
+    	#
+		#  build Pauli polynomial
+		Hq = PauliPolynomial(self.qbit_repr)
+		#  fermionic qubit iq=0 -> len(Hsp.qs)
+		nf = len(self.Hsp.qs)
+		for iq in range(nf):
+			cj = fermion_minus_operator(self.qbit_repr, self.__nq, iq)
+			cjd= fermion_plus_operator(self.qbit_repr, self.__nq, iq)
+			r = cjd * cj
+			Hq += self.Hsp.qs[iq]['eig'] * r
+		self.__Hsys_q += Hq
+		if mpi.rank == mpi.root:
+			log.info("\t size Hsys_q polynomial: " + str(self.__Hsys_q.count_number_terms()))
+			self.__Hsys_q.visualize_polynomial()

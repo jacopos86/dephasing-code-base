@@ -4,7 +4,8 @@ from pydephasing.input_parameters import (
     preproc_data_input, 
     static_data_input, 
     linear_resp_input, 
-    real_time_input
+    real_time_input,
+    Q_real_time_input
 )
 
 # parameters proxy class
@@ -38,6 +39,8 @@ class param_proxy:
                     raise ValueError(f"Unknown ct2 value: {ct2!r}")
             elif ct1 == "RT":
                 self._real_p = real_time_input()
+            elif ct1 == "QUANTUM":
+                self._real_p = Q_real_time_input()
             else:
                 raise ValueError(f"Unknown ct1 value: {ct1!r}")
         if self._real_p is None:
