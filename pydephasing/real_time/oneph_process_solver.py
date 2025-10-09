@@ -7,6 +7,7 @@ from pydephasing.set_param_object import p
 from pydephasing.global_params import GPU_ACTIVE
 from pathlib import Path
 from common.phys_constants import THz_to_ev
+from pydephasing.electr_ph_dens_matr import elec_ph_dmatr
 
 if GPU_ACTIVE:
     from pydephasing.global_params import CUDA_SOURCE_DIR, gpu
@@ -52,6 +53,15 @@ class OnephSolver(RealTimeSolver):
                 log.info("\t " + p.sep)
                 log.info("\n")
             self.compute_scatter_matrix(H, ph, qgr)
+        elif self.NMARK:
+            if mpi.rank == mpi.root:
+                log.info("\n")
+                log.info("\t " + p.sep)
+                log.info("\t E-PH DENSITY MATRIX")
+                log.info("\t " + p.sep)
+                log.info("\n")
+            rho_q = elec_ph_dmatr().generate_instance()
+            #rho_q.set_modes_list(qgr)
     # scattering operator
     # calculation
     def compute_scatter_matrix(self, H, ph, qgr):
