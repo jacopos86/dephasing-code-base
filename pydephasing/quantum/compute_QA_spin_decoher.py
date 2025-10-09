@@ -45,7 +45,7 @@ def compute_dephas_QA(ZFS_CALC, HFI_CALC, config_index=0):
         nuclear_config = nuclear_spins_config(p.nsp, p.B0)
         nuclear_config.set_nuclear_spins(nat, config_index)
     # qubitize the Hamiltonian
-    Hsys = quantum_spin_hamiltonian(HFI_CALC, p.qubit_ph)
+    Hsys = quantum_spin_hamiltonian(p.fermion2qubit, NUCL_SPINS=HFI_CALC, PHONONS=p.qubit_ph)
     Hsys.set_system_qubit_hamiltonian(struct_0, p.B0, nuclear_config)
     if mpi.rank == mpi.root:
         Hsys.print_info()
