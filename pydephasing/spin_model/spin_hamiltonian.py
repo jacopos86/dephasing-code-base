@@ -11,8 +11,7 @@ from utilities.log import log
 from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from abc import ABC
-from quantum.pauli_polynomial_class import PauliPolynomial
-from quantum.qubitization_module import fermion_plus_operator, fermion_minus_operator
+from quantum.pauli_polynomial_class import PauliPolynomial, fermion_plus_operator, fermion_minus_operator
 
 #
 #   function : set spin Hamiltonian
@@ -211,7 +210,7 @@ class spin_doublet_hamiltonian(spin_hamiltonian):
 #      including environment DOF 
 
 class quantum_spin_hamiltonian:
-	def __init__(self, NUCL_SPINS=False, PHONONS=False):
+	def __init__(self, qbit_repr, NUCL_SPINS=False, PHONONS=False):
 		# nuclear spins
 		self.NUCL_SPINS = NUCL_SPINS
 		# phonons
@@ -226,12 +225,15 @@ class quantum_spin_hamiltonian:
 		self.__Hsys_q = None
 		# n. qubits
 		self.__nq = None
+		# qubit repr. mode
+		self.qbit_repr = qbit_repr
 	def print_info(self):
 		log.info("\n")
 		log.info("\t " + p.sep)
 		log.info("\t FULL SYSYTEM HAMILTONIAN DEFINITION")
 		log.info("\t PHONONS: " + str(self.PHONONS))
 		log.info("\t NUCLEAR SPINS: " + str(self.NUCL_SPINS))
+		log.info("\t QUBIT REPR. MODE: " + self.qbit_repr)
 		log.info("\t " + p.sep)
 		log.info("\n")
 	def compute_number_qubits(self):
@@ -255,29 +257,22 @@ class quantum_spin_hamiltonian:
 			log.info("\t " + p.sep)
 			log.info("\t " + "n. qubits in simulation: " + str(self.__nq))
 			log.info("\t " + p.sep)
-		self.__Hsys_q = PauliPolynomial(p.fermion2qubit)
+		self.__Hsys_q = PauliPolynomial(self.qbit_repr)
 	def qubitize_spin_hamilt(self):
     	#
     	#  This function convert the spin Hamiltonian
     	#  from fermion basis -> qubit basis
     	#
 		#  build Pauli polynomial
-		Hq = PauliPolynomial(p.fermion2qubit)
-		print(Hq.return_polynomial(), Hq.count_number_terms())
+		Hq = PauliPolynomial(self.qbit_repr)
+		#  fermionic qubit iq=0 -> len(Hsp.qs)
+		nf = len(self.Hsp.qs)
+		for iq in range(nf):
+			cj = fermion_minus_operator(self.qbit_repr, self.__nq, iq)
+			cjd= fermion_plus_operator(self.qbit_repr, self.__nq, iq)
+			r = cjd * cj
+			Hq += self.Hsp.qs[iq]['eig'] * r
 		self.__Hsys_q += Hq
-		print(self.__Hsys_q.return_polynomial(), self.__Hsys_q.count_number_terms())
 		if mpi.rank == mpi.root:
 			log.info("\t size Hsys_q polynomial: " + str(self.__Hsys_q.count_number_terms()))
-		c_jdagg = fermion_plus_operator(p.fermion2qubit, self.__nq, 0)
-		print(c_jdagg.return_polynomial(), c_jdagg.count_number_terms())
-		c_jdagg.visualize_polynomial()
-		c_j = fermion_minus_operator(p.fermion2qubit, self.__nq, 2)
-		c_j.visualize_polynomial()
-		cc_j = c_j + c_jdagg
-		cc_j.visualize_polynomial()
-		cc_j += c_j
-		cc_j.visualize_polynomial()
-		pt = cc_j.return_polynomial()[0]*cc_j.return_polynomial()[1]
-		pt.visualize()
-		pp = cc_j * cc_j
-		pp.visualize_polynomial()
+			self.__Hsys_q.visualize_polynomial()
