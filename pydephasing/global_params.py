@@ -21,14 +21,20 @@ config = yaml.load(f, Loader=yaml.Loader)
 GPU_ACTIVE = config['GPU']
 CUDA_SOURCE_DIR = None
 if GPU_ACTIVE:
-    import pycuda.autoinit
     import pycuda.driver as cuda
+    from mpi4py import MPI
     from parallelization.gpu import GPU_obj
-    print('Detected {} CUDA Capable device(s)'.format(cuda.Device.count()))
+    # start GPU setting
+    cuda.init()
+    rank = MPI.COMM_WORLD.Get_rank()
     ngpus = cuda.Device.count()
+    print('Detected {} CUDA Capable device(s)'.format(cuda.Device.count()))
+    # Assign one GPU per rank (round-robin if more ranks than GPUs)
+    device_id = rank % ngpus
+    print(f"[Rank {rank}] Using CUDA device {device_id}/{ngpus}")
     if ngpus > 0:
         GPU_BLOCK_SIZE = config['GPU_BLOCK_SIZE']
         GPU_GRID_SIZE = config['GPU_GRID_SIZE']
-        gpu = GPU_obj(GPU_BLOCK_SIZE, GPU_GRID_SIZE)
+        gpu = GPU_obj(GPU_BLOCK_SIZE, GPU_GRID_SIZE, device_id=device_id)
         gpu.set_grid_info()
     CUDA_SOURCE_DIR = PACKAGE_DIR + "/pydephasing/gpu_source/"
