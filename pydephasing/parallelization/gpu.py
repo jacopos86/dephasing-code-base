@@ -1,14 +1,8 @@
 import numpy as np
-<<<<<<< HEAD
 import weakref
 from pathlib import Path
 from pydephasing.parallelization.GPU_arrays_handler import GPU_ARRAY
 from pydephasing.global_params import GPU_ACTIVE
-=======
-from pathlib import Path
-from parallelization.GPU_arrays_handler import GPU_ARRAY
-from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
->>>>>>> 4f1cb97 (reorganize GPU module -> remove old recover_arrays_from_grid not needed now + cleanup + new init + distribute data on grid)
 if GPU_ACTIVE:
     import pycuda.driver as cuda
     from pycuda.compiler import SourceModule
@@ -16,22 +10,15 @@ if GPU_ACTIVE:
 # GPU class
 
 class GPU_obj:
-<<<<<<< HEAD
     def __init__(self, block_dim, grid_dim, cuda_src_dir, device_id=0):
         self.device_id = device_id
         self.ctx = cuda.Device(device_id).make_context()
         self.CUDA_SOURCE_DIR = Path(cuda_src_dir).resolve()
-=======
-    def __init__(self, block_dim, grid_dim, device_id=0):
-        self.device_id = device_id
-        self.ctx = cuda.Device(device_id).make_context()
->>>>>>> 4f1cb97 (reorganize GPU module -> remove old recover_arrays_from_grid not needed now + cleanup + new init + distribute data on grid)
         self.BLOCK_SIZE = np.array(block_dim)
         self.GRID_SIZE = np.array(grid_dim)
         max_threads = cuda.Device(device_id).get_attribute(cuda.device_attribute.MAX_THREADS_PER_BLOCK)
         if np.prod(self.BLOCK_SIZE) > max_threads:
             raise ValueError(f"GPU_BLOCK_SIZE {np.prod(self.BLOCK_SIZE)} exceeds device max of {max_threads} threads per block")
-<<<<<<< HEAD
         # Register cleanup function to run even if __del__ is skipped
         self._finalizer = weakref.finalize(self, self._cleanup_internal)
     def get_device_module(self, src_file):
@@ -41,11 +28,6 @@ class GPU_obj:
             raise FileNotFoundError(f"CUDA source file does not exist: {gpu_src_path}")
         gpu_src = gpu_src_path.read_text()
         dev_func = SourceModule(gpu_src, options=[f"-I{self.CUDA_SOURCE_DIR}"])
-=======
-    def get_device_module(self, src_file):
-        gpu_src = Path(CUDA_SOURCE_DIR+src_file).read_text()
-        dev_func = SourceModule(gpu_src, options=["-I"+CUDA_SOURCE_DIR])
->>>>>>> 4f1cb97 (reorganize GPU module -> remove old recover_arrays_from_grid not needed now + cleanup + new init + distribute data on grid)
         return dev_func
     def set_grid_info(self):
         self.nthr_block = self.BLOCK_SIZE[0]*self.BLOCK_SIZE[1]*self.BLOCK_SIZE[2]
@@ -66,7 +48,6 @@ class GPU_obj:
         for i in range(self.gpu_size-1):
             assert init_index[i]+lengths[i] == init_index[i+1]
         return GPU_ARRAY(init_index, np.int32), GPU_ARRAY(lengths, np.int32)
-<<<<<<< HEAD
     def __del__(self):
         self.cleanup()
     def _cleanup_internal(self):
@@ -81,12 +62,4 @@ class GPU_obj:
         """Call this if you want to clean up early."""
         self._cleanup_internal()
         self._finalizer.detach()  # Prevent it from running again
-=======
-    def cleanup(self):
-        '''clean up Cuda context'''
-        if self.ctx is not None:
-            self.ctx.pop()
-            self.ctx.detach()
-            self.ctx = None
->>>>>>> 4f1cb97 (reorganize GPU module -> remove old recover_arrays_from_grid not needed now + cleanup + new init + distribute data on grid)
 #
