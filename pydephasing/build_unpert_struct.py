@@ -27,3 +27,5 @@ def build_gs_elec_struct(gs_data_dir):
     struct0 = build_gs_struct_base(gs_data_dir)
     # extract energy eigenvalues
     struct0.extract_energy_eigv()
+    struct0.extract_orbital_character()
+    return struct0
