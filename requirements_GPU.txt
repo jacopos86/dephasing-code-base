@@ -13,5 +13,7 @@ gputil
 gdown
 tensorflow
 pytest
+phonopy
+jarvis-tools
 qiskit==0.45.1
 qiskit-aer==0.13.3
