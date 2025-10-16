@@ -4,8 +4,12 @@
 #
 import numpy as np
 import os
+from pathlib import Path
 from pymatgen.io.vasp.inputs import Poscar
 from pymatgen.core.structure import Structure
+from pymatgen.io.vasp import Vasprun
+from pymatgen.electronic_structure.core import Spin
+from pymatgen.io.vasp.outputs import Procar
 import scipy.linalg as la
 import h5py
 import yaml
@@ -107,6 +111,10 @@ class UnpertStruct:
 		self.ndw = None
 		self.S = None
 		self.spin_multiplicity = None
+		self.has_soc = None
+		self.spinor_wfc = None
+		self.orbital_character = None
+		self.orbitals = None
 	### read POSCAR file
 	def read_poscar(self):
 		poscar = Poscar.from_file("{}".format(self.ipath+"POSCAR"), read_velocities=False)
@@ -121,11 +129,74 @@ class UnpertStruct:
 		log.debug("\t n. atoms: " + str(self.nat))
 	### extract energy eigenvalues + occup.
 	def extract_energy_eigv(self):
+		file_name = "vasprun.xml"
+		file_name = "{}".format(self.ipath+file_name)
+		fil = Path(file_name)
+		if fil.exists():
+			self.extract_energy_eigv_from_vasprun()
+			self.read_k_points_weights()
+		else:
+			file_name = "OUTCAR"
+			file_name = "{}".format(self.ipath+file_name)
+			fil = Path(file_name)
+			if fil.exists():
+				self.extract_energy_eigv_from_OUTCAR()
+			else:
+				log.error("data file not found in: " + str(self.ipath))
+	def extract_energy_eigv_from_vasprun(self):
+		file_name = "{}".format(self.ipath+"vasprun.xml")
+		vasprun = Vasprun(file_name)
+		bs = vasprun.get_band_structure()
+		# num. bands / kpts
+		self.nbnd = bs.nb_bands
+		self.nkpt = len(bs.kpoints)
+		if not bs.is_spin_polarized:
+			nspin = 1
+		else:
+			nspin = 2
+		if mpi.rank == mpi.root:
+			log.info("\t n. kpts: " + str(self.nkpt))
+			log.info("\t n. bands: " + str(self.nbnd))
+			log.info("\t n. spin: " + str(nspin))
+		# set eigv.
+		bands = bs.bands
+		self.eigv = np.zeros((self.nbnd, self.nkpt, nspin))
+		self.occ  = np.zeros((self.nbnd, self.nkpt, nspin))
+		for band_index, band_energies in enumerate(bands[Spin.up]):
+			for k_index, energy in enumerate(band_energies):
+				if mpi.rank == mpi.root:
+					log.debug(f"Band {band_index}, k-point {k_index}, energy = {energy:.3f} eV")
+				self.eigv[band_index, k_index, 0] = energy
+		# occupations
+		eig = vasprun.eigenvalues[Spin.up]
+		for k_index in range(self.nkpt):
+			for band_index in range(self.nbnd):
+				self.occ[band_index, k_index, 0] = eig[k_index][band_index][1]
+		if nspin == 2:
+			for band_index, band_energies in enumerate(bands[Spin.down]):
+				for k_index, energy in enumerate(band_energies):
+					if mpi.rank == mpi.root:
+						log.debug(f"Band {band_index}, k-point {k_index}, energy = {energy:.3f} eV")
+					self.eigv[band_index, k_index, 1] = energy
+			eig = vasprun.eigenvalues[Spin.down]
+			for k_index in range(self.nkpt):
+				for band_index in range(self.nbnd):
+					self.occ[band_index, k_index, 1] = eig[k_index][band_index][1]
+		nel = vasprun.parameters["NELECT"]
+		if mpi.rank == mpi.root:
+			log.info("\t number of electrons: " + str(nel))
+		self.has_soc = vasprun.parameters["LSORBIT"]
+		self.spinor_wfc = vasprun.parameters["LNONCOLLINEAR"]
+		if mpi.rank == mpi.root:
+			log.info("\t SOC: " + str(self.has_soc))
+			log.info("\t NON COLLINEARITY: " + str(self.spinor_wfc))
+	def extract_energy_eigv_from_OUTCAR(self):
 		if mpi.rank == mpi.root:
 			log.info("\n")
 			log.info("\t " + p.sep)
 		f = open(self.ipath+"OUTCAR", 'r')
 		lines = f.readlines()
+		nspin = 1
 		for i in range(len(lines)):
 			line = lines[i].strip().split()
 			if len(line) > 2:
@@ -134,11 +205,26 @@ class UnpertStruct:
 						self.nkpt = int(line[3])
 					if line[-2] == "NBANDS=":
 						self.nbnd = int(line[-1])
+				if line[0] == "ISPIN":
+					nspin = int(line[2])
+				if line[0] == "LNONCOLLINEAR":
+					if line[2] == ".TRUE.":
+						self.spinor_wfc = True
+					else:
+						self.spinor_wfc = False
+				if line[0] == "LSORBIT":
+					if line[2] == ".TRUE.":
+						self.has_soc = True
+					else:
+						self.has_soc = False
 		if mpi.rank == mpi.root:
 			log.info("\t n. kpts: " + str(self.nkpt))
 			log.info("\t n. bands: " + str(self.nbnd))
-		self.eigv = np.zeros((self.nbnd, self.nkpt, 2))
-		self.occ  = np.zeros((self.nbnd, self.nkpt, 2))
+			log.info("\t n. spin: " + str(nspin))
+			log.info("\t SOC: " + str(self.has_soc))
+			log.info("\t NON COLLINEARITY: " + str(self.spinor_wfc))
+		self.eigv = np.zeros((self.nbnd, self.nkpt, nspin))
+		self.occ  = np.zeros((self.nbnd, self.nkpt, nspin))
 		for i in range(len(lines)):
 			line = lines[i].strip().split()
 			if len(line) > 2:
@@ -152,6 +238,32 @@ class UnpertStruct:
 							bi = int(line2[0])-1
 							self.eigv[bi,ki,spi] = float(line2[1])
 							self.occ[bi,ki,spi]  = float(line2[2])
+	### read k points weights
+	def read_k_points_weights(self):
+		file_name = "{}".format(self.ipath+"vasprun.xml")
+		vasprun = Vasprun(file_name)
+		self.wk = vasprun.actual_kpoints_weights
+		assert(len(self.wk) == self.nkpt)
+	### extract orbital character
+	### it tries to read PROCAR file
+	### if file not found just return none
+	def extract_orbital_character(self):
+		file_name = "{}".format(self.ipath+"PROCAR")
+		fil = Path(file_name)
+		if fil.exists():
+			procar = Procar(file_name)
+		else:
+			return
+		# Total number of k-points, bands, and ions
+		if mpi.rank == mpi.root:
+			log.info("\t " + p.sep)
+			log.info(f"\t K-points: {procar.nkpoints}, Bands: {procar.nbands}, Ions: {procar.nions}")
+			log.info("\t " + p.sep)
+		self.orbital_character = procar.data
+		self.orbitals = procar.orbitals
+		assert(self.orbital_character[Spin.up].shape[0] == self.nkpt)
+		assert(self.orbital_character[Spin.up].shape[1] == self.nbnd)
+		assert(self.orbital_character[Spin.up].shape[3] == len(self.orbitals))
 	### read OUTCAR
 	### extract spin state
 	def extract_spin_state(self):
