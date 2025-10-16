@@ -377,6 +377,8 @@ class linear_resp_input(dynamical_data_input):
     # initialization
     def __init__(self):
         super().__init__()
+        # e-ph input data
+        self.eph_matr_file = None
         # time resolved calculation
         self.time_resolved = False
         # freq. resolved
@@ -399,6 +401,9 @@ class linear_resp_input(dynamical_data_input):
         data = yaml.load(f, Loader=yaml.Loader)
         f.close()
         self.read_yml_data_dyn(data)
+        # if eph file
+        if 'eph_matr_file' in data:
+            self.eph_matr_file = self.work_dir + '/' + data['eph_matr_file']
         # only T or nwg in data -> either time or freq. resolved
         if 'T' in data and 'nwg' in data:
             log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
