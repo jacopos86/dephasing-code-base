@@ -1,5 +1,6 @@
 from scipy.constants import physical_constants
 from scipy.constants import electron_volt
+from scipy.constants import Rydberg, e, h, c
 #
 # physical constants module
 #
@@ -17,6 +18,9 @@ kb = kb / electron_volt              # eV/K
 #
 hbar = physical_constants["Planck constant over 2 pi"][0]
 hbar = hbar / electron_volt * 1.E12  # eV ps
+#
+rytoev = Rydberg * h * c / e
+AUTOA = physical_constants["Bohr radius"][0] / 1.E-10
 #
 # tolerance parameter
 #
