@@ -13,3 +13,5 @@ gputil
 gdown
 tensorflow
 pytest
+phonopy
+jarvis-tools

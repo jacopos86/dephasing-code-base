@@ -12,3 +12,4 @@ gputil
 gdown
 tensorflow
 pytest
+phonopy
