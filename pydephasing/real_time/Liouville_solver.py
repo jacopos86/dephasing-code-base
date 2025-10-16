@@ -4,7 +4,6 @@ from parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from common.phys_constants import hbar
 from common.matrix_operations import commute
-from pydephasing.observables import compute_spin_mag
 import numpy as np
 
 #
