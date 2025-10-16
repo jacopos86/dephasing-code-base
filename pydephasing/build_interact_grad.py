@@ -8,6 +8,7 @@ from utilities.log import log
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
 from pydephasing.gradient_interactions import gradient_ZFS, gradient_HFI, gradient_2nd_HFI
 from pydephasing.gradient_interactions import generate_2nd_orderZFS_grad_instance
+from pydephasing.gradient_interactions import gradient_elec_hamilt
 
 def calc_interaction_grad(ZFS_CALC, HFI_CALC):
     gradZFS = None
@@ -95,3 +96,11 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
     # build interaction dictionary
     dict = {'gradZFS': gradZFS, 'grad2ZFS': grad2ZFS, 'gradHFI': gradHFI, 'grad2HFI':grad2HFI}
     return dict
+
+#
+# electronic hamiltonian
+
+def calc_elec_hamilt_gradient(data_fil):
+    # initialize Hamiltonian gradient
+    gradH = gradient_elec_hamilt(data_fil)
+    return gradH
