@@ -7,10 +7,13 @@ import numpy as np
 class ElectronDensity:
     def __init__(self):
         self.rho_r = None
-    def compute_elec_density_ofG(self, wfc):
+    def compute_pseudo_elec_density_ofG(self, wfc):
         isp = 1
         ikpt = 1
         ibnd = 1
         gvec = wfc.set_gvectors(ikpt)
         cnk_G = wfc.read_cnk_ofG(isp, ikpt, ibnd, norm=True)
-        print(cnk_G, np.linalg.norm(cnk_G))
+        return None
+    def compute_nelec(self, wfc):
+        # compute \Tilde{rho}(G)
+        rhoG_ps = self.compute_pseudo_elec_density_ofG(wfc)
