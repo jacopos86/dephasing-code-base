@@ -31,8 +31,9 @@ def compute_elec_dephas():
     # atomic displacements
     atomic_displacements_from_file(p.yaml_pos_file)
     # set up density matrix object
-    wfc = read_wfc(p.gs_data_dir, struct_0)
+    wfc = read_wfc(p.gs_data_dir, struct_0, True)
     wfc.extract_header()
+    wfc.set_PAW_projectors()
     if mpi.rank == mpi.root:
         log.info("\t " + p.sep)
         log.info("\n")
@@ -40,7 +41,8 @@ def compute_elec_dephas():
         log.info("\n")
         log.info("\t " + p.sep)
     rho = ElectronDensity()
-    rho.compute_elec_density_ofG(wfc)
+    rho.compute_nelec(wfc)
+    exit()
     # set electronic Hamiltonian
     He = electronic_hamiltonian()
     He.set_energy_spectrum(wfc)
