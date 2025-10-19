@@ -4,17 +4,26 @@ import numpy as np
 from jarvis.io.vasp.outputs import Wavecar
 from utilities.log import log
 from common.phys_constants import rytoev, AUTOA
+from pymatgen.io.vasp.inputs import Potcar
+from pydephasing.atomic_list_struct import atoms
+from parallelization.mpi import mpi
 
 #
 #  this interface returns
 #  wave function object used for further postprocessing
 
-def read_wfc(gs_dir, struct_0):
-    file_name = "WAVECAR"
-    file_name = "{}".format(gs_dir + '/' + file_name)
-    fil = Path(file_name)
-    if fil.exists():
-        wfc_obj = vasp_WFC_model(file_name, struct_0)
+def read_wfc(gs_dir, struct_0, PAW):
+    WAVECAR = "{}".format(gs_dir + '/WAVECAR')
+    fil = Path(WAVECAR)
+    if fil.exists() and not PAW:
+        wfc_obj = vasp_PSWFC_model(WAVECAR, struct_0)
+    elif fil.exists() and PAW:
+        POTCAR = "{}".format(gs_dir + '/POTCAR')
+        fil2 = Path(POTCAR)
+        if fil2.exists():
+            wfc_obj = vasp_AEWFC_model(WAVECAR, struct_0, POTCAR)
+        else:
+            log.error("POTCAR file not found")    
     else:
         log.error("ONLY WAVECAR INTERFACE AVAILABLE NOW")
     return wfc_obj
@@ -34,22 +43,26 @@ class WFC(ABC):
         self._Vcell = None
         self._wfc = None
         self._wfPREC = None
+        self._n_pp = None
+        self._nproj = None
+        self._nproj_atom = None
+        self._projectors = None
 
     @abstractmethod
     def print_info(self):
         raise NotImplementedError("print_info must be implemented")
 
 #
-#  VASP WFC model
+#  VASP PS WFC model
 #
 
-class vasp_WFC_model(WFC):
+class vasp_PSWFC_model(WFC):
     def __init__(self, file_name, struct_0):
         super().__init__()
-        self.__WAVECAR = file_name
-        self.__struct0 = struct_0
+        self._WAVECAR = file_name
+        self._struct0 = struct_0
         self.HSQDTM = rytoev * AUTOA * AUTOA
-        if self.__struct0.has_soc:
+        if self._struct0.has_soc:
             self._npol = 2
         else:
             self._npol = 1
@@ -81,12 +94,12 @@ class vasp_WFC_model(WFC):
         CUTOFF = np.array(np.sqrt(self._encut / rytoev) / (2.*np.pi) * norm / AUTOA, dtype=int)
         self._ngrid_pts = 2 * CUTOFF + 1
     def extract_JARVIS_WFC(self):
-        self._wfc = Wavecar(self.__WAVECAR)
+        self._wfc = Wavecar(self._WAVECAR)
         self._nbnd = self._wfc._nbands
         self._nkpt = self._wfc._nkpts
         self._nspin = self._wfc._nspin
     def extract_header(self):
-        self._wfc = open(self.__WAVECAR, "rb")
+        self._wfc = open(self._WAVECAR, "rb")
         # rec 1
         self._wfc.seek(0)
         dump = np.array(np.fromfile(self._wfc, dtype=np.double, count=3), dtype=int)
@@ -156,7 +169,7 @@ class vasp_WFC_model(WFC):
         KENER = self.HSQDTM * np.linalg.norm(
             np.dot(grid + kvec[np.newaxis,:], 2.*np.pi*self._rec_cell), axis=1)**2
         gvec = grid[np.where(KENER < self._encut)[0]]
-        if self.__struct0.has_soc:
+        if self._struct0.has_soc:
             assert(self._nplws[ikpt-1] == gvec.shape[0]*2)
         else:
             assert(self._nplws[ikpt-1] == gvec.shape[0])
@@ -172,3 +185,56 @@ class vasp_WFC_model(WFC):
         if norm:
             cnk_G /= np.linalg.norm(cnk_G)
         return cnk_G
+
+#
+#  VASP AE WFC model
+#
+
+class vasp_AEWFC_model(vasp_PSWFC_model):
+    def __init__(self, WAVECAR, struct_0, POTCAR):
+        super().__init__(WAVECAR, struct_0)
+        self.__POTCAR = POTCAR
+    def parse_proj_info(slf, data):
+        search_line = "Non local Part"
+        lines = data.splitlines()
+        proj_info = []
+        for i, line in enumerate(lines):
+            if line.strip() == search_line.strip():
+                l = int(lines[i+1].split()[0])
+                nproj = int(lines[i+1].split()[1])
+                proj_info.append({'l': l, 'nproj': nproj})
+        return proj_info
+    def read_num_proj(self):
+        potcar = Potcar.from_file(self.__POTCAR)
+        self._n_pp = len(list(potcar))
+        self._projectors = [None]*self._n_pp
+        for i, ps in enumerate(potcar):
+            proj_info = self.parse_proj_info(ps.data)
+            self._projectors[i] = {'symbol': ps.symbol, 'projectors': proj_info}
+        self._nproj = 0
+        self._nproj_atom = np.zeros(len(atoms.atoms_dict), dtype=int)
+        for ia, at in enumerate(atoms.atoms_dict):
+            for proj in self._projectors:
+                if proj['symbol'] == at['symbol']:
+                    for i in range(len(proj['projectors'])):
+                        self._nproj += proj['projectors'][i]['nproj']
+                        self._nproj_atom[ia] += proj['projectors'][i]['nproj']
+        if mpi.rank == mpi.root:
+            log.info("\t TOTAL NUMBER PROJECTORS: " + str(self._nproj))
+    def read_projectors(self, isp, ikpt, ibnd):
+        self.check_index(isp, ikpt, ibnd)
+        rec = self.RecPos(isp, ikpt, ibnd)
+        self._wfc.seek(rec * self._recl)
+        # jump to projectors
+        npw = self._nplws[ikpt-1]
+        self._wfc.seek(npw * np.dtype(self._wfPREC).itemsize, 1)
+        projectors = np.fromfile(self._wfc, dtype=self._wfPREC, count=self._nproj)
+        reshaped = []
+        offset = 0
+        for ia in range(self._struct0.nat):
+            reshaped.append(projectors[offset:offset+self._nproj_atom[ia]])
+            offset += self._nproj_atom[ia]
+        return reshaped
+    def set_PAW_projectors(self):
+        self.read_num_proj()
+        proj = self.read_projectors(1, 1, 1)
