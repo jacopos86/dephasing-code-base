@@ -1,7 +1,8 @@
+numpy
+cython
 h5py
 matplotlib
 mpi4py
-numpy
 pymatgen
 PyYAML
 scipy
@@ -15,6 +16,7 @@ tensorflow
 pytest
 pytest-mpi
 phonopy
+jarvis-tools
 qiskit==0.45.1
 qiskit-aer==0.13.3
 petsc
