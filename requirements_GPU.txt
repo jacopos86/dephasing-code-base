@@ -1,8 +1,9 @@
+numpy
+cython
 pycuda
 h5py
 matplotlib
 mpi4py
-numpy
 pymatgen
 PyYAML
 scipy
