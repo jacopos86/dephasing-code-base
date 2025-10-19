@@ -11,11 +11,13 @@ configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
 	$(PYTHON_VERSION) -m venv $(VENV); \
 	. $(VENV)/bin/activate;
 	$(PIP) install --upgrade pip setuptools wheel
-ifeq (, $(shell which nvcc))
-	$(PIP) install -r $(ROOT)/requirements.txt
-else
-	$(PIP) install -r $(ROOT)/requirements_GPU.txt
-endif
+	if ! command -v nvcc >/dev/null 2>&1; then \
+		echo "installing CPU requirements ..."; \
+		$(PIP) install -r $(ROOT)/requirements.txt; \
+	else \
+		echo "installing GPU requirements ..."; \
+		$(PIP) install -r $(ROOT)/requirements_GPU.txt; \
+	fi
 build :
 	. $(VENV)/bin/activate; \
 	if [ ! -f $(EXAMPLES_TAR_FILE) ] ; \
