@@ -87,7 +87,7 @@ class ObservablesElectronicSystem(Observables):
                             self.Sx[ib2,ib1,ik] = np.conj(self.Sx[ib1,ib2,ik])
                             self.Sy[ib2,ib1,ik] = np.conj(self.Sy[ib1,ib2,ik])
                 for ib in range(struct_0.nbnd):
-                    print(ib, self.Sz[ib,ib,0], struct_0.occ[ib,0])
+                    print(ib, self.Sx[ib,ib,0], self.Sy[ib,ib,0], self.Sz[ib,ib,0], struct_0.occ[ib,0])
     def compute_spin_mag(self, dm_obj):
         pass
     def compute_occup_prob(self, dm_obj):
