@@ -367,4 +367,31 @@ EOF
 	echo -e "  shuffle : True" >> ${wdT2}/info.yml
 
 	rm -rf ${wd}/EXAMPLES
+	
+	cd ${wd}
+	if [ ! -d ${wd}/3 ]
+	then
+		if [ "$CI" = "true" ]; then
+			echo "Extracting TESTS_3.tar.gz..."
+			tar -xzf TESTS_3.tar.gz
+			echo "Extraction complete."
+		else
+			tar -xvzf TESTS_3.tar.gz
+		fi
+	fi
+	wdT3=${wd}/TESTS/3
+	mv ${wd}/3 ${wd}/TESTS/
+	cd ${wdT3}
+
+	cat > input.yml <<EOF
+working_dir : ${wdT3}
+output_dir : ${wdT3}/T2-ELEC-DEPH
+yaml_pos_file : phonopy_disp.yaml
+unpert_dir : VASP_soc_relaxation
+eph_matr_file : El-ph_data.npy
+hd5_eigen_file : band.hdf5
+2nd_order_correct : True
+hessian : False
+EOF
+
 fi
