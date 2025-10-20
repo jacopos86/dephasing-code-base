@@ -20,5 +20,6 @@ pydephasing/quantum/__pycache__
 utils/__pycache__/
 pydeph
 EXAMPLES.tar.gz
+TESTS_3.tar.gz
 EXAMPLES
 *.png
