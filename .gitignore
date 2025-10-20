@@ -22,6 +22,7 @@ input_files
 # === Examples === #
 examples
 EXAMPLES.tar.gz
+TESTS_3.tar.gz
 EXAMPLES
 
 # === python cache & compiled files === #
