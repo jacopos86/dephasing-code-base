@@ -4,7 +4,9 @@ PYTHON_VERSION = python3
 PYTHON = $(VENV)/bin/python
 PIP = $(VENV)/bin/pip
 EXAMPLES_TAR_FILE = $(ROOT)/EXAMPLES.tar.gz
+TESTS_3_TAR_FILE = $(ROOT)/TESTS_3.tar.gz
 EXAMPLES_URL = "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
+TESTS_3_URL = "https://drive.google.com/file/d/1Vv_xmpivm8p0vjsTG0MIlB2Th7GykTQk/view?usp=drive_link"
 UNIT_TEST_DIR = $(ROOT)/pydephasing/unit_tests
 
 configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
@@ -23,6 +25,10 @@ build :
 	if [ ! -f $(EXAMPLES_TAR_FILE) ] ; \
 	then \
 		gdown --fuzzy $(EXAMPLES_URL) ; \
+	fi ; \
+	if [ ! -f $(TESTS_3_TAR_FILE) ] ; \
+	then \
+		gdown --fuzzy $(TESTS_3_URL) ; \
 	fi ; \
 	./build.sh
 install :
