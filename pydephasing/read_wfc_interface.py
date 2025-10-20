@@ -47,6 +47,7 @@ class WFC(ABC):
         self._nproj = None
         self._nproj_atom = None
         self._projectors = None
+        self._DQ = None
 
     @abstractmethod
     def print_info(self):
@@ -235,6 +236,16 @@ class vasp_AEWFC_model(vasp_PSWFC_model):
             reshaped.append(projectors[offset:offset+self._nproj_atom[ia]])
             offset += self._nproj_atom[ia]
         return reshaped
+    def parse_DQ_data(self, data):
+        return None
+    def read_aug_charges(self):
+        potcar = Potcar.from_file(self.__POTCAR)
+        self._DQ = [None]*self._n_pp
+        for i, ps in enumerate(potcar):
+            DQ_matrix = self.parse_DQ_data(ps.data)
+            self._DQ[i] = {'symbol': ps.symbol, 'DQ': DQ_matrix}
     def set_PAW_projectors(self):
         self.read_num_proj()
         proj = self.read_projectors(1, 1, 1)
+        self.read_aug_charges()
+        print(self._DQ)
