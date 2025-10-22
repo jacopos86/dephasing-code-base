@@ -1,4 +1,5 @@
 import numpy as np
+import weakref
 from pathlib import Path
 from parallelization.GPU_arrays_handler import GPU_ARRAY
 from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
@@ -16,6 +17,8 @@ class GPU_obj:
         max_threads = cuda.Device(device_id).get_attribute(cuda.device_attribute.MAX_THREADS_PER_BLOCK)
         if np.prod(self.BLOCK_SIZE) > max_threads:
             raise ValueError(f"GPU_BLOCK_SIZE {np.prod(self.BLOCK_SIZE)} exceeds device max of {max_threads} threads per block")
+        # Register cleanup function to run even if __del__ is skipped
+        self._finalizer = weakref.finalize(self, self._cleanup_internal)
     def get_device_module(self, src_file):
         gpu_src = Path(CUDA_SOURCE_DIR+src_file).read_text()
         dev_func = SourceModule(gpu_src, options=["-I"+CUDA_SOURCE_DIR])
@@ -39,10 +42,18 @@ class GPU_obj:
         for i in range(self.gpu_size-1):
             assert init_index[i]+lengths[i] == init_index[i+1]
         return GPU_ARRAY(init_index, np.int32), GPU_ARRAY(lengths, np.int32)
-    def cleanup(self):
-        '''clean up Cuda context'''
-        if self.ctx is not None:
-            self.ctx.pop()
-            self.ctx.detach()
+    def __del__(self):
+        self.cleanup()
+    def _cleanup_internal(self):
+        if hasattr(self, 'ctx') and self.ctx is not None:
+            try:
+                self.ctx.pop()
+                self.ctx.detach()
+            except cuda.LogicError:
+                pass  # Context already popped or CUDA shutdown
             self.ctx = None
+    def cleanup(self):
+        """Call this if you want to clean up early."""
+        self._cleanup_internal()
+        self._finalizer.detach()  # Prevent it from running again
 #
