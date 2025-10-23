@@ -73,6 +73,9 @@ if calc_type1 == "init":
     if mpi.rank == mpi.root:
         log.info("\t " + p.sep)
         log.info("\n")
+elif calc_type1 == "init_RT":
+    # parse input file
+    p.read_yml_data(yml_file)
 elif calc_type1 == "postproc":
     # post process output data from VASP
     pass
