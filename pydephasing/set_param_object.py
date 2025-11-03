@@ -4,8 +4,10 @@ from pydephasing.input_parameters import (
     preproc_data_input, 
     static_data_input, 
     linear_resp_input, 
-    real_time_input,
-    Q_real_time_input
+    real_time_SQ_input,
+    Q_real_time_input,
+    real_time_JDFTx_input,
+    real_time_VASP_input
 )
 
 # parameters proxy class
@@ -25,24 +27,37 @@ class param_proxy:
     def _init(self):
         # input parameters object initialization
         args = self.set_input_arguments()
+        co = parser.parse_args().co[0]
         ct1 = args.ct1[0]
-        if ct1 == "init":
-            self._real_p = preproc_data_input()
-        else:
-            ct2 = args.ct2
-            if ct1 == "LR":
-                if ct2 == "inhomo" or ct2 == "homo" or ct2 == "full":
-                    self._real_p = linear_resp_input()
-                elif ct2 == "stat" or ct2 == "statdd":
-                    self._real_p = static_data_input()
+        if co == 'spin-qubit' or co == 'energy-lw':
+            if ct1 == "init":
+                self._real_p = preproc_data_input()
+            else:
+                ct2 = args.ct2
+                if ct1 == "LR":
+                    if ct2 == "inhomo" or ct2 == "homo" or ct2 == "full":
+                        self._real_p = linear_resp_input()
+                    elif ct2 == "stat" or ct2 == "statdd":
+                        self._real_p = static_data_input()
+                    else:
+                        raise ValueError(f"Unknown ct2 value: {ct2!r}")
+                elif ct1 == "RT":
+                    self._real_p = real_time_SQ_input()
+                elif ct1 == "QUANTUM":
+                    self._real_p = Q_real_time_input()
+                else:
+                    raise ValueError(f"Unknown ct1 value: {ct1!r}")
+        elif co == 'elec-sys':
+            if ct1 == "RT":
+                ct2 = args.ct2
+                if ct2 == "jdftx":
+                    self._real_p = real_time_JDFTx_input()
+                elif ct2 == "vasp":
+                    self._real_p = real_time_VASP_input()
                 else:
                     raise ValueError(f"Unknown ct2 value: {ct2!r}")
-            elif ct1 == "RT":
-                self._real_p = real_time_input()
-            elif ct1 == "QUANTUM":
-                self._real_p = Q_real_time_input()
             else:
-                raise ValueError(f"Unknown ct1 value: {ct1!r}")
+                raise ValueError(f"ONLY RT IMPLEMENTED")
         if self._real_p is None:
             raise RuntimeError(f"Failed to initialize parameter object with ct1={ct1!r}, ct2={ct2!r}")
         self._real_p.sep = "*"*94
