@@ -435,7 +435,7 @@ class linear_resp_input(dynamical_data_input):
         for iw in range(self.nwg):
             self.w_grid[iw] = iw * dw
 
-class real_time_input(dynamical_data_input):
+class real_time_SQ_input(dynamical_data_input):
     # initialization
     def __init__(self):
         super().__init__()
@@ -474,6 +474,79 @@ class real_time_input(dynamical_data_input):
                 log.warning("\t inconsistent choice of dynamical_mode and order_2_correct: \n")
                 log.warning("\t set order_2_correct to True for consistency")
                 self.order_2_correct = True
+
+class real_time_elec_input(ABC):
+    def __init__(self):
+        self.dynamical_mode = []
+        # working directory
+        self.work_dir = ''
+        # write directory
+        self.write_dir = ''
+    def read_yml_data_dyn(self, data):
+        if 'working_dir' in data:
+            self.work_dir = data['working_dir']
+        if 'output_dir' in data:
+            self.write_dir = data['output_dir']
+            # create output directory
+            if mpi.rank == mpi.root:
+                isExist = os.path.isdir(self.write_dir)
+                if not isExist:
+                    # create new dir.
+                    os.makedirs(self.write_dir)
+            mpi.comm.Barrier()
+        # dynamical mode is organized as follows :
+        # len(dynamical_mode) -> 3 : (ee, eph, erad)
+        # 0 -> do not include interaction
+        # 1 -> do Markovian / Lindblad dyn
+        # 2 -> full non Markovian dyn
+        if 'dynamics' in data:
+            for i in data['dynamics']:
+                self.dynamical_mode.append(i)
+    def check_consistency(self):
+        # dyn. mode
+        assert (len(self.dynamical_mode) == 3)
+        assert (all(0 <= x <= 2 for x in self.dynamical_mode))
+
+class real_time_JDFTx_input(real_time_elec_input):
+    def __init__(self):
+        super().__init__()
+        #  local input variables
+        self.eigenv_file = ''
+        self.bnd_kpts_file = ''
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # read specific jdftx files
+        if 'bnd_kpts_file' in data:
+            self.bnd_kpts_file = self.work_dir + '/' + data['bnd_kpts_file']
+        if 'eigenv_file' in data:
+            self.eigenv_file = self.work_dir + '/' + data['eigenv_file']
+        if 'ph_outfile' in data:
+            self.ph_outfile = self.work_dir + '/' + data['ph_outfile']
+        if 'ph_eigenv_file' in data:
+            self.ph_eigenv_file = self.work_dir + '/' + data['ph_eigenv_file']
+        if 'ph_cellmap_file' in data:
+            self.ph_cellmap_file = self.work_dir + '/' + data['ph_cellmap_file']
+
+class real_time_VASP_input(real_time_elec_input):
+    def __init__(self):
+        super().__init__()
+        #  local input variables
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
 
 class Q_real_time_input(dynamical_data_input):
     # initialization
