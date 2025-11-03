@@ -4,7 +4,7 @@ from parallelization.mpi import mpi
 from utilities.log import log
 from utilities.timer import timer
 from utilities.input_parser import parser
-from pydephasing.calculation_drivers import energy_linewidth_driver, spin_qubit_driver
+from pydephasing.calculation_drivers import energy_linewidth_driver, spin_qubit_driver, elec_system_driver
 #
 # set up parallelization
 #
@@ -81,10 +81,12 @@ elif calc_type1 == "postproc":
     pass
 elif calc_type1 == "LR" or calc_type1 == "RT" or calc_type1 == "QUANTUM":
     co = parser.parse_args().co[0]
-    if co == "energy":
+    if co == "energy-lw":
         energy_linewidth_driver(yml_file)
-    elif co == "spin":
+    elif co == "spin-qubit":
         spin_qubit_driver(yml_file)
+    elif co == "elec-sys":
+        elec_system_driver(yml_file)
     else:
         if mpi.rank == mpi.root:
             log.info("\n")
