@@ -595,3 +595,86 @@ class DisplacedStructures2ndOrder:
 		data = {'calc_list' : summary}
 		with open(file_name, 'w') as outfile:
 			yaml.dump(data, outfile)
+
+#
+#   JDFTx struct
+#
+
+class JDFTxStruct:
+	def __init__(self, KPOINTS_FILE, EIGENV_FILE, OUTPUT_FILE):
+		# electronic parameters
+		self.nkpt = None
+		self.Kpts = None
+		self.nbnd = None
+		self.eigv = None
+		self.occ = None
+		# variables as in QE : 2 for SOC
+		self.npol = None
+		# nsp_index : 2 for spin pol. 
+		# 1 for SOC -> no spin index in energies / wfc
+		self.nsp_index = None
+		# external file
+		self.OUT_FILE = OUTPUT_FILE
+		self.KPTS_FILE = KPOINTS_FILE
+		self.EIG_FILE = EIGENV_FILE
+	def read_Kpts(self):
+		self.Kpts = np.loadtxt(self.KPTS_FILE, skiprows=2, usecols=(1,2,3))
+		self.nkpt = self.Kpts.shape[0]
+		if mpi.rank == mpi.root:
+			log.info("\t " + p.sep)
+			log.info("\t n. K pts: " + str(self.nkpt))
+	def read_nspin(self):
+		if mpi.rank == mpi.root:
+			log.info("\t EXTRACT N. SPIN FROM -> " + self.OUT_FILE)
+		with open(self.OUT_FILE, "r") as fil:
+			for line in fil:
+				line = line.strip().split()
+				if len(line) > 0:
+					if line[0] == "spintype":
+						if line[1] == "no-spin":
+							''' spin unpolarized '''
+							self.npol = 1
+							self.nsp_index = 1
+						elif line[1] == "spin-orbit":
+							''' spin orbit with no magnetization '''
+							self.npol = 2
+							self.nsp_index = 1
+						elif line[1] == "vector-spin":
+							''' non collinear magnetism '''
+							self.npol = 2
+							self.nsp_index = 1
+						elif line[1] == "z-spin":
+							''' spin polarized calculation '''
+							self.npol = 1
+							self.nsp_index = 2
+						else:
+							log.error("spintype flag not recognized in " + self.OUT_FILE)
+		if mpi.rank == mpi.root:
+			log.info("\t n. spin indexes: " + str(self.nsp_index))
+			log.info("\t spin polarization: " + str(self.npol))
+			log.info("\t " + p.sep)
+	def read_nbands(self):
+		if mpi.rank == mpi.root:
+			log.info("\t EXTRACT N. BANDS FROM -> " + self.OUT_FILE)
+		with open(self.OUT_FILE, "r") as fil:
+			for line in fil:
+				line = line.strip().split()
+				if len(line) > 0:
+					if line[0] == "elec-n-bands":
+						self.nbnd = int(line[1])
+		if mpi.rank == mpi.root:
+			log.info("\t " + p.sep)
+			log.info("\t n. electronic bands: " + str(self.nbnd))
+	def read_band_struct(self):
+		Edft = np.fromfile(self.EIG_FILE).reshape(self.nsp_index,self.nkpt,-1)
+		assert Edft.shape[-1] == self.nbnd
+	def set_elec_parameters(self):
+		# read K points
+		self.read_Kpts()
+		# set n. spins / bands
+		self.read_nbands()
+		self.read_nspin()
+		# read electronic band structure
+		if mpi.rank == mpi.root:
+			log.info("\t EXTRACT BAND STRUCTURE from -> " + self.EIG_FILE)
+		self.read_band_struct()
