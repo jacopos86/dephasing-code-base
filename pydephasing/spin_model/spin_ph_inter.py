@@ -111,24 +111,21 @@ class SpinPhononClass(ABC):
         n = len(Hsp.basis_vectors)
         g_ql = np.zeros((n, n, len(ql_list)), dtype=np.complex128)
         # ph. amplitude
-        A_ql = ph.compute_ph_amplitude_q(nat, ql_list)
+        A_ql = ph.compute_ph_amplitude_q(ql_list)
         iql = 0
         for iq, il in ql_list:
-            qv = qgr.qpts[iq]
-            for iL in range(atoms.supercell_size):
-                Rn = atoms.supercell_grid[iL]
-                for jax in range(3*nat):
-                    ia = atoms.index_to_ia_map[jax]
-                    m_ia = atoms.atoms_mass[ia]             
-                    # eV ps^2/A^2
-                    eq = ph.eql[iq][jax,il] / np.sqrt(m_ia)
-                    eiqRn = cmath.exp(1j*2.*np.pi*np.dot(qv, Rn))
-                    g_ql[:,:,iql] += A_ql[iql] * eiqRn * eq * Fax[:,:,jax]
-                    # [eV/ang * ang/eV^1/2 *ps^-1 * eV^1/2 ps]
-                    # = eV
+            eiqR = qgr.compute_phase_factor(iq, nat)
+            for jax in range(3*nat):
+                ia = atoms.index_to_ia_map[jax]
+                m_ia = atoms.atoms_mass[ia]             
+                # eV ps^2/A^2
+                eq = ph.eql[iq][jax,il] / np.sqrt(m_ia)
+                g_ql[:,:,iql] += A_ql[iql] * eiqR[jax] * eq * Fax[:,:,jax]
+                # [eV/ang * ang/eV^1/2 *ps^-1 * eV^1/2 ps]
+                # = eV
             iql += 1
         return g_ql
-        
+
 #
 # first order spin-phonon coupling class
 #
@@ -155,6 +152,7 @@ class SpinPhononFirstOrder(SpinPhononClass):
             Fax += self.set_Fax_hfi(gradHFI, Hsp, sp_config)
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
+        # central cell approximation
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
         self.ql_list = ql_list
