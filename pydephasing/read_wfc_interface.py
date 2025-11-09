@@ -7,6 +7,7 @@ from common.phys_constants import rytoev, AUTOA
 from pymatgen.io.vasp.inputs import Potcar
 from pydephasing.atomic_list_struct import atoms
 from parallelization.mpi import mpi
+from pydephasing.PAWinterface import VASP_pawpot
 
 #
 #  this interface returns
@@ -245,6 +246,8 @@ class vasp_AEWFC_model(vasp_PSWFC_model):
             DQ_matrix = self.parse_DQ_data(ps.data)
             self._DQ[i] = {'symbol': ps.symbol, 'DQ': DQ_matrix}
     def set_PAW_projectors(self):
+        PAW_obj = VASP_pawpot(self.__POTCAR)
+        PAW_obj.extract_PAW_data()
         self.read_num_proj()
         proj = self.read_projectors(1, 1, 1)
         self.read_aug_charges()
