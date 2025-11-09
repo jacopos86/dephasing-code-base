@@ -527,6 +527,14 @@ class real_time_JDFTx_input(real_time_elec_input):
             self.bnd_kpts_file = self.work_dir + '/' + data['bnd_kpts_file']
         if 'eigenv_file' in data:
             self.eigenv_file = self.work_dir + '/' + data['eigenv_file']
+        if 'dft_outfile' in data:
+            self.dft_outfile = self.work_dir + '/' + data['dft_outfile']
+        if 'wan_cellmap_file' in data:
+            self.cellmap_file = self.work_dir + '/' + data['wan_cellmap_file']
+        if 'wan_weights_file' in data:
+            self.wan_weights_file = self.work_dir + '/' + data['wan_weights_file']
+        if 'wan_mlwfh_file' in data:
+            self.wan_mlwfh_file = self.work_dir + '/' + data['wan_mlwfh_file']
         if 'ph_outfile' in data:
             self.ph_outfile = self.work_dir + '/' + data['ph_outfile']
         if 'ph_eigenv_file' in data:
