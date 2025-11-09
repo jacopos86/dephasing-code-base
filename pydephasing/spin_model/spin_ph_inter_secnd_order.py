@@ -147,6 +147,7 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
             Faxby = self.compute_hessian_term(interact_dict, Hsp)
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
+        # central cell approximation
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
         self.ql_list = ql_list
@@ -248,6 +249,17 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
             FXXp0 = self.compute_raman(nat, Hsp, Fax)
             print("max FXX'", np.max(FXXp0.real))
         # compute gqqp
+        import os
+        file_path = str(os.getcwd())+"/TESTS/2/T2-SP-DEPHC_E/restart/G-iq-0-iqp-0.npz"
+        gqqp = self.read_gqqp_from_file(file_path)
+        print(gqqp.shape)
+        g12 = self.compute_gqqp_l12(nat, 0, 0, 3, 3, qgr, ph, Hsp, Fax, Faxby)
+        for i1 in range(3):
+            for i2 in range(3):
+                print(g12[i1,i2], gqqp[i1,i2,3,3])
+        print(gqqp[0,0,0,500])
+        gpu.cleanup()
+        exit()
         # make list of q vector pairs for each proc.
         qqp_list = qgr.build_irred_qqp_pairs()
         # parallelize calculation over (q,q')
@@ -270,6 +282,8 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
             log.debug("\t " + p.sep)
             log.debug("\t iq " + str(iq) + " - iqp " + str(iqp) + " -> calculation complete")
             log.debug("\t " + p.sep)
+            gpu.cleanup()
+            exit()
         mpi.comm.Barrier()
         if mpi.rank == mpi.root:
             log.info("\n")
@@ -306,33 +320,33 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
         gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
-        print(gqqp.shape)
-        print("iq, iqp", mpi.rank, iq, iqp)
-        # load file 
-        gpu_src = Path(CUDA_SOURCE_DIR+'compute_two_phonons_matr.cu').read_text()
-        gpu_mod = SourceModule(gpu_src, options=["-I"+CUDA_SOURCE_DIR])
+        GQQP = GPU_ARRAY(gqqp, np.complex128)
+        log.info("\t rank: " + str(mpi.rank) + " -> iq=" + str(iq) + " - iqp=" + str(iqp))
+        # load file
+        gpu_mod = gpu.get_device_module("compute_two_phonons_matr.cu")
         # prepare input quantities
         NAT = np.int32(nat)
         NMD = np.int32(ph.nmodes)
         # phonon energies
-        WQL = GPU_ARRAY(np.array(ph.uql[iq]) * THz_to_ev, np.double)
-        WQPL= GPU_ARRAY(np.array(ph.uql[iqp]) * THz_to_ev, np.double)
+        WQL = GPU_ARRAY(np.array(ph.uql[iq]) * THz_to_ev)
+        WQPL= GPU_ARRAY(np.array(ph.uql[iqp]) * THz_to_ev)
         # amplitudes
         ql_list = list(product([iq], range(ph.nmodes)))
-        AQL = GPU_ARRAY(ph.compute_ph_amplitude_q(nat, ql_list), np.double)
+        AQL = GPU_ARRAY(ph.compute_ph_amplitude_q(ql_list))
         qpl_list = list(product([iqp], range(ph.nmodes)))
-        AQPL = GPU_ARRAY(ph.compute_ph_amplitude_q(nat, qpl_list), np.double)
+        AQPL = GPU_ARRAY(ph.compute_ph_amplitude_q(qpl_list))
         # energy eigenvalues array -> EIG
         eig = np.zeros(n)
         for a in range(n):
             eig[a] = Hsp.qs[a]['eig']
-        EIG = GPU_ARRAY(eig, np.double)
+        EIG = GPU_ARRAY(eig)
         NST = EIG.length()
         # FX -> allocate GPU array
         FX = GPU_ARRAY(Fax, np.complex128)
         # Hessian term
         if Faxby is not None:
-            print("max Faxby: ", np.max(Faxby.real))
+            if mpi.rank == mpi.root:
+                log.info("\t max Faxby: " + str(np.max(Faxby.real)))
             FXXp = GPU_ARRAY(Faxby, np.complex128)
             compute_gqqp = gpu_mod.get_function("compute_gqqp_2nd_Raman")
         else:
@@ -341,18 +355,9 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         illp_list = np.array(list(product(range(ph.nmodes), range(ph.nmodes))))
         INIT_INDEX, SIZE_LIST = gpu.distribute_data_on_grid(illp_list)
         MODES_LIST = GPU_ARRAY(illp_list, np.int32)
-        #print(illp_list[850])
         # set e^iqR
-        eiqr = np.zeros(atoms.supercell_size, dtype=np.complex128)
-        eiqpr= np.zeros(atoms.supercell_size, dtype=np.complex128)
-        qv = qgr.qpts[iq]
-        qpv= qgr.qpts[iqp]
-        for iL in range(atoms.supercell_size):
-            Rn = atoms.supercell_grid[iL]
-            eiqr[iL] = cmath.exp(1j*2.*np.pi*np.dot(qv,Rn))
-            eiqpr[iL]= cmath.exp(1j*2.*np.pi*np.dot(qpv,Rn))
-        EIQR = GPU_ARRAY(eiqr, np.complex128)
-        EIQPR= GPU_ARRAY(eiqpr, np.complex128)
+        EIQR = GPU_ARRAY(qgr.compute_phase_factor(iq, nat), np.complex128)
+        EIQPR= GPU_ARRAY(qgr.compute_phase_factor(iqp, nat), np.complex128)
         NL = EIQR.length()
         # ph. vectors -> EQ
         eq = ph.eql[iq]
@@ -363,22 +368,22 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
             eq[jax,:] = eq[jax,:] / np.sqrt(m_ia)
             eqp[jax,:] = eqp[jax,:] / np.sqrt(m_ia)
             # Ang/ev^1/2 ps^-1
-        print(eq[10,0])
         EQ = GPU_ARRAY(eq, np.complex128)
         EQP = GPU_ARRAY(eqp, np.complex128)
-        #print(EQ.cpu_array[2,100])
         #  call GPU function
         if Faxby is None:
-            compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
-                cuda.In(AQL.to_gpu()), cuda.In(AQPL.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(WQPL.to_gpu()), cuda.In(EIG.to_gpu()), 
-                cuda.In(FX.to_gpu()), cuda.In(EQ.to_gpu()), cuda.In(EQP.to_gpu()), cuda.In(EIQR.to_gpu()), cuda.In(EIQPR.to_gpu()), 
-                cuda.Out(gqqp), block=gpu.block, grid=gpu.grid)
+            compute_gqqp(NAT, NL, NST, NMD, INIT_INDEX.to_gpu(), SIZE_LIST.to_gpu(), MODES_LIST.to_gpu(),
+                AQL.to_gpu(), AQPL.to_gpu(), WQL.to_gpu(), WQPL.to_gpu(), EIG.to_gpu(), 
+                FX.to_gpu(), EQ.to_gpu(), EQP.to_gpu(), EIQR.to_gpu(), EIQPR.to_gpu(), 
+                GQQP.to_gpu(allocate_only=True), block=gpu.block, grid=gpu.grid)
         else:
-            compute_gqqp(NAT, NL, NST, NMD, cuda.In(INIT_INDEX.to_gpu()), cuda.In(SIZE_LIST.to_gpu()), cuda.In(MODES_LIST.to_gpu()),
-                cuda.In(AQL.to_gpu()), cuda.In(AQPL.to_gpu()), cuda.In(WQL.to_gpu()), cuda.In(WQPL.to_gpu()), cuda.In(EIG.to_gpu()), 
-                cuda.In(FX.to_gpu()), cuda.In(FXXp.to_gpu()), cuda.In(EQ.to_gpu()), cuda.In(EQP.to_gpu()), cuda.In(EIQR.to_gpu()), 
-                cuda.In(EIQPR.to_gpu()), cuda.Out(gqqp), block=gpu.block, grid=gpu.grid)
-        return gqqp
+            compute_gqqp(NAT, NL, NST, NMD, INIT_INDEX.to_gpu(), SIZE_LIST.to_gpu(), MODES_LIST.to_gpu(),
+                AQL.to_gpu(), AQPL.to_gpu(), WQL.to_gpu(), WQPL.to_gpu(), EIG.to_gpu(), 
+                FX.to_gpu(), FXXp.to_gpu(), EQ.to_gpu(), EQP.to_gpu(), EIQR.to_gpu(), 
+                EIQPR.to_gpu(), GQQP.to_gpu(allocate_only=True), block=gpu.block, grid=gpu.grid)
+        # synchronize
+        cuda.Context.synchronize()
+        return GQQP.from_gpu()
     #
     # compute the Raman contribution to 
     # force matrix elements
