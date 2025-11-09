@@ -3,12 +3,15 @@ import math
 from collections import Counter
 import numpy as np
 import logging
+import cmath
+from itertools import product
 from abc import ABC
 from scipy.interpolate import interp1d
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.utilities.log import log
 from pydephasing.common.phys_constants import eps
+from pydephasing.atomic_list_struct import atoms
 #
 #   q grid class
 #
@@ -71,7 +74,6 @@ class qgridClass(ABC):
                     return qp_pair[1]
                 else:
                     return qp_pair[0]
-
     #
     #  build irreducible (q,q') pairs
     #  (q1,-q2)^* -> (q2,-q1)
