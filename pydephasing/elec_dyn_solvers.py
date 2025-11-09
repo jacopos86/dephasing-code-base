@@ -6,6 +6,7 @@ from parallelization.mpi import mpi
 from utilities.log import log
 from wannier_interface.wannier import Wannier
 from pydephasing.phonons_module import JDFTxPhonons
+from pydephasing.set_structs import JDFTxStruct
 
 def solve_elec_dyn_VASP_data():
     '''
@@ -28,9 +29,12 @@ def solve_elec_dyn_JDFTx_data():
         log.info("\t COLLECT DATA FROM JDFTx CALCULATION")
         log.info("\n")
         log.info("\t " + p.sep)
+    # set electronic structure
+    elec_struct = JDFTxStruct(p.bnd_kpts_file, p.eigenv_file, p.dft_outfile)
+    elec_struct.set_elec_parameters()
     # read Wannier data
-    wan = Wannier(p.eigenv_file, p.bnd_kpts_file)
-    wan.set_wann_transf()
+    wan = Wannier(elec_struct, p.cellmap_file, p.wan_weights_file, p.wan_mlwfh_file)
+    wan.plot_band_structure()
     if p.dynamical_mode[1] > 0:
         # read phonons data
         # if we need to compute e-ph interactions
