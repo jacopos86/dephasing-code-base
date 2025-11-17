@@ -1,21 +1,20 @@
 import re
+import os
 import numpy as np
 import xml.etree.ElementTree as ET
 
 class VASP_wfc_overlap_:
-    def __init__(self, calc_dir):
-        self.calc_dir = calc_dir     # calculation directory
-
+    def __init__(self, root, header):
+        self.root = root     # root directory. It stores all perturbation directories which contains each WSWQ file and vasprun.xml file
+        self.header = header
     
-    def read_wswq(self, wswq_file, vasprun_file):
-
+    def read_wswq(self, path):
         '''
         Read WSWQ file from VASP (overlap of wavefunctions) 
-        -wswq_file: path/to/WSWQ file
-        -vasprun_file: path/to/vasprun.xml file
+        -path: path to the folder containing WSWQ and vasprun.xml files
         '''
-        
         # We read the vasprun.xml file to get the number of spins, number of kpoints and number of bands
+        vasprun_file = os.path.join(path, "vasprun.xml")
         t1 = ET.parse(vasprun_file).getroot() # use xml library to read files
 
         nk_root = t1.find("kpoints//varray[@name='kpointlist']")
@@ -31,6 +30,7 @@ class VASP_wfc_overlap_:
         nspins = int(spin_root.text.strip())
         wswq = np.zeros((nspins, nkpoints, nbands, nbands), dtype=np.complex_)
 
+        wswq_file = os.path.join(path, "WSWQ")
         with open(wswq_file) as f:
             lines = f.readlines()
             for line in lines:
@@ -85,15 +85,61 @@ class VASP_wfc_overlap_:
 
         return ar # shape: (kpoint, spin, bands, occupation)
 
-    def read_wswq_dir(self, root, result_displacement):
+    def read_displacements(self, f_disp):
         """
-        Root: Root with all the WSWQ calculations
+        INPUT: f_disp
+            The phononpy_disp.yaml file
+        OUTPUT: result_displacement, [[atom, direction, dR],...]; 
+            result_dispacement[imode] = [atom, direction, dR] 
+            privide the information of mode=imode correspopnding to the 
+            `atom`th atom's displacement at `direction` direction with displacement = `dR` angstrom
+        """
+        import yaml
+        # Load a YAML file
+        with open(f_disp, "r") as f:
+            data = yaml.safe_load(f)  # safer than yaml.load
+
+        print(f"Loading displacement from file {f_disp} ...")
+        # Print all top-level keys
+        print("All keys in file:")
+        for key in data.keys():
+            print(" -", key)
+        print("reading displacement....")
+
+        N_displacement = len(data["displacements"])
+        print(f"found {N_displacement} modes...")
+        result_displacement = []
+        data["displacements"][0]
+        for imode in range(N_displacement):
+            disp_info = [0, 0, 0]
+            atom = int(data["displacements"][imode]['atom']) #atom number
+            vec_dR = data["displacements"][imode]['displacement']
+            direction = ''
+            if vec_dR[0] !=0:
+                direction +='x'
+                dR = vec_dR[0]
+            if vec_dR[1] != 0:
+                direction += 'y'
+                dR = vec_dR[1]
+            if vec_dR[2] != 0:
+                direction += 'z'
+                dR = vec_dR[2]
+            if len(direction) != 1:
+                print(f"WARNING, the direction '{direction}' for mode {imode} is not orthonormal, ")
+            disp_info = [atom, direction, dR] #displacement info, include number of atom, direction, displacement
+            result_displacement.append(disp_info)
+        print("Loading done.")
+        return result_displacement
+
+    def read_wswq_dir(self, result_displacement):
+        """
         result_displacement: the displacement read from file
         OUTPUT: 
         list of path for R=+dR and R=-dR 
         """
+
         N_mode = int(len(result_displacement)/2)
-        List_wswq_file_Rp = [os.path.join(root,f"disp-{2*n+1:03d}/WSWQ") for n in range(N_mode)]
-        List_wswq_file_Rm = [os.path.join(root,f"disp-{2*n+1+1:03d}/WSWQ") for n in range(N_mode)]
-        return N_mode, List_wswq_file_Rp, List_wswq_file_Rm
+        list_wswq_file_Rp = [os.path.join(self.root,f"{self.header}{2*n+1:03d}/WSWQ") for n in range(N_mode)]
+        list_wswq_file_Rm = [os.path.join(self.root,f"{self.header}{2*n+1+1:03d}/WSWQ") for n in range(N_mode)]
+        return N_mode, list_wswq_file_Rp, list_wswq_file_Rm
 
