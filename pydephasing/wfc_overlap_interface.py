@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 class VASP_wfc_overlap_:
     def __init__(self, calc_dir):
         self.calc_dir = calc_dir     # calculation directory
-        
+
     
     def read_wswq(self, wswq_file, vasprun_file):
 
@@ -84,3 +84,16 @@ class VASP_wfc_overlap_:
                 ar[ik-1, ispin, :, 1] = occ
 
         return ar # shape: (kpoint, spin, bands, occupation)
+
+    def read_wswq_dir(self, root, result_displacement):
+        """
+        Root: Root with all the WSWQ calculations
+        result_displacement: the displacement read from file
+        OUTPUT: 
+        list of path for R=+dR and R=-dR 
+        """
+        N_mode = int(len(result_displacement)/2)
+        List_wswq_file_Rp = [os.path.join(root,f"disp-{2*n+1:03d}/WSWQ") for n in range(N_mode)]
+        List_wswq_file_Rm = [os.path.join(root,f"disp-{2*n+1+1:03d}/WSWQ") for n in range(N_mode)]
+        return N_mode, List_wswq_file_Rp, List_wswq_file_Rm
+
