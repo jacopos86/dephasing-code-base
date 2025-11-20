@@ -2,9 +2,8 @@ import re
 import os
 import numpy as np
 import xml.etree.ElementTree as ET
+from parallelization.mpi import mpi
 
-# 1st class: class to read 1 VASP calculation. Inside the directory, there is 1 vasprun.xml file, CONTCAR and POSCAR, and optionally WSWQ file
-# With this class we can read an arbitrary VASP calculation.
 def read_file(path_to_calc, filename):
     if os.path.isfile(os.path.join(path_to_calc, filename)):
         path2filename = os.path.join(path_to_calc,filename)
@@ -12,9 +11,12 @@ def read_file(path_to_calc, filename):
         raise ValueError(f"Unable to read {filename}")
     return path2filename
 
+# 1st class: class to read 1 VASP calculation. Inside the directory, there is 1 vasprun.xml file, CONTCAR or POSCAR, and optionally WSWQ file
+# With this class we can read an arbitrary VASP calculation.
+
 class read_VASP_files:
     def __init__(self, path_to_calc):
-        ''' Initialize class by reading vasprun.xml, WAVECAR and PROCAR files:
+        ''' Initialize class by reading vasprun.xml file:
         Inputs:
         - path_to_calc -> path/to/vasp/calculation
         The directory of calculation should contain vasprun.xml
@@ -91,33 +93,33 @@ class read_VASP_files:
 
         return eigenvals # shape: (kpoint, spin, bands, occupation)
 
-	def read_poscar(self, filename):
-		'''
+    def read_poscar(self, filename):
+        '''
 		Read the cell and ionic positions from POSCAR or CONTCAR
 		
-		Input:
-		- filename: "POSCAR" or "CONTCAR" file
+        Input:
+        - filename: "POSCAR" or "CONTCAR" file
 
-		Output:
-		- vecR: Lattice vector (in angstrom) in columns format
-		- positions: List of atomic positions in crystal coordinates
-		'''
+        Output:
+        - vecR: Lattice vector (in angstrom) in columns format
+        - positions: List of atomic positions in crystal coordinates
+        '''
 
         path2filename = read_file(self.path_to_calc, filename)
 
-		with open(path2filename, 'r') as f:
-			lines = f.readlines()
-		vecR = np.asarray([[float(x) for x in line.split()] for line in lines[2:5]]).T
-		atoms = lines[5].split()
-		natoms = [int(x) for x in lines[6].split()]
-		positions = []
-		i = 8
-		for atom, n in zip(atoms, natoms):
-			for j in range(n):
-				positions.append({"species": atom, "pos": np.asarray([float(x) for x in lines[i].split()])})
-				i += 1
+        with open(path2filename, 'r') as f:
+            lines = f.readlines()
+        vecR = np.asarray([[float(x) for x in line.split()] for line in lines[2:5]]).T
+        atoms = lines[5].split()
+        natoms = [int(x) for x in lines[6].split()]
+        positions = []
+        i = 8
+        for atom, n in zip(atoms, natoms):
+            for j in range(n):
+                positions.append({"species": atom, "pos": np.asarray([float(x) for x in lines[i].split()])})
+                i += 1
 
-		return vecR, positions
+        return vecR, positions
 
     def read_wswq(self):
         '''
@@ -156,8 +158,8 @@ class read_VASP_files:
 # 2nd class: read a directory of multiple perturbations, each perturbation directory contains 1 WSWQ file and 1 vasprun.xml file
 
 class VASP_wfc_overlap_:
-    def __init__(self, root, header):
-        self.root = root     # root directory. It stores all perturbation directories which contains each WSWQ file and vasprun.xml file
+    def __init__(self, perturbations_dir, header):
+        self.perturbations_dir = perturbations_dir     # root directory. It stores all perturbation directories which contains each WSWQ file and vasprun.xml file
         self.header = header
 
     def read_displacements(self, f_disp):
@@ -208,7 +210,7 @@ class VASP_wfc_overlap_:
         print("Loading done.")
         return result_displacement
 
-    def read_wswq_dir(self, result_displacement):
+    def read_all_wswq(self, result_displacement):
         """
         Get the list of WSWQ file paths for positive and negative displacements
 
@@ -222,6 +224,19 @@ class VASP_wfc_overlap_:
         """
 
         N_mode = int(len(result_displacement)/2)
-        list_wswq_file_Rp = [os.path.join(self.root,f"{self.header}{2*n+1:03d}/WSWQ") for n in range(N_mode)]
-        list_wswq_file_Rm = [os.path.join(self.root,f"{self.header}{2*n+1+1:03d}/WSWQ") for n in range(N_mode)]
-        return N_mode, list_wswq_file_Rp, list_wswq_file_Rm
+        Rp_wswq_list = [read_VASP_files(os.path.join(self.perturbations_dir,f"{self.header}{2*n+1:03d}")).read_wswq() for n in range(N_mode)]
+        Rm_wswq_list = [read_VASP_files(os.path.join(self.perturbations_dir,f"{self.header}{2*n+1+1:03d}")).read_wswq() for n in range(N_mode)]
+
+        # -----  TO-DO: implement MPI parallelization here -----
+
+        # # MPI parallelization to read WSWQ files
+        # pathRp = [os.path.join(self.perturbations_dir,f"{self.header}{2*n+1:03d}") for n in range(N_mode)]
+        # split_pathRp = mpi.random_split(pathRp) 
+        # pathRp_local = split_pathRp[mpi.rank]
+
+        # Rp_wswq_list = [read_VASP_files(path).read_wswq() for path in pathRp_local]
+        # Rp_wswq_list = mpi.collect_list(Rp_wswq_list)
+
+        # -------------------------------------------------
+
+        return N_mode, Rp_wswq_list, Rm_wswq_list
