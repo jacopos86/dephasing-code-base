@@ -1,6 +1,6 @@
 import argparse
 import os
-from utilities.log import log
+from ..utilities.log import log
 from pydephasing.input_parameters import preproc_data_input
 
 TESTS_DIR = "TESTS"

@@ -1,7 +1,7 @@
 from qiskit import QuantumCircuit
 from qiskit.providers.aer import AerSimulator
-from quantum.qubitization_module import PauliTerm
-from quantum.pauli_polynomial_class import fermion_plus_operator, fermion_minus_operator
+from ..quantum.qubitization_module import PauliTerm
+from ..quantum.pauli_polynomial_class import fermion_plus_operator, fermion_minus_operator
 import pytest
 
 #
