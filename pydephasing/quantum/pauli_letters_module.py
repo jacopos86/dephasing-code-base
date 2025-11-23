@@ -1,4 +1,4 @@
-from utilities.log import log
+from ..utilities.log import log
 
 #
 #   Define Pauli letter class

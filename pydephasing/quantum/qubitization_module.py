@@ -1,6 +1,6 @@
-from utilities.log import log
-from quantum.pauli_letters_module import PauliLetter
-from set_param_object import p
+from ..utilities.log import log
+from .pauli_letters_module import PauliLetter
+from pydephasing.set_param_object import p
 
 #
 #   This module defines the basic Pauli term entity
