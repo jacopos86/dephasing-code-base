@@ -6,6 +6,7 @@ pymatgen
 PyYAML
 scipy
 colorlog
+mendeleev
 scikit-learn
 tqdm
 gputil
