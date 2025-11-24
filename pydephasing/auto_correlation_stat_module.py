@@ -1,9 +1,9 @@
 from pydephasing.input_parameters import p
 from pydephasing.T2_calc import T2_eval
-from utilities.log import log
+from pydephasing.utilities.log import log
 import logging
 from statsmodels import sm
-from pydephasing.utility_functions import print_acf_dict
+#from pydephasing.utility_functions import print_acf_dict
 #
 # auto-correlation HFI static
 # class
