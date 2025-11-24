@@ -18,6 +18,9 @@ kb = kb / electron_volt              # eV/K
 hbar = physical_constants["Planck constant over 2 pi"][0]
 hbar = hbar / electron_volt * 1.E12  # eV ps
 #
+hartree2joule = physical_constants["Hartree energy"][0]  # J
+hartree2ev = hartree2joule / electron_volt
+#
 # tolerance parameter
 #
 eps = 1.E-7
