@@ -1,5 +1,6 @@
 import os
-from utilities.input_parser import parser
+from pydephasing.utilities.input_parser import parser
+from pydephasing.utilities.log import log
 from pydephasing.input_parameters import (
     preproc_data_input, 
     static_data_input, 
@@ -40,13 +41,13 @@ class param_proxy:
                     elif ct2 == "stat" or ct2 == "statdd":
                         self._real_p = static_data_input()
                     else:
-                        raise ValueError(f"Unknown ct2 value: {ct2!r}")
+                        log.error(f"Unknown ct2 value: {ct2!r}")
                 elif ct1 == "RT":
                     self._real_p = real_time_SQ_input()
                 elif ct1 == "QUANTUM":
                     self._real_p = Q_real_time_input()
                 else:
-                    raise ValueError(f"Unknown ct1 value: {ct1!r}")
+                    log.error(f"Unknown ct1 value: {ct1!r}")
         elif co == 'elec-sys':
             if ct1 == "RT":
                 ct2 = args.ct2
@@ -55,11 +56,11 @@ class param_proxy:
                 elif ct2 == "vasp":
                     self._real_p = real_time_VASP_input()
                 else:
-                    raise ValueError(f"Unknown ct2 value: {ct2!r}")
+                    log.error(f"Unknown ct2 value: {ct2!r}")
             else:
-                raise ValueError(f"ONLY RT IMPLEMENTED")
+                log.error(f"ONLY RT IMPLEMENTED")
         if self._real_p is None:
-            raise RuntimeError(f"Failed to initialize parameter object with ct1={ct1!r}, ct2={ct2!r}")
+            log.error(f"Failed to initialize parameter object with ct1={ct1!r}, ct2={ct2!r}")
         self._real_p.sep = "*"*94
 
     def __getattr__(self, attr):
