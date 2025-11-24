@@ -44,7 +44,6 @@ class LogClass(LogSingleton):
         msg = f"{fn} - {func} at line {ln} : {message:<30}"
         return msg
     def info(self, message, *args):
-        #msg = "{} - {} at line {} : {}"
         msg = self._format_message(message).split(':')
         msg2 = msg[0] + ":"
         if len(msg[0]) < self.msg_len_min:
