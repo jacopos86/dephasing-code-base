@@ -1,7 +1,7 @@
 from pydephasing.set_param_object import p
-from ..utilities.log import log
+from pydephasing.utilities.log import log
 import numpy as np
-from .qubitization_module import PauliTerm
+from pydephasing.quantum.qubitization_module import PauliTerm
 
 #
 #   Pauli polynomial class definition

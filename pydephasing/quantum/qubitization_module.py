@@ -1,5 +1,5 @@
-from ..utilities.log import log
-from .pauli_letters_module import PauliLetter
+from pydephasing.utilities.log import log
+from pydephasing.quantum.pauli_letters_module import PauliLetter
 from pydephasing.set_param_object import p
 
 #
