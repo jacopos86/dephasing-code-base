@@ -5,12 +5,12 @@
 import logging
 import numpy as np
 import os
-from parallelization.mpi import mpi
-from utilities.log import log
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
-from spin_model.spin_hamiltonian import set_spin_hamiltonian
-from spin_model.spin_ph_handler import spin_ph_handler
+from pydephasing.spin_model.spin_hamiltonian import set_spin_hamiltonian
+from pydephasing.spin_model.spin_ph_handler import spin_ph_handler
 from pydephasing.ph_amplitude_module import PhononAmplitude
 from pydephasing.auto_correlation_spph_mod import acf_sp_ph
 from pydephasing.T2_calc_handler import set_T2_calc_handler
