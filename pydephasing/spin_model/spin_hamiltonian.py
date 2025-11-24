@@ -5,13 +5,13 @@
 
 import numpy as np
 from numpy import linalg as LA
-from common.special_functions import delta
-from common.phys_constants import gamma_e, eps, THz_to_ev
-from utilities.log import log
-from parallelization.mpi import mpi
+from pydephasing.common.special_functions import delta
+from pydephasing.common.phys_constants import gamma_e, eps, THz_to_ev
+from pydephasing.utilities.log import log
+from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from abc import ABC
-from quantum.pauli_polynomial_class import PauliPolynomial, fermion_plus_operator, fermion_minus_operator
+from pydephasing.quantum.pauli_polynomial_class import PauliPolynomial, fermion_plus_operator, fermion_minus_operator
 
 #
 #   function : set spin Hamiltonian
