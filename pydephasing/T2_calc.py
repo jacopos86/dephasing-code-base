@@ -10,11 +10,11 @@ import yaml
 import logging
 from pydephasing.T2_classes import T2i_class, Delta_class, tauc_class, lw_class, \
     T2i_inhom_stat_dyndec, lw_inhom_stat_dyndec, T2i_inhom_stat, lw_inhom_stat
-from common.phys_constants import hbar
-from utilities.log import log
+from pydephasing.common.phys_constants import hbar
+from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
-from parallelization.mpi import mpi
-from common.taylor_series import TaylorSeries
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.common.taylor_series import TaylorSeries
 from abc import ABC, abstractmethod
 import warnings
 warnings.filterwarnings("ignore")
