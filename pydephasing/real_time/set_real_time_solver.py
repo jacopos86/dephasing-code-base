@@ -1,9 +1,9 @@
-from ..utilities.input_parser import parser
-from ..parallelization.mpi import mpi
-from ..utilities.log import log
+from pydephasing.utilities.input_parser import parser
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
-from .Liouville_solver import LiouvilleSolverSpin, LiouvilleSolverHFI
-from .oneph_process_solver import OnephSolver
+from pydephasing.real_time.Liouville_solver import LiouvilleSolverSpin, LiouvilleSolverHFI
+from pydephasing.real_time.oneph_process_solver import OnephSolver
 
 #
 #   This module set the real time solver

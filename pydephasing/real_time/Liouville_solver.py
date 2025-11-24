@@ -1,9 +1,9 @@
-from .real_time_solver_base import RealTimeSolver
-from ..utilities.log import log
-from ..parallelization.mpi import mpi
+from pydephasing.real_time.real_time_solver_base import RealTimeSolver
+from pydephasing.utilities.log import log
+from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
-from ..common.phys_constants import hbar
-from ..common.matrix_operations import commute
+from pydephasing.common.phys_constants import hbar
+from pydephasing.common.matrix_operations import commute
 from pydephasing.observables import compute_spin_mag
 import numpy as np
 
