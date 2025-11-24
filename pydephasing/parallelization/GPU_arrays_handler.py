@@ -1,5 +1,5 @@
 import numpy as np
-from common.print_objects import print_2D_matrix, print_1D_array
+from pydephasing.common.print_objects import print_2D_matrix, print_1D_array
 
 #  handler to reshape and transform GPU arrays
 
