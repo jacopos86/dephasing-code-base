@@ -13,6 +13,7 @@ gputil
 gdown
 tensorflow
 pytest
+pytest-mpi
 qiskit==0.45.1
 qiskit-aer==0.13.3
 petsc
