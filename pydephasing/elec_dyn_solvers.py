@@ -2,11 +2,12 @@
 # for non Markovian calculation of electronic systems
 #
 from pydephasing.set_param_object import p
-from parallelization.mpi import mpi
-from utilities.log import log
-from wannier_interface.wannier import Wannier
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.utilities.log import log
+from pydephasing.wannier_interface.wannier import Wannier
 from pydephasing.phonons_module import JDFTxPhonons
 from pydephasing.set_structs import JDFTxStruct
+from pydephasing.atomic_list_struct import atoms
 
 def solve_elec_dyn_VASP_data():
     '''
@@ -22,12 +23,15 @@ def solve_elec_dyn_JDFTx_data():
     '''
     use JDFTx data to perform RT dynamics
     '''
+    atoms.set_atoms_data()
     if mpi.rank == mpi.root:
         log.info("\t " + p.sep)
         log.info("\n")
         log.info("\t PERFORM REAL TIME DYNAMICS")
         log.info("\t COLLECT DATA FROM JDFTx CALCULATION")
         log.info("\n")
+        log.info("\t " + p.sep)
+        atoms.print_atoms_info()
         log.info("\t " + p.sep)
     # set electronic structure
     elec_struct = JDFTxStruct(p.bnd_kpts_file, p.eigenv_file, p.dft_outfile)
@@ -43,6 +47,7 @@ def solve_elec_dyn_JDFTx_data():
             log.info("\t COLLECT PHONONS INFORMATION")
             log.info("\t " + p.sep)
             log.info("\n")
-        ph = JDFTxPhonons(p.ph_cellmap_file, p.ph_eigenv_file, p.ph_outfile)
+        ph = JDFTxPhonons(p.ph_cellmap_file, p.ph_eigenv_file, p.ph_outfile, p.bnd_kpts_file)
         ph.read_ph_hamilt()
         ph.get_ph_supercell()
+        ph.compute_eq_ph_angular_momentum()
