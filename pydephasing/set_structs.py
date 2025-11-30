@@ -9,8 +9,8 @@ from pymatgen.core.structure import Structure
 import scipy.linalg as la
 import h5py
 import yaml
-from utilities.log import log
-from parallelization.mpi import mpi
+from pydephasing.utilities.log import log
+from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 #
@@ -613,6 +613,11 @@ class JDFTxStruct:
 		# nsp_index : 2 for spin pol. 
 		# 1 for SOC -> no spin index in energies / wfc
 		self.nsp_index = None
+		self.spintype = None
+		# dft bands
+		self.Eks = None
+		self.mu = None
+		self.nelec = None
 		# external file
 		self.OUT_FILE = OUTPUT_FILE
 		self.KPTS_FILE = KPOINTS_FILE
@@ -631,6 +636,7 @@ class JDFTxStruct:
 				line = line.strip().split()
 				if len(line) > 0:
 					if line[0] == "spintype":
+						self.spintype = line[1]
 						if line[1] == "no-spin":
 							''' spin unpolarized '''
 							self.npol = 1
@@ -665,9 +671,31 @@ class JDFTxStruct:
 		if mpi.rank == mpi.root:
 			log.info("\t " + p.sep)
 			log.info("\t n. electronic bands: " + str(self.nbnd))
+	def set_chem_pot(self):
+		self.mu = np.nan
+		initDone = False
+		for line in open(self.OUT_FILE):
+			if line.startswith('Initialization completed'):
+				initDone = True
+			if initDone and line.find('FillingsUpdate:')>=0:
+				self.mu = float(line.split()[2])
+			if (not initDone) and line.startswith('nElectrons:'):
+				self.nelec = float(line.split()[1])
+				if self.spintype in ("no-spin", "z-spin"):
+					nval = int(self.nelec/2)               # valence bands
+					self.mu = np.max(self.Eks[:,:,:nval])
+				else:
+					nval = int(self.nelec)
+					self.mu = np.max(self.Eks[0,:,:nval])  # VBM
+		if mpi.rank == mpi.root:
+			log.info("\t " + p.sep)
+			log.info("\t num. electrons: " + str(self.nelec))
+			log.info("\t chemical potential: " + str(self.mu))
+			log.info("\t " + p.sep)
 	def read_band_struct(self):
 		Edft = np.fromfile(self.EIG_FILE).reshape(self.nsp_index,self.nkpt,-1)
 		assert Edft.shape[-1] == self.nbnd
+		self.Eks = Edft
 	def set_elec_parameters(self):
 		# read K points
 		self.read_Kpts()
@@ -678,3 +706,5 @@ class JDFTxStruct:
 		if mpi.rank == mpi.root:
 			log.info("\t EXTRACT BAND STRUCTURE from -> " + self.EIG_FILE)
 		self.read_band_struct()
+		# get mu/VBM from totalE.out
+		self.set_chem_pot()
