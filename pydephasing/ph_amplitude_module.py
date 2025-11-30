@@ -7,8 +7,8 @@ from mpmath import coth
 from cmath import exp
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
-from common.phys_constants import hbar, THz_to_ev, mp, kb
-from parallelization.mpi import mpi
+from pydephasing.common.phys_constants import hbar, THz_to_ev, mp, kb
+from pydephasing.parallelization.mpi import mpi
 import yaml
 #
 class PhononAmplitude:
