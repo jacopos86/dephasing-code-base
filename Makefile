@@ -29,50 +29,12 @@ install :
 .PHONY :
 	clean
 clean :
+	@echo "Cleaning project ..."
+	find $(ROOT) -name '__pycache__' -type d -exec rm -rf {} +
 	rm -rf $(ROOT)/pydephasing/*~ ; \
-	if [ -d $(ROOT)/pydephasing/__pycache__ ] ; \
-	then \
-		rm -rf $(ROOT)/pydephasing/__pycache__ ; \
-	fi ; \
 	if [ -d $(ROOT)/build ] ; \
 	then \
 		rm -rf $(ROOT)/build ; \
-	fi ; \
-	if [ -d $(ROOT)/__pycache__ ] ; \
-	then \
-		rm -rf $(ROOT)/__pycache__ ; \
-	fi ; \
-	if [ -d $(UNIT_TEST_DIR)/__pycache__ ] ; \
-	then \
-		rm -rf $(UNIT_TEST_DIR)/__pycache__ ; \
-	fi ; \
-	if [ -d $(ROOT)/pydephasing/common/__pycache__ ] ; \
-	then \
-		rm -rf $(ROOT)/pydephasing/common/__pycache__ ; \
-	fi ; \
-	if [ -d $(ROOT)/pydephasing/real_time/__pycache__ ] ; \
-	then \
-		rm -rf $(ROOT)/pydephasing/real_time/__pycache__ ; \
-	fi ; \
-	if [ -d $(ROOT)/pydephasing/parallelization/__pycache__ ] ; \
-	then \
-		rm -rf $(ROOT)/pydephasing/parallelization/__pycache__ ; \
-	fi ; \
-	if [ -d $(ROOT)/pydephasing/utilities/__pycache__ ] ; \
-	then \
-		rm -rf $(ROOT)/pydephasing/utilities/__pycache__ ; \
-	fi ; \
-	if [ -d $(ROOT)/pydephasing/spin_model/__pycache__ ] ; \
-	then \
-		rm -rf $(ROOT)/pydephasing/spin_model/__pycache__ ; \
-	fi ; \
-	if [ -d $(ROOT)/pydephasing/quantum/__pycache__ ] ; \
-	then \
-		rm -rf $(ROOT)/pydephasing/quantum/__pycache__ ; \
-	fi ; \
-	if [ -d $(ROOT)/utils/__pycache__ ] ; \
-	then \
-		rm -rf $(ROOT)/utils/__pycache__ ; \
 	fi ; \
 	if [ -d $(VENV) ] ; \
 	then \
@@ -87,3 +49,4 @@ test :
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_1.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest -p no:warnings $(UNIT_TEST_DIR)/test_2.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_3.py
+	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_5.py
