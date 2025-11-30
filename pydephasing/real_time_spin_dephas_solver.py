@@ -5,9 +5,9 @@
 # -> if 2nd order correction add lindblad for two-phonons term
 # if evolve coherently the additional terms
 import os
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.utilities.log import log
 import numpy as np
-from parallelization.mpi import mpi
-from utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.build_interact_grad import calc_interaction_grad
@@ -15,11 +15,11 @@ from pydephasing.build_unpert_struct import build_gs_spin_struct
 from pydephasing.spin_dens_matr import spin_dmatr
 from pydephasing.q_grid import qgridClass
 from pydephasing.nuclear_spin_config import nuclear_spins_config
-from spin_model.spin_hamiltonian import set_spin_hamiltonian
-from real_time.set_real_time_solver import set_real_time_solver
+from pydephasing.spin_model.spin_hamiltonian import set_spin_hamiltonian
+from pydephasing.real_time.set_real_time_solver import set_real_time_solver
 from pydephasing.magnetic_field import magnetic_field
 from pydephasing.phonons_module import PhononsClass
-from spin_model.spin_ph_handler import spin_ph_handler
+from pydephasing.spin_model.spin_ph_handler import spin_ph_handler
 #
 def compute_RT_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     # main driver of the calculation dephasing time
