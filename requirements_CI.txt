@@ -1,0 +1,17 @@
+h5py
+matplotlib
+mpi4py
+numpy
+pymatgen
+PyYAML
+scipy
+colorlog
+scikit-learn
+tqdm
+gputil
+gdown
+tensorflow
+pytest
+qiskit==0.45.1
+qiskit-aer==0.13.3
+pybind11
