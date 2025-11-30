@@ -10,6 +10,18 @@ from pydephasing.q_grid import jdftx_qgridClass
 from pydephasing.set_structs import JDFTxStruct
 from pydephasing.atomic_list_struct import atoms
 
+#
+def solve_elec_model_dyn():
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info("\n")
+        log.info("\t PERFORM REAL TIME DYNAMICS")
+        log.info("\t MODEL SYSTEM WITH DEFORMATION POTENTIAL")
+        log.info("\n")
+
+
+
+
 def solve_elec_dyn_VASP_data():
     '''
     use VASP data to perform RT dynamics
