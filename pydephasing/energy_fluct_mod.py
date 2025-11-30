@@ -5,7 +5,7 @@
 import numpy as np
 import cmath
 from parallelization.mpi import mpi
-from utilities.log import log
+from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
 from common.phys_constants import THz_to_ev, mp
 from pydephasing.atomic_list_struct import atoms
