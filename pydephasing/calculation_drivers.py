@@ -6,7 +6,7 @@ from pydephasing.compute_LR_spin_decoher import compute_spin_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
 from pydephasing.real_time_spin_dephas_solver import compute_RT_spin_dephas
 from pydephasing.quantum.compute_QA_spin_decoher import compute_dephas_QA
-from pydephasing.elec_dyn_solvers import solve_elec_dyn_VASP_data, solve_elec_dyn_JDFTx_data
+from pydephasing.elec_dyn_solvers import solve_elec_dyn_VASP_data, solve_elec_dyn_JDFTx_data, solve_elec_model_dyn
 
 #
 #   different calculation drivers
@@ -301,7 +301,12 @@ def elec_system_driver(yml_file):
         p.read_yml_data(yml_file)
         p.check_consistency()
         # compute dephas
-        if calc_type2 == "vasp":
+        if calc_type2 == "MODEL":
+            #
+            #  START MODEL CALCULATION
+            #
+            T2_calc_handler = solve_elec_model_dyn()
+        elif calc_type2 == "vasp":
             if mpi.rank == mpi.root:
                 log.info("\t " + p.sep)
                 log.info("\n")
