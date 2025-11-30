@@ -1,8 +1,23 @@
 {
-  "python.analysis.extraPaths": ["./", "./pydephasing", "./pydeph/bin/", "./pydeph/lib/python3.12/site-packages"],
-  "python.defaultInterpreterPath": "./pydeph/bin/python3",
+  "python.autoComplete.extraPaths": [
+    "./pydephasing",         // Root of your project (if `pydephasing` is the main package)
+    "./pydephasing/quantum", // If `quantum` is a package used globally
+    "./pydephasing/common",  // Same for any other local packages you use
+    "./pydephasing/spin_model",
+    "./pydephasing/utilities"
+  ],
+  "python.analysis.extraPaths": [
+    "./pydephasing",
+    "./pydephasing/common",
+    "./pydephasing/quantum",
+    "./pydephasing/spin_model",
+    "./pydephasing/utilities"
+  ],
+  "python.defaultInterpreterPath": "./pydeph/bin/python",
   "python.analysis.indexing": true,
+  "python.analysis.cacheEnabled": true, // Enable Pylance cache
   "python.analysis.useLibraryCodeForTypes": true,
+  "python.languageServer": "Jedi",
   // Associate .cu files with CUDA C++
   "files.associations": {
     "*.cu": "cuda-cpp",
