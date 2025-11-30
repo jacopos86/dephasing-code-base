@@ -55,6 +55,8 @@ class param_proxy:
                     self._real_p = real_time_JDFTx_input()
                 elif ct2 == "vasp":
                     self._real_p = real_time_VASP_input()
+                elif ct2 == "MODEL":
+                    self._real_p = real_time_JDFTx_input()
                 else:
                     log.error(f"Unknown ct2 value: {ct2!r}")
             else:
