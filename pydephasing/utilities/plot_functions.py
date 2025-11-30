@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from .log import log
 import subprocess as sp
+import matplotlib.colors as mcol
+from matplotlib.collections import LineCollection
 
 #
 #  module to plot functions
@@ -25,12 +27,12 @@ def plot_elec_struct(Ew, Eks, mu, n_interp=10):
     plt.tight_layout()
     plt.show()
 
-def plot_ph_band_struct(wq, nK, n_interp=10):
+def plot_ph_band_struct(wq, nQ, n_interp=10):
     # Plot phonon dispersion
     plt.figure(figsize=(8,6))
     for ib in range(wq.shape[1]):
         plt.plot(wq[:, ib], color='b')
-    plt.xlim([0, nK-1])
+    plt.xlim([0, nQ-1])
     plt.ylim([0, None])
     plt.ylabel("Phonon energy [meV]")
     plt.xlabel("K-point index")
@@ -43,5 +45,27 @@ def plot_ph_band_struct(wq, nK, n_interp=10):
     except Exception as e:
         log.warning('Warning: could not extract labels from bandstruct.plot')
     plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.show()
+
+def plot_lph_struct(wq, lph, nQ, n_interp=10):
+    cm1 = mcol.LinearSegmentedColormap.from_list("MyColorMap", ['r', 'k', 'b'])
+    norm = plt.Normalize(-1, 1)
+    fig, axs = plt.subplots(1,3,figsize=(12,4),sharey=True)
+    lin_x = np.arange(nQ)
+    dx_dir = [1,2,0]
+    dy_dir = [2,0,1]
+    ylims = [0,(wq.max() + 0.02)]
+    # plots
+    for i, (d,ax) in enumerate(zip(['x','y','z'], axs)):
+        PAM = lph[i]
+        for ib in range(wq.shape[1]):
+            y = wq[:,ib]
+            points = np.array([lin_x, y]).T.reshape(-1,1,2)
+            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+            lc = LineCollection(segments, cmap=cm1, norm=norm)
+            lc.set_array(PAM[:,ib])
+            lc.set_linewidth(2)
+            line = ax.add_collection(lc)
     plt.tight_layout()
     plt.show()
