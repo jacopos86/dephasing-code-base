@@ -6,7 +6,7 @@ PIP = $(VENV)/bin/pip
 EXAMPLES_TAR_FILE = $(ROOT)/EXAMPLES.tar.gz
 EXAMPLES_URL = "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
 UNIT_TEST_DIR = $(ROOT)/pydephasing/unit_tests
-NP_MAX := 3
+NP_MAX := 2
 
 configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
 	$(PYTHON_VERSION) -m venv $(VENV); \
