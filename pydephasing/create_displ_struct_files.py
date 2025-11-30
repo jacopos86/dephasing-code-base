@@ -4,7 +4,7 @@ from shutil import copyfile
 from pydephasing.set_structs import UnpertStruct, DisplacedStructs, DisplacedStructures2ndOrder
 import os
 import yaml
-from utilities.log import log
+from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
 #
 def gen_poscars(max_dist_from_defect, defect_index):
