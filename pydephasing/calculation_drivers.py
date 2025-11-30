@@ -4,7 +4,7 @@ from utilities.input_parser import parser
 from pydephasing.set_param_object import p
 from pydephasing.compute_LR_spin_decoher import compute_spin_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
-from pydephasing.non_markov_dephas import compute_nmark_dephas
+from pydephasing.real_time_spin_dephas_solver import compute_RT_spin_dephas
 from quantum.compute_QA_spin_decoher import compute_dephas_QA
 
 #
@@ -232,7 +232,7 @@ def spin_qubit_driver(yml_file):
         #
         #  START NON MARKOVIAN CALCULATION
         #
-        T2_calc_handler = compute_nmark_dephas(ZFS_CALC, HFI_CALC)
+        T2_calc_handler = compute_RT_spin_dephas(ZFS_CALC, HFI_CALC)
     elif calc_type1 == "QUANTUM":
         if mpi.rank == mpi.root:
             log.info("\n")
