@@ -5,9 +5,9 @@
 # -> if 2nd order correction add lindblad for two-phonons term
 # if evolve coherently the additional terms
 import os
+import numpy as np
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
-import numpy as np
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.build_interact_grad import calc_interaction_grad
