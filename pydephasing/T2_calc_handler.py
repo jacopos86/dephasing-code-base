@@ -1,6 +1,6 @@
 from pydephasing.set_param_object import p
-from utilities.log import log
-from utilities.input_parser import parser
+from pydephasing.utilities.log import log
+from pydephasing.utilities.input_parser import parser
 from pydephasing.T2_calc import (T2_eval_freq_homo_class,
                 T2_eval_freq_inhom_class,
                 T2_eval_fit_model_dyn_inhom_class, 

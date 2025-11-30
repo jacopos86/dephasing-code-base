@@ -3,10 +3,10 @@ import cmath
 from abc import ABC
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
-from parallelization.mpi import mpi
-from common.phys_constants import hbar, THz_to_ev
-from common.matrix_operations import compute_matr_elements
-from utilities.log import log
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.common.phys_constants import hbar, THz_to_ev
+from pydephasing.common.matrix_operations import compute_matr_elements
+from pydephasing.utilities.log import log
 #
 # set of routines 
 # for spin phonon dephasing class

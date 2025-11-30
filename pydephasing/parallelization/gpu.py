@@ -1,9 +1,10 @@
 import numpy as np
 import random
 import pycuda.gpuarray as gpuarray
-from parallelization.GPU_arrays_handler import GPU_ARRAY
+from pydephasing.parallelization.GPU_arrays_handler import GPU_ARRAY
 
 # GPU class
+
 class GPU_obj:
     def __init__(self, block_dim, grid_dim):
         self.BLOCK_SIZE = np.array(block_dim)

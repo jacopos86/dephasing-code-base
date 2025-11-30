@@ -1,24 +1,31 @@
-input_files
+# === Project configuration === #
 config.yml
-TESTS
-clean_vers_files/TESTS
+
+# === Scripts === #
+scr.sh
+
+# === Build & distribution === #
+build
 dist
 pydephasing.egg-info
-build
-OLD_VERS
+
+# === logs and temporary files === #
 *.log
+*.png
+
+# === TESTS and old versions === #
+TESTS
+clean_vers_files/TESTS
+OLD_VERS
+input_files
+
+# === Examples === #
 examples
-scr.sh
-pydephasing/__pycache__
-pydephasing/unit_tests/__pycache__
-pydephasing/common/__pycache__
-pydephasing/real_time/__pycache__
-pydephasing/parallelization/__pycache__
-pydephasing/spin_model/__pycache__
-pydephasing/utilities/__pycache__
-pydephasing/quantum/__pycache__
-utils/__pycache__/
-pydeph
 EXAMPLES.tar.gz
 EXAMPLES
-*.png
+
+# === python cache & compiled files === #
+__pycache__
+utils/__pycache__/
+*.pyc
+pydeph

@@ -1,5 +1,5 @@
 import yaml
-from utilities.log import log
+from pydephasing.utilities.log import log
 
 #   This module prints 
 #   different objects

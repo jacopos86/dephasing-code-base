@@ -1,8 +1,8 @@
 import numpy as np
-from utilities.log import log
-from parallelization.mpi import mpi
+from pydephasing.utilities.log import log
+from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
-from common.print_objects import print_2D_matrix
+from pydephasing.common.print_objects import print_2D_matrix
 
 #
 # spin density matrix class -> rho_{a,b}

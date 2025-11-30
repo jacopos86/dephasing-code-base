@@ -6,6 +6,7 @@ PIP = $(VENV)/bin/pip
 EXAMPLES_TAR_FILE = $(ROOT)/EXAMPLES.tar.gz
 EXAMPLES_URL = "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
 UNIT_TEST_DIR = $(ROOT)/pydephasing/unit_tests
+NP_MAX := 2
 
 configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
 	$(PYTHON_VERSION) -m venv $(VENV); \
@@ -50,3 +51,6 @@ test :
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest -p no:warnings $(UNIT_TEST_DIR)/test_2.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_3.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_5.py
+	@for np in $$(seq 1 $(NP_MAX)); do \
+		PYDEPHASING_TESTING=1 mpirun -np $$np $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_6.py; \
+	done

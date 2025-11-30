@@ -2,17 +2,33 @@ import logging
 import inspect
 import sys
 import yaml
+import site
 from colorlog import ColoredFormatter
-class log_class:
+
+#
+#   Log class
+#
+
+class LogSingleton:
+    _instance = None
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(LogSingleton, cls).__new__(cls)
+        return cls._instance
+
+class LogClass(LogSingleton):
     def __init__(self, LOG_LEVEL, logfile):
-        format = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
-        file_formatter = logging.Formatter(format)
-        file_handler = logging.FileHandler(logfile)
-        file_handler.setFormatter(file_formatter)
-        self.logger  = logging.getLogger()
-        self.logger.addHandler(file_handler)
-        self.logger.setLevel(LOG_LEVEL)
-        self.level = self.logger.getEffectiveLevel()
+        if not hasattr(self, 'initialized'):
+            self.initialized = True
+            format = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
+            file_formatter = logging.Formatter(format)
+            file_handler = logging.FileHandler(logfile)
+            file_handler.setFormatter(file_formatter)
+            self.logger  = logging.getLogger()
+            self.logger.addHandler(file_handler)
+            self.logger.setLevel(LOG_LEVEL)
+            self.level = self.logger.getEffectiveLevel()
+            self.msg_len_min = 58
     @staticmethod
     def __get_call():
         stack = inspect.stack()
@@ -22,64 +38,63 @@ class log_class:
         ln = stack[2][2]
         func = stack[2][3]
         return fn[-1], func, ln
+    def _format_message(self, message):
+        """Format the message with caller info and log message."""
+        fn, func, ln = self.__get_call()
+        msg = f"{fn} - {func} at line {ln} : {message:<30}"
+        return msg
     def info(self, message, *args):
-        msg = "{} - {} at line {} : {}"
-        msg = msg.format(*self.__get_call(), f"{message : <30}").split(':')
+        msg = self._format_message(message).split(':')
         msg2 = msg[0] + ":"
         if len(msg[0]) < self.msg_len_min:
-            for i in range(self.msg_len_min - len(msg[0])):
-                msg2 += " "
+            msg2 += " " * (self.msg_len_min - len(msg[0]))
         msg2 += message
         self.logger.info(msg2, *args)
     def debug(self, message, *args):
-        msg = "{} - {} at line {} : {}"
-        msg = msg.format(*self.__get_call(), f"{message : <30}").split(':')
+        msg = self._format_message(message).split(':')
         msg2 = msg[0] + ":"
         if len(msg[0]) < self.msg_len_min:
-            for i in range(self.msg_len_min - len(msg[0])):
-                msg2 += " "
+            msg2 += " " * (self.msg_len_min - len(msg[0]))
         msg2 += message
         self.logger.debug(msg2, *args)
     def warning(self, message, *args):
-        msg = "{} - {} at line {} : {}"
-        msg = msg.format(*self.__get_call(), f"{message : <30}").split(':')
+        msg = self._format_message(message).split(':')
         msg2 = msg[0] + ":"
         if len(msg[0]) < self.msg_len_min:
-            for i in range(self.msg_len_min - len(msg[0])):
-                msg2 += " "
+            msg2 += " " * (self.msg_len_min - len(msg[0]))
         msg2 += message
         self.logger.warning(msg2, *args)
     def error(self, message, *args):
-        msg = "{} - {} at line {} : {}"
-        msg = msg.format(*self.__get_call(), f"{message : <30}").split(':')
+        msg = self._format_message(message).split(':')
         msg2 = msg[0] + ":"
         if len(msg[0]) < self.msg_len_min:
-            for i in range(self.msg_len_min - len(msg[0])):
-                msg2 += " "
+            msg2 += " " * (self.msg_len_min - len(msg[0]))
         msg2 += message
         self.logger.error(msg2, *args)
         sys.exit(1)
 
-class colored_log_class:
+class ColoredLogClass(LogSingleton):
     def __init__(self, LOG_LEVEL):
-        LOG_FORMAT= "  %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(message)s%(reset)4s"
-        colors={
-            'DEBUG':    'blue,bg_white',
-            'INFO':     'green',
-            'WARNING':  'yellow',
-            'ERROR':    'black,bg_red',
-            'CRITICAL': 'red,bg_white',
-	    }
-        logging.root.setLevel(LOG_LEVEL)
-        formatter = ColoredFormatter(LOG_FORMAT, log_colors=colors)
-        stream = logging.StreamHandler()
-        stream.setLevel(LOG_LEVEL)
-        stream.setFormatter(formatter)
-        self.log = logging.getLogger('pythonConfig')
-        self.log.setLevel(LOG_LEVEL)
-        self.log.addHandler(stream)
-        self.level = self.log.getEffectiveLevel()
-        self.msg_len_min = 58
+        if not hasattr(self, 'initialized'):
+            self.initialized = True
+            LOG_FORMAT= "  %(log_color)s%(levelname)-8s%(reset)s | %(log_color)s%(message)s%(reset)4s"
+            colors={
+                'DEBUG':    'blue,bg_white',
+                'INFO':     'green',
+                'WARNING':  'yellow',
+                'ERROR':    'black,bg_red',
+                'CRITICAL': 'red,bg_white',
+	        }
+            logging.root.setLevel(LOG_LEVEL)
+            formatter = ColoredFormatter(LOG_FORMAT, log_colors=colors)
+            stream = logging.StreamHandler()
+            stream.setLevel(LOG_LEVEL)
+            stream.setFormatter(formatter)
+            self.log = logging.getLogger('pythonConfig')
+            self.log.setLevel(LOG_LEVEL)
+            self.log.addHandler(stream)
+            self.level = self.log.getEffectiveLevel()
+            self.msg_len_min = 58
     @staticmethod
     def __get_call():
         stack = inspect.stack()
@@ -89,71 +104,78 @@ class colored_log_class:
         ln = stack[2][2]
         func = stack[2][3]
         return fn[-1], func, ln
+    def _format_message(self, message):
+        """Format the message with caller info and log message."""
+        fn, func, ln = self.__get_call()
+        msg = f"{fn} - {func} at line {ln} : {message:<30}"
+        return msg
     def info(self, message, *args):
-        msg = "{} - {} at line {} : {}"
-        msg = msg.format(*self.__get_call(), f"{message : <30}").split(':')
+        msg = self._format_message(message).split(':')
         msg2 = msg[0] + ":"
         if len(msg[0]) < self.msg_len_min:
-            for i in range(self.msg_len_min - len(msg[0])):
-                msg2 += " "
+            msg2 += " " * (self.msg_len_min - len(msg[0]))
         msg2 += message
         self.log.info(msg2, *args)
     def debug(self, message, *args):
-        msg = "{} - {} at line {} : {}"
-        msg = msg.format(*self.__get_call(), f"{message : <30}").split(':')
+        msg = self._format_message(message).split(':')
         msg2 = msg[0] + ":"
         if len(msg[0]) < self.msg_len_min:
-            for i in range(self.msg_len_min - len(msg[0])):
-                msg2 += " "
+            msg2 += " " * (self.msg_len_min - len(msg[0]))
         msg2 += message
         self.log.debug(msg2, *args)
     def warning(self, message, *args):
-        msg = "{} - {} at line {} : {}"
-        msg = msg.format(*self.__get_call(), f"{message : <30}").split(':')
+        msg = self._format_message(message).split(':')
         msg2 = msg[0] + ":"
         if len(msg[0]) < self.msg_len_min:
-            for i in range(self.msg_len_min - len(msg[0])):
-                msg2 += " "
+            msg2 += " " * (self.msg_len_min - len(msg[0]))
         msg2 += message
         self.log.warning(msg2, *args)
     def error(self, message, *args):
-        msg = "{} - {} at line {} : {}"
-        msg = msg.format(*self.__get_call(), f"{message : <30}").split(':')
+        msg = self._format_message(message).split(':')
         msg2 = msg[0] + ":"
         if len(msg[0]) < self.msg_len_min:
-            for i in range(self.msg_len_min - len(msg[0])):
-                msg2 += " "
+            msg2 += " " * (self.msg_len_min - len(msg[0]))
         msg2 += message
         self.log.error(msg2, *args)
         sys.exit(1)
 #
 # set up logger
 # read config.yml
-try:
-    f = open("./config.yml")
-except:
-    raise Exception("config.yml cannot be opened")
-config = yaml.load(f, Loader=yaml.Loader)
-f.close()
-if 'LOG_LEVEL' in config:
-    if config['LOG_LEVEL'] == "DEBUG":
-        LOG_LEVEL = logging.DEBUG
-    elif config['LOG_LEVEL'] == "INFO":
-        LOG_LEVEL = logging.INFO
-    elif config['LOG_LEVEL'] == "WARNING":
-        LOG_LEVEL = logging.WARNING
-    elif config['LOG_LEVEL'] == "ERROR":
-        LOG_LEVEL = logging.ERROR
-    elif config['LOG_LEVEL'] == "CRITICAL":
-        LOG_LEVEL = logging.CRITICAL
+def setup_logger(config_file):
+    try:
+        with open(config_file, 'r') as f:
+            config = yaml.load(f, Loader=yaml.Loader)
+    except Exception as e:
+        raise Exception(f"Failed to load config file: {e}")
+
+    LOG_LEVEL = logging.DEBUG   # default
+    if 'LOG_LEVEL' in config:
+        log_level_str = config['LOG_LEVEL'].upper()
+        if log_level_str in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+            LOG_LEVEL = getattr(logging, log_level_str)
+        else:
+            LOG_LEVEL = logging.NOTSET
+    COLOR = config.get('COLORED_LOGGING', False)
+    if 'LOGFILE' in config:
+        LOGFILE = LOGFILE = config.get('LOGFILE', 'output.log')
+    # set up logging system
+    if COLOR:
+        log = ColoredLogClass(LOG_LEVEL)
     else:
-        LOG_LEVEL = logging.NOTSET
-if 'COLORED_LOGGING' in config:
-    COLOR = config['COLORED_LOGGING']
-if 'LOGFILE' in config:
-    LOGFILE = config['LOGFILE']
-# set up logging system
-if COLOR:
-    log = colored_log_class(LOG_LEVEL)
-else:
-    log = log_class(LOG_LEVEL, LOGFILE)
+        log = LogClass(LOG_LEVEL, LOGFILE)
+    return log
+
+#
+#  set up log object
+#
+
+# find code directory
+site_packages = site.getsitepackages()[0].strip().split('/')
+i=0
+for d in site_packages:
+    if d == 'lib':
+        j = i - 2
+    i += 1
+PACKAGE_DIR = '/'.join(site_packages[:j+1])
+config_file = PACKAGE_DIR + "/config.yml"
+log = setup_logger(config_file)

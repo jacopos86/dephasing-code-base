@@ -5,7 +5,7 @@ import h5py
 from pydephasing.set_param_object import p
 from common.phys_constants import eps, THz_to_ev
 from common.special_functions import lorentzian
-from utilities.log import log
+from pydephasing.utilities.log import log
 from parallelization.mpi import mpi
 import logging
 #

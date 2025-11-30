@@ -1,11 +1,12 @@
-from parallelization.mpi import mpi
-from utilities.log import log
-from utilities.input_parser import parser
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.utilities.log import log
+from pydephasing.utilities.input_parser import parser
 from pydephasing.set_param_object import p
 from pydephasing.compute_LR_spin_decoher import compute_spin_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
 from pydephasing.real_time_spin_dephas_solver import compute_RT_spin_dephas
-from quantum.compute_QA_spin_decoher import compute_dephas_QA
+from pydephasing.quantum.compute_QA_spin_decoher import compute_dephas_QA
+from pydephasing.elec_dyn_solvers import solve_elec_dyn_VASP_data, solve_elec_dyn_JDFTx_data, solve_elec_model_dyn
 
 #
 #   different calculation drivers
@@ -152,7 +153,7 @@ def spin_qubit_driver(yml_file):
                 log.info("\n")
                 log.info("\t " + p.sep)
                 log.warning("\t CODE USAGE: \n")
-                log.warning("\t -> python pydephasing -ct1 [LR, LBLD, NMARK, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
+                log.warning("\t -> python pydephasing -ct1 [LR, RT, QUANTUM, init, postproc] -co [spin-qubit, energy-lw] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
                 log.info("\t " + p.sep)
             log.error("\t calc_type2 wrong: " + calc_type2)
         #
@@ -259,7 +260,7 @@ def spin_qubit_driver(yml_file):
                 log.info("\n")
                 log.info("\t " + p.sep)
                 log.warning("\t CODE USAGE: \n")
-                log.warning("\t -> python pydephasing -ct1 [LR, LBLD, NMARK, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
+                log.warning("\t -> python pydephasing -ct1 [LR, RT, QUANTUM, init, postproc] -co [spin-qubit, energy-lw] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
                 log.info("\t " + p.sep)
             log.error("\t calc_type2 wrong: " + calc_type2)
         if mpi.rank == mpi.root:
@@ -275,6 +276,70 @@ def spin_qubit_driver(yml_file):
             log.info("\n")
             log.info("\t " + p.sep)
             log.warning("\t CODE USAGE: \n")
-            log.warning("\t -> python pydephasing -ct1 [LR, RT, init, postproc] -co [spin, energy] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
+            log.warning("\t -> python pydephasing -ct1 [LR, RT, init, postproc] -co [spin-qubit, energy-lw] -ct2 [inhomo,stat,statdd,homo,full] - yml_inp [input]")
+            log.info("\t " + p.sep)
+        log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
+
+#
+#    electron system calculation driver
+#
+
+def elec_system_driver(yml_file):
+    # prepare spin dephasing calculation
+    calc_type1 = parser.parse_args().ct1[0]
+    calc_type2 = parser.parse_args().ct2
+    '''
+    set only RT for now
+    '''
+    if calc_type1 == "RT":
+        if mpi.rank == mpi.root:
+            log.info("\t ELECTRON DYNAMICS CALCULATION -> STARTING")
+            log.info("\t REAL TIME DYNAMICS")
+            log.info("\n")
+            log.info("\t " + p.sep)
+        # read input file
+        p.read_yml_data(yml_file)
+        p.check_consistency()
+        # compute dephas
+        if calc_type2 == "MODEL":
+            #
+            #  START MODEL CALCULATION
+            #
+            T2_calc_handler = solve_elec_model_dyn()
+        elif calc_type2 == "vasp":
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\n")
+                log.info("\t USING VASP CALCULATION DATA")
+                log.info("\n")
+            #
+            #  START NON MARKOVIAN CALCULATION
+            #
+            T2_calc_handler = solve_elec_dyn_VASP_data()
+        elif calc_type2 == "jdftx":
+            # --------------------------------------------------------------
+            # 
+            #    SIMPLE INHOMOGENEOUS CALC. (HFI ONLY)
+            #
+            # --------------------------------------------------------------
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\n")
+                log.info("\t USING JDFTx CALCULATION DATA")
+                log.info("\n")
+            #
+            #  START NON MARKOVIAN CALCULATION
+            #
+            T2_calc_handler = solve_elec_dyn_JDFTx_data()
+        else:
+            if mpi.rank == mpi.root:
+                log.warning("\t REAL TIME DYNAMICS -> calc_type2 : vasp/jdftx")
+            log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
+    else:
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.warning("\t CODE USAGE: \n")
+            log.warning("\t -> python pydephasing -ct1 [RT] -co [elec-sys] -ct2 [vasp, jdftx] - yml_inp [input]")
             log.info("\t " + p.sep)
         log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
