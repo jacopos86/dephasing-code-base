@@ -23,13 +23,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libopenmpi-dev openmpi-bin
 
+      - name: Install PETSc system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y petsc-dev python3-petsc4py
+
       - name: Cache pip dependencies
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements_CI.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+
+      - name: Install Python dependencies
+        run: pip install -r requirements_CI.txt
 
       - name: Configure environment
         run: make configure
