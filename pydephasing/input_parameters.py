@@ -541,6 +541,8 @@ class real_time_JDFTx_input(real_time_elec_input):
             self.ph_eigenv_file = self.work_dir + '/' + data['ph_eigenv_file']
         if 'ph_cellmap_file' in data:
             self.ph_cellmap_file = self.work_dir + '/' + data['ph_cellmap_file']
+        if 'ph_basis_file' in data:
+            self.ph_basis_file = self.work_dir + '/' + data['ph_basis_file']
 
 class real_time_VASP_input(real_time_elec_input):
     def __init__(self):
