@@ -2,13 +2,24 @@ from mpi4py import MPI
 import numpy as np
 import random
 from pydephasing.global_params import MPI_ROOT
+
+#
 # MPI class
+#
+
 class MPI_obj:
+    _instance = None
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(MPI_obj, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
     def __init__(self):
-        self.comm = MPI.COMM_WORLD
-        self.rank = self.comm.Get_rank()
-        self.size = self.comm.Get_size()
-        self.root = MPI_ROOT
+        if not hasattr(self, 'initialized'):
+            self.comm = MPI.COMM_WORLD
+            self.rank = self.comm.Get_rank()
+            self.size = self.comm.Get_size()
+            self.root = MPI_ROOT
+            self.initialized = True
     # collect array
     def collect_array(self, array):
         array_full = np.zeros(array.shape)
@@ -54,35 +65,32 @@ class MPI_obj:
         return list(loc_proc_list[self.rank])
     # random split list
     def random_split(self, list_data):
+        if len(list_data) == 0:
+            return []
         data = list(np.array(list_data))
-        # divide data in approx. equal parts
-        lengths = np.zeros(self.size, dtype=int)
-        lengths[:] = len(data) / self.size
-        rest = len(data) % self.size
-        i = 0
-        while rest > 0:
-            lengths[i] += 1
-            rest -= 1
-            i += 1
+        print(data)
+        random.shuffle(data)
+        print(data)
+        # compute length for each process
+        lengths = np.full(self.size, len(data) // self.size, dtype=int)
+        lengths[:len(data) % self.size] += 1
         assert sum(lengths) == len(data)
+        print(lengths, self.size, flush=True)
         # partition the data
-        loc_proc_list = None
-        chunks = None
-        if self.rank == self.root:
-            chunks = []
-            for i in range(self.size):
-                lst = []
-                lst = random.sample(data, lengths[i])
-                for x in lst:
-                    data.remove(x)
-                chunks.append(lst)
-            assert len(data) == 0
-        self.comm.Barrier()
+        chunks = []
+        start_idx = 0
+        for length in lengths:
+            chunks.append(data[start_idx:start_idx + length])
+            start_idx += length
+        print(chunks, flush=True)
         loc_proc_list = self.comm.scatter(chunks, root=self.root)
-        self.comm.Barrier()
         return loc_proc_list
     # finalize procedure
     def finalize_procedure(self):
         MPI.Finalize()
+
+#    
 # mpi -> obj
+#
+
 mpi = MPI_obj()
