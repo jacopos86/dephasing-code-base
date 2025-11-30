@@ -3,6 +3,8 @@ import math
 from collections import Counter
 import numpy as np
 import logging
+from abc import ABC
+from scipy.interpolate import interp1d
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.utilities.log import log
@@ -10,58 +12,15 @@ from pydephasing.common.phys_constants import eps
 #
 #   q grid class
 #
-class qgridClass:
+class qgridClass(ABC):
     def __init__(self):
-        self.mesh_key = ''
+        # grid size
         self.grid_size = None
         self.nq = None
-        # grid size
-        self.qpts_key = ''
-        self.qpts = None
         # q points list
-        self.wq_key = ''
-        self.wq = None
+        self.qpts = None
         # q weight
-    def get_grid_keys(self):
-        # open file
-        with h5py.File(p.hd5_eigen_file, 'r') as f:
-            # dict keys
-            keys = list(f.keys())
-            for k in keys:
-                if k == "mesh" or k == "Mesh" or k == "MESH":
-                    self.mesh_key = k
-            if self.mesh_key == '':
-                log.error("mesh key not found")
-            for k in keys:
-                if k == "qpoint" or k == "qpoints":
-                    self.qpts_key = k
-            if self.qpts_key == '':
-                log.error("qpts key not found")
-            for k in keys:
-                if k == "weight" or k == "Weight":
-                    self.wq_key = k
-            if self.wq_key == '':
-                log.error("wq key not found")
-    # q grid
-    def set_qgrid(self):
-        self.get_grid_keys()
-        # open file
-        with h5py.File(p.hd5_eigen_file, 'r') as f:
-            # dict keys -> size
-            self.grid_size = list(f[self.mesh_key])
-            self.nq = math.prod(self.grid_size)
-            if mpi.rank == mpi.root:
-                log.info("\t q grid size: " + str(self.nq))
-            # dict keys -> qpts
-            self.qpts = list(f[self.qpts_key])
-            # dict keys -> wq
-            self.wq = list(f[self.wq_key])
-            self.wq = np.array(self.wq, dtype=float)
-            r = sum(self.wq)
-            self.wq[:] = self.wq[:] / r
-        assert len(self.qpts) == self.nq
-        if log.level <= logging.INFO:
-            self.check_weights()
+        self.wq = None
     #
     #  this method creates a list of pairs
     #  (q, -q)
@@ -117,6 +76,7 @@ class qgridClass:
     #  build irreducible (q,q') pairs
     #  (q1,-q2)^* -> (q2,-q1)
     #  (q1,q2)^* -> (-q2,-q1)
+    #  under TR symmetry
     #
     def build_irred_qqp_pairs(self):
         qqp_list = self.build_qqp_pairs()
@@ -148,3 +108,75 @@ class qgridClass:
             log.info("\t W(Q) TEST    ->    PASSED")
             log.info("\t " + p.sep)
             log.info("\n")
+
+#
+#  phonopy q grid
+#
+
+class phonopy_qgridClass(qgridClass):
+    def __init__(self):
+        super().__init__()
+        # keys dictionary
+        self.mesh_key = ''
+        self.qpts_key = ''
+        self.wq_key = ''
+    def get_grid_keys(self):
+        # open file
+        with h5py.File(p.hd5_eigen_file, 'r') as f:
+            # dict keys
+            keys = list(f.keys())
+            for k in keys:
+                if k == "mesh" or k == "Mesh" or k == "MESH":
+                    self.mesh_key = k
+            if self.mesh_key == '':
+                log.error("mesh key not found")
+            for k in keys:
+                if k == "qpoint" or k == "qpoints":
+                    self.qpts_key = k
+            if self.qpts_key == '':
+                log.error("qpts key not found")
+            for k in keys:
+                if k == "weight" or k == "Weight":
+                    self.wq_key = k
+            if self.wq_key == '':
+                log.error("wq key not found")
+    # q grid
+    def set_qgrid(self):
+        self.get_grid_keys()
+        # open file
+        with h5py.File(p.hd5_eigen_file, 'r') as f:
+            # dict keys -> size
+            self.grid_size = list(f[self.mesh_key])
+            self.nq = math.prod(self.grid_size)
+            if mpi.rank == mpi.root:
+                log.info("\t q grid size: " + str(self.nq))
+            # dict keys -> qpts
+            self.qpts = list(f[self.qpts_key])
+            # dict keys -> wq
+            self.wq = list(f[self.wq_key])
+            self.wq = np.array(self.wq, dtype=float)
+            r = sum(self.wq)
+            self.wq[:] = self.wq[:] / r
+        assert len(self.qpts) == self.nq
+        if log.level <= logging.INFO:
+            self.check_weights()
+
+#
+#  jdftx q grid class
+#
+
+class jdftx_qgridClass(qgridClass):
+    def __init__(self, QPTS_FILE):
+        super().__init__()
+        self.QPTS_FILE = QPTS_FILE
+    # set up q grid
+    def set_qgrid(self):
+        self.qpts = np.loadtxt(self.QPTS_FILE, skiprows=2, usecols=(1,2,3))
+        self.nq = self.qpts.shape[0]
+    # set grid for plot -> phonons
+    def set_qgr_plot(self, n_interp=10):
+        xIn = np.arange(self.nq)
+        x = (1./n_interp)*np.arange(1+n_interp*(self.nq-1))  # range nx more density
+        qp = interp1d(xIn, self.qpts, axis=0)(x)
+        n = qp.shape[0]
+        return qp, n
