@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC
-from parallelization.mpi import mpi
-from utilities.log import log
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.utilities.log import log
 #
 #   This module computes the electron-phonon matrix
 #   g_munu(k,q)

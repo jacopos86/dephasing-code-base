@@ -1,11 +1,11 @@
 import numpy as np
 from itertools import product
+from pathlib import Path
 from pydephasing.real_time.real_time_solver_base import RealTimeSolver
 from pydephasing.utilities.log import log
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.global_params import GPU_ACTIVE
-from pathlib import Path
 from pydephasing.common.phys_constants import THz_to_ev
 from pydephasing.electr_ph_dens_matr import elec_ph_dmatr
 

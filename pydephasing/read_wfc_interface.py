@@ -1,12 +1,12 @@
 from pathlib import Path
 from abc import ABC, abstractmethod
 import numpy as np
-from jarvis.io.vasp.outputs import Wavecar
-from utilities.log import log
-from common.phys_constants import rytoev, AUTOA
 from pymatgen.io.vasp.inputs import Potcar
+from jarvis.io.vasp.outputs import Wavecar
+from pydephasing.utilities.log import log
+from pydephasing.common.phys_constants import rytoev, AUTOA
 from pydephasing.atomic_list_struct import atoms
-from parallelization.mpi import mpi
+from pydephasing.parallelization.mpi import mpi
 from pydephasing.PAWinterface import VASP_pawpot
 
 #

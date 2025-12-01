@@ -2,12 +2,12 @@
 # and return it for processing
 import numpy as np
 import h5py
-from pydephasing.set_param_object import p
-from common.phys_constants import eps, THz_to_ev
-from common.special_functions import lorentzian
-from pydephasing.utilities.log import log
-from parallelization.mpi import mpi
 import logging
+from pydephasing.set_param_object import p
+from pydephasing.common.phys_constants import eps, THz_to_ev
+from pydephasing.common.special_functions import lorentzian
+from pydephasing.utilities.log import log
+from pydephasing.parallelization.mpi import mpi
 #
 # set ql' list
 def set_ql_list_red_qgrid(qpts, nat, wu):

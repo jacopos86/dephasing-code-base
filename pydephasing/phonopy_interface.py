@@ -2,12 +2,12 @@ from pathlib import Path
 import yaml
 import numpy as np
 import warnings
-from pydephasing.set_param_object import p
-from utilities.log import log
-from parallelization.mpi import mpi
-from common.print_objects import print_2D_matrix
 from phonopy.interface.calculator import read_crystal_structure
 from phonopy import Phonopy
+from pydephasing.set_param_object import p
+from pydephasing.utilities.log import log
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.common.print_objects import print_2D_matrix
 #
 def extract_unit_cell():
     fil = Path(p.gs_data_dir+"/POSCAR")

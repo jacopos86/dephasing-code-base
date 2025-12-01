@@ -5,9 +5,9 @@
 import numpy as np
 import logging
 from pydephasing.set_param_object import p
-from spin_model.spin_hamiltonian import spin_triplet_hamiltonian
+from pydephasing.spin_model.spin_hamiltonian import spin_triplet_hamiltonian
 from pydephasing.nuclear_spin_config import nuclear_spins_config
-from parallelization.mpi import mpi
+from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
 from pydephasing.hf_stat_struct import perturbation_HFI_stat
 from pydephasing.T2_calc_handler import set_T2_calc_handler

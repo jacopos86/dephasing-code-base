@@ -1,5 +1,5 @@
-from pydephasing.phonons_module import PhononsClass
 import pytest
+from pydephasing.phonons_module import PhononsClass
 from pydephasing.common.phys_constants import kb
 
 #

@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from .log import log
 import subprocess as sp
 import matplotlib.colors as mcol
 from matplotlib.collections import LineCollection
+from pydephasing.utilities.log import log
 
 #
 #  module to plot functions

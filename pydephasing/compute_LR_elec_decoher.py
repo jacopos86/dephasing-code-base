@@ -1,7 +1,7 @@
 import os
 from pydephasing.atomic_list_struct import atoms
-from parallelization.mpi import mpi
-from utilities.log import log
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.phonopy_interface import atomic_displacements_from_file
 from pydephasing.q_grid import qgridClass

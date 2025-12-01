@@ -1,6 +1,6 @@
 from pathlib import Path
-from utilities.log import log
-from parallelization.mpi import mpi
+from pydephasing.utilities.log import log
+from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 
 class VASP_pawpot:

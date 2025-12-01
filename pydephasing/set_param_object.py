@@ -36,7 +36,7 @@ class param_proxy:
             else:
                 ct2 = args.ct2
                 if ct1 == "LR":
-                    if ct2 == "inhomo" or ct2 == "homo" or ct2 == "full" or ct2 == "electronic":
+                    if ct2 == "inhomo" or ct2 == "homo" or ct2 == "full":
                         self._real_p = linear_resp_input()
                     elif ct2 == "stat" or ct2 == "statdd":
                         self._real_p = static_data_input()
@@ -57,6 +57,11 @@ class param_proxy:
                     self._real_p = real_time_VASP_input()
                 elif ct2 == "MODEL":
                     self._real_p = real_time_JDFTx_input()
+                else:
+                    log.error(f"Unknown ct2 value: {ct2!r}")
+            elif ct1 == "LR":
+                if ct2 == "vasp":
+                    self._real_p = linear_resp_input()
                 else:
                     log.error(f"Unknown ct2 value: {ct2!r}")
             else:
