@@ -149,12 +149,6 @@ def spin_qubit_driver(yml_file):
                 log.info("\t INHOMOGENEOUS STATIC SPIN - DEPHASING")
                 log.info("\n")
                 log.info("\t " + p.sep)
-        elif calc_type2 == "electronic":
-            if mpi.rank == mpi.root:
-                log.info("\t " + p.sep)
-                log.info("\n")
-                log.info("\t ELECTRONIC DEPHASING CALCULATION")
-                log.info("\n")
         else:
             if mpi.rank == mpi.root:
                 log.info("\n")
@@ -170,8 +164,6 @@ def spin_qubit_driver(yml_file):
         # compute auto correl. function first
         if calc_type2 == "stat" or calc_type2 == "statdd":
             T2_calc_handler = compute_hfi_stat_dephas()
-        elif calc_type2 == "electronic":
-            T2_calc_handler = compute_elec_dephas()
         else:
             T2_calc_handler = compute_spin_dephas(ZFS_CALC, HFI_CALC)
         #
@@ -344,6 +336,20 @@ def elec_system_driver(yml_file):
             if mpi.rank == mpi.root:
                 log.warning("\t REAL TIME DYNAMICS -> calc_type2 : vasp/jdftx")
             log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
+    elif calc_type1 == "LR":
+        if mpi.rank == mpi.root:
+            log.info("\t LINEAR RESPONSE CALCULATION -> STARTING")
+            log.info("\n")
+            log.info("\t " + p.sep)
+        # read input file
+        p.read_yml_data(yml_file)
+        if calc_type2 == "vasp":
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\n")
+                log.info("\t USING VASP CALCULATION DATA")
+                log.info("\n")
+            T2_calc_handler = compute_elec_dephas()
     else:
         if mpi.rank == mpi.root:
             log.info("\n")
