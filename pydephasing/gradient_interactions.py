@@ -10,17 +10,17 @@ import numpy as np
 import yaml
 import logging
 from pathlib import Path
+import matplotlib.pyplot as plt
+import math
+from tqdm import tqdm
+from abc import ABC
 from pydephasing.neural_network_class import generate_NN_object
 from pydephasing.common.phys_constants import eps
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
-import matplotlib.pyplot as plt
-import math
 from pydephasing.utilities.log import log
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.build_unpert_struct import build_gs_struct_base
-from tqdm import tqdm
-from abc import ABC
 from pydephasing.common.print_objects import print_2D_matrix
 #
 class perturbation_ZFS(ABC):
