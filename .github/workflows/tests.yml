@@ -34,7 +34,7 @@ jobs:
 
       - name: Build project
         run: |
-          echo -e "INFO\nn\nn\ny" | make build DOWNLOAD_EXAMPLES=0 DOWNLOAD_TESTS3=0
+          echo -e "INFO\nn\nn\ny" | make build DOWNLOAD_EXAMPLES=1 DOWNLOAD_TESTS3=0
 
       - name: Install package
         run: make install
