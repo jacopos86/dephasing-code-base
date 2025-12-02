@@ -38,7 +38,8 @@ configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
 		fi; \
 	fi
 build :
-	@if [ "$(DOWNLOAD_EXAMPLES)" = "1" ]; then \
+	. $(VENV)/bin/activate ; \
+	if [ "$(DOWNLOAD_EXAMPLES)" = "1" ]; then \
 		if [ ! -f $(EXAMPLES_TAR_FILE) ] ; then \
 			echo "Downloading EXAMPLES..."; \
 			gdown --fuzzy $(EXAMPLES_URL) ; \
@@ -47,7 +48,7 @@ build :
 		echo "Skipping EXAMPLES download"; \
 	fi
 	
-	@if [ "$(DOWNLOAD_TESTS3)" = "1" ]; then \
+	if [ "$(DOWNLOAD_TESTS3)" = "1" ]; then \
 		if [ ! -f $(TESTS_3_TAR_FILE) ] ; then \
 			echo "Downloading TESTS_3..."; \
 			gdown --fuzzy $(TESTS_3_URL) ; \
@@ -55,7 +56,6 @@ build :
 	else \
 		echo "Skipping TESTS_3 download"; \
 	fi
-	. $(VENV)/bin/activate; \
 	./build.sh
 install :
 	. $(VENV)/bin/activate ; \
