@@ -1,10 +1,10 @@
+import os
+import numpy as np
 from pydephasing.auto_correlation_spph_mod import GPU_acf_sp_ph, CPU_acf_sp_ph
 from pydephasing.global_params import GPU_ACTIVE
 from pydephasing.set_param_object import p
 from pydephasing.utilities.restart import restart_calculation, save_data
 from pydephasing.T2_calc_handler import set_T2_calc_handler
-import os
-import numpy as np
 #
 #  GPU calculation class -> inhomogeneous
 #              calculation

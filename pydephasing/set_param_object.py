@@ -49,14 +49,19 @@ class param_proxy:
                 else:
                     log.error(f"Unknown ct1 value: {ct1!r}")
         elif co == 'elec-sys':
+            ct2 = args.ct2
             if ct1 == "RT":
-                ct2 = args.ct2
                 if ct2 == "jdftx":
                     self._real_p = real_time_JDFTx_input()
                 elif ct2 == "vasp":
                     self._real_p = real_time_VASP_input()
                 elif ct2 == "MODEL":
                     self._real_p = real_time_JDFTx_input()
+                else:
+                    log.error(f"Unknown ct2 value: {ct2!r}")
+            elif ct1 == "LR":
+                if ct2 == "vasp":
+                    self._real_p = linear_resp_input()
                 else:
                     log.error(f"Unknown ct2 value: {ct2!r}")
             else:

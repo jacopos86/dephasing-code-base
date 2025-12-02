@@ -15,8 +15,8 @@ from pydephasing.ph_amplitude_module import PhononAmplitude
 from pydephasing.auto_correlation_spph_mod import acf_sp_ph
 from pydephasing.T2_calc_handler import set_T2_calc_handler
 from pydephasing.energy_fluct_mod import ZFS_ph_fluctuations
-from pydephasing.phonons_module import PhononsClass
-from pydephasing.q_grid import qgridClass
+from pydephasing.phonons_module import PhonopyPhonons
+from pydephasing.q_grid import phonopy_qgridClass
 from pydephasing.build_interact_grad import calc_interaction_grad
 from pydephasing.build_unpert_struct import build_gs_spin_struct
 from pydephasing.nuclear_spin_config import nuclear_spins_config
@@ -72,7 +72,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     FGR = GeneralizedFermiGoldenRule().generate_instance(p.time_resolved, p.w_resolved)
     FGR.set_grids()
     # set q grid
-    qgr = qgridClass()
+    qgr = phonopy_qgridClass()
     qgr.set_qgrid()
     if mpi.rank == 0:
         log.info("\n")
@@ -96,7 +96,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
     #
     # extract phonon data
     #
-    ph = PhononsClass()
+    ph = PhonopyPhonons()
     ph.set_ph_data(qgr)
     #
     # set spin-phonon matrix

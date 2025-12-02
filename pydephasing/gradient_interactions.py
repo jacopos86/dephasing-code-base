@@ -10,17 +10,17 @@ import numpy as np
 import yaml
 import logging
 from pathlib import Path
+import matplotlib.pyplot as plt
+import math
+from tqdm import tqdm
+from abc import ABC
 from pydephasing.neural_network_class import generate_NN_object
 from pydephasing.common.phys_constants import eps
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
-import matplotlib.pyplot as plt
-import math
 from pydephasing.utilities.log import log
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.build_unpert_struct import build_gs_struct_base
-from tqdm import tqdm
-from abc import ABC
 from pydephasing.common.print_objects import print_2D_matrix
 #
 class perturbation_ZFS(ABC):
@@ -1815,3 +1815,18 @@ class gradient_Eg:
 		self.struct_0 = build_gs_struct_base(self.gs_data_dir)
 		# get energy
 		self.struct_0.read_free_energy()
+#
+#  class: 
+#  gradient electronic Hamiltonian
+#
+class gradient_elec_hamilt:
+	def __init__(self, data_fil):
+		self.data_fil = data_fil
+	# read data
+	# from saved file
+	def read_grad_He_matrix(self):
+		data = np.load(self.data_fil, mmap_mode='r')
+		if mpi.rank == mpi.root:
+			log.info("\t n. irred. modes: " + str(data.shape[0]))
+			log.info("\t n. k pts.: " + str(data.shape[1]))
+			log.info("\t n. bands: " + str(data.shape[-1]))

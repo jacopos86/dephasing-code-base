@@ -3,17 +3,17 @@
 # it computes the energy autocorrelation function
 # and return it for further processing
 import numpy as np
+import logging
 from pydephasing.set_param_object import p
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
 from pydephasing.gradient_interactions import gradient_ZFS, gradient_HFI, gradient_2nd_ZFS, gradient_2nd_HFI
-from spin_model.spin_hamiltonian import spin_triplet_hamiltonian
-from spin_model.spin_ph_inter import SpinPhononClass
+from pydephasing.spin_model.spin_hamiltonian import spin_triplet_hamiltonian
+from pydephasing.spin_model.spin_ph_inter import SpinPhononClass
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.auto_correl_inhom_driver import acf_sp_ph_inhom
 from pydephasing.nuclear_spin_config import nuclear_spins_config
-from parallelization.mpi import mpi
+from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
-import logging
 # function
 def compute_full_dephas():
     # main driver code for the calculation of full dephasing time

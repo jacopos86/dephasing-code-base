@@ -1,8 +1,8 @@
+import os
+import numpy as np
 import yaml
 from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
-import os
-import numpy as np
 # restart calculation function
 def restart_calculation(restart_file):
     # open file

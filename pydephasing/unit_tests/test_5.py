@@ -1,6 +1,6 @@
 import numpy as np
 from petsc4py import PETSc
-from utilities.log import log
+from pydephasing.utilities.log import log
 
 #
 #   TEST MATRIX ODE

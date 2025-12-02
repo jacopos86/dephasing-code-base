@@ -7,6 +7,7 @@ from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
 from pydephasing.real_time_spin_dephas_solver import compute_RT_spin_dephas
 from pydephasing.quantum.compute_QA_spin_decoher import compute_dephas_QA
 from pydephasing.elec_dyn_solvers import solve_elec_dyn_VASP_data, solve_elec_dyn_JDFTx_data, solve_elec_model_dyn
+from pydephasing.compute_LR_elec_decoher import compute_elec_dephas
 
 #
 #   different calculation drivers
@@ -335,6 +336,20 @@ def elec_system_driver(yml_file):
             if mpi.rank == mpi.root:
                 log.warning("\t REAL TIME DYNAMICS -> calc_type2 : vasp/jdftx")
             log.error("\t WRONG ACTION FLAG TYPE: PYDEPHASING STOPS HERE")
+    elif calc_type1 == "LR":
+        if mpi.rank == mpi.root:
+            log.info("\t LINEAR RESPONSE CALCULATION -> STARTING")
+            log.info("\n")
+            log.info("\t " + p.sep)
+        # read input file
+        p.read_yml_data(yml_file)
+        if calc_type2 == "vasp":
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\n")
+                log.info("\t USING VASP CALCULATION DATA")
+                log.info("\n")
+            T2_calc_handler = compute_elec_dephas()
     else:
         if mpi.rank == mpi.root:
             log.info("\n")

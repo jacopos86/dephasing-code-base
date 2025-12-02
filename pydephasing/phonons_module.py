@@ -2,6 +2,7 @@ import h5py
 import logging
 import numpy as np
 from abc import ABC
+from math import exp
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.common.phys_constants import eps, kb, hbar
 from pydephasing.set_param_object import p
@@ -9,7 +10,6 @@ from pydephasing.utilities.log import log
 from pydephasing.common.phys_constants import hartree2ev, THz_to_ev
 from pydephasing.utilities.plot_functions import plot_ph_band_struct, plot_lph_struct
 from pydephasing.atomic_list_struct import atoms
-from math import exp
 
 #
 #  phonons class

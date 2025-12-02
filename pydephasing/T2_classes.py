@@ -1,10 +1,10 @@
 import numpy as np
+import yaml
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.common.phys_constants import hbar
 from pydephasing.set_param_object import p
 from pydephasing.utilities.log import log
 from pydephasing.utilities.input_parser import parser
-import yaml
 
 #
 # T2 inverse class

@@ -1,51 +1,66 @@
 #!/bin/bash
 
+# CI / non-interactive mode detection
+if [ "$CI" = "true" ]; then
+    NONINTERACTIVE=1
+else
+    NONINTERACTIVE=0
+fi
+
+# Remove old config if exists
 [ -e config2.yml ] && rm config.yml
 
 wd=$(pwd)
 
 # log level
-echo "log level: "
-read log_level
+if [ $NONINTERACTIVE -eq 1 ]; then
+	log_level="INFO"
+else
+	echo "log level: "
+	read log_level
+fi
 echo "LOG_LEVEL : $log_level" >> config.yml
 
 # colored or file logging
-echo "redirect to log file? (y/n)"
-read set_log_file
-if [ "$set_log_file" = "yes" ] || [ "$set_log_file" = "y" ]
-then
-	color_logging="FALSE"
-elif [ "$set_log_file" = "no" ] || [ "$set_log_file" = "n" ]
-then
+if [ $NONINTERACTIVE -eq 1 ]; then
 	color_logging="TRUE"
 else
-	echo "answer: y or n"
-	sleep 3
-	exit 1
+	echo "redirect to log file? (y/n)"
+	read set_log_file
+	if [[ "$set_log_file" =~ ^(yes|y)$ ]]; then
+		color_logging="FALSE"
+	elif [[ "$set_log_file" =~ ^(no|n)$ ]]; then
+		color_logging="TRUE"
+	else
+		echo "answer: y or n"
+		sleep 3
+		exit 1
+	fi
 fi
 echo "COLORED_LOGGING : $color_logging" >> config.yml
 
 # log file
-if [ "$color_logging" = "FALSE" ]
-then
+if [ "$color_logging" = "FALSE" ] && [ $NONINTERACTIVE -eq 0 ]; then
 	echo "log file name: "
 	read log_file
 	echo "LOGFILE : $log_file" >> config.yml
 fi
 
 # GPU
-echo "perform GPU calculation? "
-read gpu_calc
-if [ "$gpu_calc" = "yes" ] || [ "$gpu_calc" = "y" ]
-then
-	GPU="TRUE"
-elif [ "$gpu_calc" = "no" ] || [ "$gpu_calc" = "n" ]
-then
+if [ $NONINTERACTIVE -eq 1 ]; then
 	GPU="FALSE"
 else
-	echo "answer: y or n"
-	sleep 3
-	exit 1
+	echo "perform GPU calculation? "
+	read gpu_calc
+	if [[ "$gpu_calc" =~ ^(yes|y)$ ]]; then
+		GPU="TRUE"
+	elif [[ "$gpu_calc" =~ ^(no|n)$ ]]; then
+		GPU="FALSE"
+	else
+		echo "answer: y or n"
+		sleep 3
+		exit 1
+	fi
 fi
 echo "GPU : $GPU" >> config.yml
 if [ "$GPU" = "TRUE" ]
@@ -70,39 +85,47 @@ fi
 # update input test file paths
 # test 1 -> init
 
-echo "build/clean TESTS directory? "
-read clean_tests
-if [ "$clean_tests" = "yes" ] || [ "$clean_tests" = "y" ]
-then
+if [ $NONINTERACTIVE -eq 1 ]; then
 	CLEAN_TESTS="TRUE"
-elif [ "$clean_tests" = "no" ] || [ "$clean_tests" = "n" ]
-then
-	CLEAN_TESTS="FALSE"
 else
-	echo "answer: y or n"
-	sleep 3
-	exit 1
+	echo "build/clean TESTS directory? "
+	read clean_tests
+	if [[ "$clean_tests" =~ ^(yes|y)$ ]]; then
+		CLEAN_TESTS="TRUE"
+	elif [[ "$clean_tests" =~ ^(no|n)$ ]]; then
+		CLEAN_TESTS="FALSE"
+	else
+		echo "answer: y or n"
+		sleep 3
+		exit 1
+	fi
 fi
 
-if [ "$CLEAN_TESTS" = "TRUE" ]
-then
-	if [ ! -d ${wd}/EXAMPLES ]
-	then
-		if [ "$CI" = "true" ]; then
-			echo "Extracting EXAMPLES.tar.gz..."
-			tar -xzf EXAMPLES.tar.gz
-			echo "Extraction complete."
-		else
-			tar -xvzf EXAMPLES.tar.gz
-		fi
+# -------------------------
+# Build TESTS if requested
+# -------------------------
+
+if [ "$CLEAN_TESTS" = "TRUE" ]; then
+	if [ -d "$wd/EXAMPLES" ]; then
+		echo "EXAMPLES directory already exists"
+	elif [ -f EXAMPLES.tar.gz ]; then
+		echo "Extracting EXAMPLES.tar.gz ..."
+            	tar -xzf EXAMPLES.tar.gz
+            	echo "Extraction complete."
+    	else
+        	echo "EXAMPLES missing, skipping"
+    	fi
+    	
+    	# TESTS directory
+    	
+	if [ -d TESTS ]; then
+		rm -rf TESTS
 	fi
-	if [ -d TESTS ]
-	then
-		rm -r TESTS
-	fi
-	mkdir TESTS
-	mkdir TESTS/1
-	cd ./TESTS/1
+	mkdir -p TESTS/1 TESTS/2
+	
+	# TEST 1
+	
+	cd TESTS/1
 	wdT1=$(pwd)
 
 	cat > input.yml <<EOF
@@ -133,9 +156,7 @@ EOF
 
 	# test 2 -> pydephasing - NV center
 
-	cd ../
-	mkdir ./2
-	cd ./2
+	cd ../2
 	wdT2=$(pwd)
 
 	cat > inputA.yml <<EOF
@@ -367,4 +388,40 @@ EOF
 	echo -e "  shuffle : True" >> ${wdT2}/info.yml
 
 	rm -rf ${wd}/EXAMPLES
+	
+	cd ${wd}
+	
+	# TESTS 3
+	
+	if [ -f TESTS_3.tar.gz ]; then
+		if [ $NONINTERACTIVE -eq 1 ]; then
+			echo "Skipping TESTS_3 extraction in CI"
+		else
+			if [ ! -d ${wd}/3 ]; then
+				echo "Extracting TESTS_3.tar.gz ..."
+				tar -xzf TESTS_3.tar.gz
+				echo "Extraction complete."
+				mv ${wd}/3 ${wd}/TESTS/
+			fi
+		fi
+	fi
+	
+	wdT3=${wd}/TESTS/3
+	if [ ! -d "$wdT3" ]; then
+		mkdir -p ${wdT3}
+	fi
+				
+	cd ${wdT3}
+
+	cat > input.yml <<EOF
+working_dir : ${wdT3}
+output_dir : ${wdT3}/T2-ELEC-DEPH
+yaml_pos_file : phonopy_disp.yaml
+unpert_dir : VASP_soc_relaxation
+eph_matr_file : El-ph_data.npy
+hd5_eigen_file : band.hdf5
+2nd_order_correct : True
+hessian : False
+EOF
+
 fi

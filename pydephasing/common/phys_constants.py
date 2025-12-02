@@ -1,5 +1,6 @@
 from scipy.constants import physical_constants
 from scipy.constants import electron_volt
+from scipy.constants import Rydberg, e, h, c
 #
 # physical constants module
 #
@@ -20,6 +21,9 @@ hbar = hbar / electron_volt * 1.E12  # eV ps
 #
 hartree2joule = physical_constants["Hartree energy"][0]  # J
 hartree2ev = hartree2joule / electron_volt
+#
+rytoev = Rydberg * h * c / e
+AUTOA = physical_constants["Bohr radius"][0] / 1.E-10
 #
 # tolerance parameter
 #
