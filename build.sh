@@ -86,7 +86,7 @@ fi
 # test 1 -> init
 
 if [ $NONINTERACTIVE -eq 1 ]; then
-	CLEAN_TESTS="FALSE"
+	CLEAN_TESTS="TRUE"
 else
 	echo "build/clean TESTS directory? "
 	read clean_tests
