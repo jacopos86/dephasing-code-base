@@ -4,6 +4,7 @@ import subprocess as sp
 import matplotlib.colors as mcol
 from matplotlib.collections import LineCollection
 from pydephasing.utilities.log import log
+from pydephasing.set_param_object import p
 
 #
 #  module to plot functions
@@ -46,26 +47,33 @@ def plot_ph_band_struct(wq, nQ, n_interp=10):
         log.warning('Warning: could not extract labels from bandstruct.plot')
     plt.grid(True, linestyle='--', alpha=0.5)
     plt.tight_layout()
+    plt.savefig(f"{p.write_dir}/Phonon_bandstructure.png",dpi=300,bbox_inches="tight" )
     plt.show()
 
 def plot_lph_struct(wq, lph, nQ, n_interp=10):
     cm1 = mcol.LinearSegmentedColormap.from_list("MyColorMap", ['r', 'k', 'b'])
-    norm = plt.Normalize(-1, 1)
-    fig, axs = plt.subplots(1,3,figsize=(12,4),sharey=True)
+    norm_in = np.abs(lph).max()
+    norm = plt.Normalize(-norm_in, norm_in)
+    fig, axs = plt.subplots(1,3,figsize=(14,4),sharey=True)
     lin_x = np.arange(nQ)
-    dx_dir = [1,2,0]
-    dy_dir = [2,0,1]
-    ylims = [0,(wq.max() + 0.02)]
+    ylims = [wq.min(),wq.max() * 1.05]
     # plots
     for i, (d,ax) in enumerate(zip(['x','y','z'], axs)):
-        PAM = lph[i]
+        PAM = lph[i].real
         for ib in range(wq.shape[1]):
             y = wq[:,ib]
             points = np.array([lin_x, y]).T.reshape(-1,1,2)
             segments = np.concatenate([points[:-1], points[1:]], axis=1)
             lc = LineCollection(segments, cmap=cm1, norm=norm)
-            lc.set_array(PAM[:,ib])
+            lc.set_array(PAM[ib])
             lc.set_linewidth(2)
             line = ax.add_collection(lc)
-    plt.tight_layout()
+        ax.set_ylim(ylims)
+        ax.set_xlim(0,nQ)
+        ax.set_xlabel("K-point index")
+    cbar = fig.colorbar(line, ax=axs, ticks=np.linspace(-norm_in,norm_in,5), shrink=0.8)
+    axs[0].set_ylabel("Phonon energy [meV]")
+    
+    #plt.tight_layout()# tight_layout moves colorbar in the middle of axs[2]
+    plt.savefig(f"{p.write_dir}/Phonon_PAM_bandstructure.png",dpi=300,bbox_inches="tight" )
     plt.show()
