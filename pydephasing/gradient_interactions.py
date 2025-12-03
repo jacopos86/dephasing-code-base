@@ -1296,6 +1296,9 @@ class gradient_HFI(perturbation_HFI):
 	#
 	# set Ahfi tensor gradient
 	#
+
+	# displ_structs are the list of dQ?
+
 	def set_tensor_gradient(self, displ_structs):
 		# check file exists
 		file_name = "{}".format(p.write_dir + '/restart/grad_Htensor.yml')
@@ -1830,3 +1833,132 @@ class gradient_elec_hamilt:
 			log.info("\t n. irred. modes: " + str(data.shape[0]))
 			log.info("\t n. k pts.: " + str(data.shape[1]))
 			log.info("\t n. bands: " + str(data.shape[-1]))
+
+
+from wfc_overlap_interface import read_VASP_files, VASP_wfc_overlap_
+from numpy.linalg import norm
+
+class dR_displacement:
+	def __init__(self, Rp_calc, Rp_struct, Rm_calc, Rm_struct):
+
+		self.Rp_calc = read_VASP_files(Rp_calc) # Rp calculation directory
+		self.Rm_calc = read_VASP_files(Rm_calc) # Rm calculation directory
+
+		self.Rp_struct = Rp_struct # POSCAR or CONTCAR of Rp structure
+		self.Rm_struct = Rm_struct # POSCAR or CONTCAR of Rm structure
+
+	def get_displacement_dR(self):
+		'''
+		Calculate displacement dR between two structures given their atomic positions in crystal coordinates
+
+		Output: 
+		- dR: Net displacement (in angstrom) between structure of Rp (positions1) and structure of Rm (positions2)
+		'''
+
+		(vecR, positions1) = self.Rp_calc.read_poscar(self.Rp_struct) # read Rp poscar
+		(vecR2, positions2) = self.Rm_calc.read_poscar(self.Rm_struct) # read Rm poscar
+
+		if ((vecR != vecR2).any()):
+			print(vecR, vecR2)
+			raise ValueError("Inconsistent lattice vectors!")
+
+		delta_positions = [atom1["pos"] - atom2["pos"] for atom1, atom2 in zip(positions1, positions2)]
+
+		for ix in range(len(delta_positions)):
+			v = delta_positions[ix]
+			for i in range(len(v)):
+				x = v[i]
+				if (abs(x) > 0.5):  # Shift out of boundary ; shift back
+					v[i] = x - round(x, 0)
+			delta_positions[ix] = np.dot(vecR, v)
+
+		#list_delta = [{"species": atom["species"], "delta":pos} for atom, pos in zip(positions1, delta_positions)]
+		list_R = [norm(delta_pos)**2 for delta_pos in delta_positions]
+		dR = sum(list_R)
+
+		return dR
+
+
+# Create tests form the classes I implemented
+#. gradient Hamiltonian matrix elements (VASP)
+
+class VASP_Hamiltonian_gradient:
+
+	def __init__(self, unperturbed_dir, perturbations_dir):
+		self.unperturbed_dir = unperturbed_dir # directory of unperturbed calculation
+		self.unperturbed_calc = read_VASP_files(self.unperturbed_dir) # initialize unperturbed calculation reader
+		self.eigenvals_R0 = self.unperturbed_calc.read_eigenvals() # read eigenvalues of unperturbed calculation
+
+		self.perturbations_dir = perturbations_dir # directory of perturbations calculations
+
+
+	def compute_one_elph_central_finite(self, wswq_Rp, wswq_Rm):
+		"""
+		Compute 1 electron-phonon Hamiltonian matrix element using finite difference method
+
+		Inputs:
+		- eigenR0: returned array from read_eig_vasp, with eigenvalue of index( k, spin, nband, occ)
+		- wswq_Rp: file with (phi(x+dR))
+		- wswq_Rm: file with (phi(x-dR))
+
+		finite diffrence compute (Em-En)*[(wswq_R+) - (wswq_R-)]/2dR
+		eigenR0: returned array from read_eig_vasp, with eigenvalue of index( k, spin, nband, occ)
+		"""
+		nspin, nk, nbnd, _ = wswq_Rp.shape
+		Welph = np.zeros((nspin, nk , nbnd, nbnd), dtype=np.complex128)
+		eV2Hartree=0.0367493
+		Ang2au=1.8897259886
+		dR=0.1*Ang2au #for now hard code liek this, but need to input
+		for i in range(nspin):
+			for k in range(nk):
+				for n in range(nbnd):
+					for m in range(nbnd):
+						eigen_n = eigenR0[k,i,n,0]*eV2Hartree
+						eigen_m = eigenR0[k,i,m,0]*eV2Hartree
+						Welph[i,k,n,m] = (eigen_m-eigen_n)*(wswq_Rp[i,k,n,m]-wswq_Rm[i,k,n,m])/(2*dR)
+		return Welph
+
+	def compute_all_elph_central_finite(self, list_wswq_file_Rp, list_wswq_file_Rm, vasprun_file):
+		"""
+		INPUT:
+			List_wswq_file : a list of WSWQ files path
+			vasprun_file: the vasprun.xml file of the unperturbed calculation
+		_____
+		return:
+			Welph_all[imode, spin, kpoint, bandi, bandj]
+		"""
+
+		nkpoint, nspin, nbands, _ = self.eigenvals_R0.shape
+		nmode = len(List_wswq_file_Rp) # number of modes
+		#initialize the shape:
+		Welph_all = np.zeros((nmode, nspin, nkpoint, nbands, nbands), dtype=np.complex128)
+		for imode in range(nmode):
+			f_wswq_Rp = List_wswq_file_Rp[imode]
+			f_wswq_Rm = List_wswq_file_Rm[imode]
+			print(f"imode: {imode}")
+			try:
+				print("   read wswq:")
+				wswq_Rp = get_WSWQ_array(f_wswq_Rp, vasprun_file)
+				wswq_Rm = get_WSWQ_array(f_wswq_Rm, vasprun_file)
+				print("   compute el-ph")
+				Welph = compute_one_elph_central_finite(self.eigenvals_R0, wswq_Rp, wswq_Rm)
+			except Exception as e:
+				print(f"Error occurred trying to read wswq: {e}")
+				print(f"Skip the el-ph computation for imode = {imode}")
+				continue
+			for ispin in range(nspin):
+				for ik in range(nkpoint):
+					for n in range(nbands):
+						for m in range(nbands):
+							Welph_all[imode, ispin, ik, n, m] = Welph[ispin, ik, n, m]
+		return Welph_all
+
+
+
+#
+#. gradient Hamiltonian matrix elements (JDFTx)
+#
+
+class JDFTx_Hamiltonian_gradient:
+	def __init__(self):
+		pass
