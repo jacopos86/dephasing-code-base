@@ -22,7 +22,8 @@ DOWNLOAD_TESTS3 ?= 1
 REQUIREMENTS_OVERRIDE ?=
 
 configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
-	$(PYTHON_VERSION) -m venv $(VENV); \
+	python3 -m venv $(VENV); \
+#	$(PYTHON_VERSION) -m venv $(VENV); \
 	. $(VENV)/bin/activate;
 	$(PIP) install --upgrade pip setuptools wheel
 	if [ -n "$(REQUIREMENTS_OVERRIDE)" ]; then \
@@ -83,7 +84,10 @@ test :
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_1.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest -p no:warnings $(UNIT_TEST_DIR)/test_2.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_3.py
+	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_4.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_5.py
 	@for np in $$(seq 1 $(NP_MAX)); do \
 		PYDEPHASING_TESTING=1 mpirun -np $$np $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_6.py; \
 	done
+
+	

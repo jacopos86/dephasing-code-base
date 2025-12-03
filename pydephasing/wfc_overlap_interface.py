@@ -224,8 +224,11 @@ class VASP_wfc_overlap_:
         """
 
         N_mode = int(len(result_displacement)/2)
-        Rp_wswq_list = [read_VASP_files(os.path.join(self.perturbations_dir,f"{self.header}{2*n+1:03d}")).read_wswq() for n in range(N_mode)]
-        Rm_wswq_list = [read_VASP_files(os.path.join(self.perturbations_dir,f"{self.header}{2*n+1+1:03d}")).read_wswq() for n in range(N_mode)]
+        #Rp_wswq_list = [read_VASP_files(os.path.join(self.perturbations_dir,f"{self.header}{2*n+1:03d}")).read_wswq() for n in range(N_mode)]
+        #Rm_wswq_list = [read_VASP_files(os.path.join(self.perturbations_dir,f"{self.header}{2*n+1+1:03d}")).read_wswq() for n in range(N_mode)]
+        
+        Rp_wswq_list = [os.path.join(self.perturbations_dir,f"{self.header}{2*n+1:03d}") for n in range(N_mode)]
+        Rm_wswq_list = [os.path.join(self.perturbations_dir,f"{self.header}{2*n+1+1:03d}") for n in range(N_mode)]
 
         # -----  TO-DO: implement MPI parallelization here -----
 
