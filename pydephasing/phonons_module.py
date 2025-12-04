@@ -231,7 +231,23 @@ class JDFTxPhonons(PhononsClass):
         self.Mph = np.zeros((3,self.nmodes,self.nmodes,qgr.nq), dtype=np.complex128)
         # compute at each q
         for i, q in enumerate(qgr.qpts):
-            print(i, q)
+            qm = -q
+            omega_q, Wq = self.compute_ph_state_q(q)
+            omega_qm, Wqm = self.compute_ph_state_q(qm)
+            if self.TR_SYM:
+                if not np.allclose(omega_q, omega_qm):
+                    log.error(f"Energy mismatch detected between q = {q} and q' = {qm}")
+                for l in range(self.nmodes):
+                    if not np.allclose(Wq[:,l], np.conj(Wqm[:,l])):
+                        log.error(f"Time-reversal symmetry violation detected between q = {q} and q' = {qm}")
+            for l1 in range(self.nmodes):
+                # in THz
+                if omega_q[l1] > p.min_freq:
+                    Wql1 = Wq[:,l1].reshape(-1,3)
+                    for l2 in range(self.nmodes):
+                        Wqml2 = Wqm[:,l2].reshape(-1,3)
+                        for k in range(atoms.nat):
+                            self.Mph[:,l1,l2,i] += -1j*np.sqrt(omega_qm[l2] / omega_q[l1])*np.cross(Wql1[k,:], Wqml2[k,:])
     def read_ph_hamilt(self, qgr):
         # read ph basis
         self.read_phonon_basis()
