@@ -3,12 +3,15 @@ import math
 from collections import Counter
 import numpy as np
 import logging
+import cmath
+from itertools import product
 from abc import ABC
 from scipy.interpolate import interp1d
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.utilities.log import log
 from pydephasing.common.phys_constants import eps
+from pydephasing.atomic_list_struct import atoms
 #
 #   q grid class
 #
@@ -21,6 +24,44 @@ class qgridClass(ABC):
         self.qpts = None
         # q weight
         self.wq = None
+        self.supercell_grid = None
+    # q grid
+    def set_qgrid(self):
+        self.get_grid_keys()
+        # open file
+        with h5py.File(p.hd5_eigen_file, 'r') as f:
+            # dict keys -> size
+            self.grid_size = list(f[self.mesh_key])
+            self.nq = math.prod(self.grid_size)
+            if mpi.rank == mpi.root:
+                log.info("\t q grid size: " + str(self.nq))
+            # dict keys -> qpts
+            self.qpts = list(f[self.qpts_key])
+            # dict keys -> wq
+            self.wq = list(f[self.wq_key])
+            self.wq = np.array(self.wq, dtype=float)
+            r = sum(self.wq)
+            self.wq[:] = self.wq[:] / r
+        assert len(self.qpts) == self.nq
+        if log.level <= logging.INFO:
+            self.check_weights()
+        self.set_supercell_grid()
+    #  compute phase e^{iq R_k}
+    #  at q pt iq
+    def compute_phase_factor(self, iq, nat):
+        eiqR = np.zeros(3*nat, dtype=np.complex128)
+        qv = self.qpts[iq]
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax]
+            Ra = atoms.atoms_dict[ia]['coordinates']
+            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
+        return eiqR
+    #
+    #  set commensurate supercell grid
+    #  units of lattice vectors
+    def set_supercell_grid(self):
+        N1, N2, N3 = self.grid_size
+        self.supercell_grid = np.array(list(product(range(N1), range(N2), range(N3))))
     #
     #  this method creates a list of pairs
     #  (q, -q)
@@ -71,7 +112,6 @@ class qgridClass(ABC):
                     return qp_pair[1]
                 else:
                     return qp_pair[0]
-
     #
     #  build irreducible (q,q') pairs
     #  (q1,-q2)^* -> (q2,-q1)
