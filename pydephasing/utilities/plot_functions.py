@@ -26,6 +26,7 @@ def plot_elec_struct(Ew, Eks, mu, n_interp=10):
     plt.legend()
     plt.title("Wannier vs KS Band Structure (shifted to VBM)")
     plt.tight_layout()
+    plt.savefig(f"{p.write_dir}/Electronic_bandstructure.png",dpi=300,bbox_inches="tight" )
     plt.show()
 
 def plot_ph_band_struct(wq, nQ, n_interp=10):
@@ -73,7 +74,6 @@ def plot_lph_struct(wq, lph, nQ, n_interp=10):
         ax.set_xlabel("K-point index")
     cbar = fig.colorbar(line, ax=axs, ticks=np.linspace(-norm_in,norm_in,5), shrink=0.8)
     axs[0].set_ylabel("Phonon energy [meV]")
-    
     #plt.tight_layout()# tight_layout moves colorbar in the middle of axs[2]
     plt.savefig(f"{p.write_dir}/Phonon_PAM_bandstructure.png",dpi=300,bbox_inches="tight" )
     plt.show()
