@@ -22,9 +22,10 @@ DOWNLOAD_TESTS3 ?= 1
 REQUIREMENTS_OVERRIDE ?=
 
 configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
-	$(PYTHON_VERSION) -m venv $(VENV); \
-	. $(VENV)/bin/activate;
-	$(PIP) install --upgrade pip setuptools wheel
+	$(PYTHON_VERSION) -m venv $(VENV)
+	echo 'export PYTHONPATH="$(ROOT):$$PYTHONPATH"' >> $(VENV)/bin/activate
+	. $(VENV)/bin/activate && \
+	$(PIP) install --upgrade pip setuptools wheel && \
 	if [ -n "$(REQUIREMENTS_OVERRIDE)" ]; then \
 		echo "Installing CI override requirements from $(REQUIREMENTS_OVERRIDE)"; \
 		$(PIP) install -r $(REQUIREMENTS_OVERRIDE); \
