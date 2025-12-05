@@ -22,7 +22,6 @@ DOWNLOAD_TESTS3 ?= 1
 REQUIREMENTS_OVERRIDE ?=
 
 configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
-<<<<<<< HEAD
 	python3 -m venv $(VENV); \
 	. $(VENV)/bin/activate; \
 	$(PIP) install --upgrade pip setuptools wheel; \
@@ -38,9 +37,6 @@ configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
 		echo "==> Installing all other requirements (ignoring petsc & petsc4py if present)..."; \
 		grep -v '^petsc$$' $(ROOT)/requirements.txt | grep -v '^petsc4py$$' > /tmp/req_cpu.txt; \
 		grep -v '^petsc$$' $(ROOT)/requirements_GPU.txt | grep -v '^petsc4py$$' > /tmp/req_gpu.txt; \
-=======
-
->>>>>>> main
 		if ! command -v nvcc >/dev/null 2>&1; then \
 			$(PIP) install -r /tmp/req_cpu.txt; \
 		else \
