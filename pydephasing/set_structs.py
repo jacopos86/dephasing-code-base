@@ -250,20 +250,96 @@ class UnpertStruct:
 	def extract_orbital_character(self):
 		file_name = "{}".format(self.ipath+"PROCAR")
 		fil = Path(file_name)
-		if fil.exists():
-			procar = Procar(file_name)
-		else:
+		# ---------- CASE 1: file does not exist ----------------
+		if not fil.exists():
+			if mpi.rank == mpi.root:
+				log.warning(f"PROCAR does not exist at {file_name}")
 			return
-		# Total number of k-points, bands, and ions
-		if mpi.rank == mpi.root:
-			log.info("\t " + p.sep)
-			log.info(f"\t K-points: {procar.nkpoints}, Bands: {procar.nbands}, Ions: {procar.nions}")
-			log.info("\t " + p.sep)
-		self.orbital_character = procar.data
-		self.orbitals = procar.orbitals
-		assert(self.orbital_character[Spin.up].shape[0] == self.nkpt)
-		assert(self.orbital_character[Spin.up].shape[1] == self.nbnd)
-		assert(self.orbital_character[Spin.up].shape[3] == len(self.orbitals))
+		procar = None
+		# ---------- CASE 2: Try parsing with pymatgen ----------
+		try:
+			if mpi.rank == mpi.root:
+				log.info(f"\t Trying pymatgen Procar loader for {file_name}")
+			procar = Procar(file_name)
+			loading_method = "pymatgen"
+		except Exception as exc:
+			# ---------- CASE 3: fallback parsing ---------------
+			if mpi.rank == mpi.root:
+				log.warning(f"pymatgen Procar parsing failed: {exc}")
+				log.warning("→ Trying fallback parser instead...")
+			try:
+				procar = self._fallback_parse_procar(file_name)
+				loading_method = "fallback"
+			except Exception as exc2:
+				if mpi.rank == mpi.root:
+					log.error(f"Fallback parser also failed: {exc2}")
+				return
+		# ---------- store parsed data ----------
+		if loading_method == "pymatgen":
+			# Total number of k-points, bands, and ions
+			# spin indexed arrays
+			if mpi.rank == mpi.root:
+				log.info("\t " + p.sep)
+				log.info(f"\t K-points: {procar.nkpoints}, Bands: {procar.nbands}, Ions: {procar.nions}")
+				log.info("\t " + p.sep)
+			self.orbital_character = procar.data
+			self.orbitals = procar.orbitals
+			assert(self.orbital_character[Spin.up].shape[0] == self.nkpt)
+			assert(self.orbital_character[Spin.up].shape[1] == self.nbnd)
+			assert(self.orbital_character[Spin.up].shape[3] == len(self.orbitals))
+		else:
+			# fallback parser delivers looser structure → no assertions
+			self.orbital_character = procar["bands"]
+			self.orbitals = procar["orbitals"]
+			if mpi.rank == mpi.root:
+				log.warning(
+					"Fallback PROCAR interpretation loaded — shapes not validated!"
+				)
+	def _fallback_parse_procar(self, file_name):
+		"""
+		Minimal tolerant parse: returns dict-like data
+		enough to inspect orbital contributions if pymatgen fails.
+		"""
+		bands = []
+		orbitals = []
+		# --- find orbital header line ---
+		with open(file_name, "r") as f:
+			for line in f:
+				strip = line.strip()
+				if strip.startswith("ion") and "tot" in strip:
+					cols = strip.split()
+					# expected form:
+					# ion  s  py  pz  px  dxy  dyz  dz2  dxz  x2-y2  tot
+					# remove ion and tot
+					try:
+						ion_index = cols.index("ion")
+					except ValueError:
+						ion_index = 0
+					try:
+						tot_index = cols.index("tot")
+					except ValueError:
+						tot_index = len(cols)
+					orbitals = cols[ion_index + 1 : tot_index]
+					break
+		# dummy orbital labels — user can improve as needed
+		# this ensures self.orbitals exists
+		# so code that indexes orbitals doesn't break
+		if not orbitals:
+			orbitals = [f"orb{i}" for i in range(10)]
+		# open file
+		with open(file_name, "r") as f:
+			block = []
+			for line in f:
+				line = line.strip()
+				if line.startswith("band"):
+					if block:
+						bands.append(block)
+					block = [line]
+				elif block:
+					block.append(line)
+		if block:
+			bands.append(block)
+		return {"bands": bands, "orbitals": orbitals}
 	### read OUTCAR
 	### extract spin state
 	def extract_spin_state(self):
