@@ -1,0 +1,37 @@
+{
+  "python.autoComplete.extraPaths": [
+    "./pydephasing",         // Root of your project (if `pydephasing` is the main package)
+    "./pydephasing/quantum", // If `quantum` is a package used globally
+    "./pydephasing/common",  // Same for any other local packages you use
+    "./pydephasing/spin_model",
+    "./pydephasing/utilities"
+  ],
+  "python.analysis.extraPaths": [
+    "./pydephasing",
+    "./pydephasing/common",
+    "./pydephasing/quantum",
+    "./pydephasing/spin_model",
+    "./pydephasing/utilities"
+  ],
+  "python.defaultInterpreterPath": "./pydeph/bin/python",
+  "python.analysis.indexing": true,
+  "python.analysis.cacheEnabled": true, // Enable Pylance cache
+  "python.analysis.useLibraryCodeForTypes": true,
+  "python.languageServer": "Jedi",
+  // Associate .cu files with CUDA C++
+  "files.associations": {
+    "*.cu": "cuda-cpp",
+    "*.cuh": "cuda-cpp"
+  },
+  // Use the C++ formatter for CUDA files
+  "[cuda-cpp]": {
+    "editor.defaultFormatter": "ms-vscode.cpptools",
+    "editor.formatOnSave": true
+  },
+  // Optional: Disable Pylance for .cu files (in case it's acting up)
+  "python.analysis.exclude": [
+    "**/*.cu"
+  ],
+  // Enable IntelliSense for CUDA with the C++ extension
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+}
