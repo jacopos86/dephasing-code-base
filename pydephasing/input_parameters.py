@@ -487,6 +487,8 @@ class real_time_elec_input(ABC):
         self.work_dir = ''
         # write directory
         self.write_dir = ''
+        # min freq
+        self.min_freq = 0.0
     def read_yml_data_dyn(self, data):
         if 'working_dir' in data:
             self.work_dir = data['working_dir']
@@ -507,6 +509,18 @@ class real_time_elec_input(ABC):
         if 'dynamics' in data:
             for i in data['dynamics']:
                 self.dynamical_mode.append(i)
+        # min. frequency
+        # THz
+        if 'min_freq' in data:
+            self.min_freq = data['min_freq']
+        if mpi.rank == mpi.root:
+            log.info("\t min. freq. (THz): " + str(self.min_freq))
+            if np.abs(self.min_freq) < 1.E-7:
+                log.info("\n")
+                log.info("\t " + self.sep)
+                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
+                log.info("\t " + self.sep)
+                log.info("\n")
     def check_consistency(self):
         # dyn. mode
         assert (len(self.dynamical_mode) == 3)
