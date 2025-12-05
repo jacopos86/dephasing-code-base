@@ -23,29 +23,20 @@ REQUIREMENTS_OVERRIDE ?=
 
 configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
 	python3 -m venv $(VENV); \
-	. $(VENV)/bin/activate; \
-	$(PIP) install --upgrade pip setuptools wheel; \
-	\
-	# Detect if running on the HPC (Cray / Lmod environment)
-	if command -v module >/dev/null 2>&1 && module avail 2>&1 | grep -q "petsc/3.23.4-cuda-gcc13.3.1"; then \
-		echo "==> HPC environment detected. Loading PETSc module..."; \
-		module load petsc/3.23.4-cuda-gcc13.3.1; \
-		\
-		echo "==> Installing petsc4py matching HPC PETSc..."; \
-		$(PIP) install petsc4py==3.23.4; \
-		\
-		echo "==> Installing all other requirements (ignoring petsc & petsc4py if present)..."; \
-		grep -v '^petsc$$' $(ROOT)/requirements.txt | grep -v '^petsc4py$$' > /tmp/req_cpu.txt; \
-		grep -v '^petsc$$' $(ROOT)/requirements_GPU.txt | grep -v '^petsc4py$$' > /tmp/req_gpu.txt; \
-		if ! command -v nvcc >/dev/null 2>&1; then \
-			$(PIP) install -r /tmp/req_cpu.txt; \
-		else \
-			$(PIP) install -r /tmp/req_gpu.txt; \
-		fi; \
-	\
+#	$(PYTHON_VERSION) -m venv $(VENV); \
+	. $(VENV)/bin/activate;
+	$(PIP) install --upgrade pip setuptools wheel
+	if [ -n "$(REQUIREMENTS_OVERRIDE)" ]; then \
+		echo "Installing CI override requirements from $(REQUIREMENTS_OVERRIDE)"; \
+		$(PIP) install -r $(REQUIREMENTS_OVERRIDE); \
 	else \
-		echo "==> Non-HPC environment (MacOS / workstation). Installing normally."; \
-		$(PIP) install -r $(ROOT)/requirements.txt; \
+		if ! command -v nvcc >/dev/null 2>&1; then \
+			echo "installing CPU requirements ..."; \
+			$(PIP) install -r $(ROOT)/requirements.txt; \
+		else \
+			echo "installing GPU requirements ..."; \
+			$(PIP) install -r $(ROOT)/requirements_GPU.txt; \
+		fi; \
 	fi
 build :
 	. $(VENV)/bin/activate ; \
@@ -69,9 +60,7 @@ build :
 	./build.sh
 install :
 	. $(VENV)/bin/activate ; \
-	export PETSC_DIR=$${PETSC_DIR:-$(PETSC_DIR)} ; \
-	export PETSC_ARCH=$${PETSC_ARCH:-$(PETSC_ARCH)} ; \
-	$(PIP) install --no-cache-dir --no-build-isolation .
+	$(PIP) install .
 .PHONY :
 	clean
 clean :
@@ -98,7 +87,7 @@ test :
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_4.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_5.py
 	@for np in $$(seq 1 $(NP_MAX)); do \
-		PYDEPHASING_TESTING=1 srun -np $$np $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_6.py; \
+		PYDEPHASING_TESTING=1 mpirun -np $$np $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_6.py; \
 	done
 
 	

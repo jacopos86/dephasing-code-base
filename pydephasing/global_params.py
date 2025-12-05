@@ -7,7 +7,7 @@ ngpus = 0
 site_packages = site.getsitepackages()[0].strip().split('/')
 i=0
 for d in site_packages:
-    if d == 'lib':
+    if d == 'lib' or d == 'lib64':
         j = i - 2
     i += 1
 PACKAGE_DIR = '/'.join(site_packages[:j+1])

@@ -2,7 +2,7 @@ import re
 import os
 import numpy as np
 import xml.etree.ElementTree as ET
-from parallelization.mpi import mpi
+from pydephasing.parallelization.mpi import mpi
 
 def read_file(path_to_calc, filename):
     if os.path.isfile(os.path.join(path_to_calc, filename)):

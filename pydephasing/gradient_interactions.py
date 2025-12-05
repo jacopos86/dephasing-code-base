@@ -1835,7 +1835,7 @@ class gradient_elec_hamilt:
 			log.info("\t n. bands: " + str(data.shape[-1]))
 
 
-from wfc_overlap_interface import read_VASP_files, VASP_wfc_overlap_
+from pydephasing.wfc_overlap_interface import read_VASP_files, VASP_wfc_overlap_
 from numpy.linalg import norm
 
 class dR_displacement:
