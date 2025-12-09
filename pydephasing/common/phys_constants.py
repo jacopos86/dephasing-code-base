@@ -22,6 +22,8 @@ hbar = hbar / electron_volt * 1.E12  # eV ps
 hartree2joule = physical_constants["Hartree energy"][0]  # J
 hartree2ev = hartree2joule / electron_volt
 #
+ang2au = physical_constants['Angstrom star'][0]/physical_constants['Bohr radius'][0]
+#
 rytoev = Rydberg * h * c / e
 AUTOA = physical_constants["Bohr radius"][0] / 1.E-10
 #
