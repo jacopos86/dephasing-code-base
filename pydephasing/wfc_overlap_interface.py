@@ -1,6 +1,7 @@
 import re
 import os
 import numpy as np
+import yaml
 import xml.etree.ElementTree as ET
 from pydephasing.parallelization.mpi import mpi
 
@@ -121,7 +122,7 @@ class read_VASP_files:
 
         return vecR, positions
 
-    def read_wswq(self):
+    def read_wswq(self, nkpoints, nbands, nspin):
         '''
         Read WSWQ file from VASP calculation (overlap of wavefunctions) 
 
@@ -133,11 +134,11 @@ class read_VASP_files:
             raise ValueError(f"Unable to read WSWQ file in path {self.path_to_calc}")
         else:
             wswq_file = os.path.join(self.path_to_calc, "WSWQ")
-            kpoints, num_kpoints = self.get_kpoints()
-            nbands = self.get_nbands()
-            nspin = self.get_nspin()
+            # kpoints, num_kpoints = self.get_kpoints()
+            # nbands = self.get_nbands()
+            # nspin = self.get_nspin()
 
-            wswq = np.zeros((nspin, num_kpoints, nbands, nbands), dtype=np.complex_)
+            wswq = np.zeros((nspin, nkpoints, nbands, nbands), dtype=np.complex_)
             with open(wswq_file) as f:
                 lines = f.readlines()
                 for line in lines:
@@ -157,12 +158,13 @@ class read_VASP_files:
 
 # 2nd class: read a directory of multiple perturbations, each perturbation directory contains 1 WSWQ file and 1 vasprun.xml file
 
-class VASP_wfc_overlap_:
-    def __init__(self, perturbations_dir, header):
-        self.perturbations_dir = perturbations_dir     # root directory. It stores all perturbation directories which contains each WSWQ file and vasprun.xml file
+class VASP_wfc_overlap:
+    def __init__(self, phonopy_disp, wfc_overlaps_dir, header):
+        self.phonopy_disp = phonopy_disp
+        self.wfc_overlaps_dir = wfc_overlaps_dir     # root directory. It stores all perturbation directories which contains each WSWQ file and vasprun.xml file
         self.header = header
 
-    def read_displacements(self, f_disp):
+    def read_displacements(self):
         """
         Input:
         - f_disp: The phononpy_disp.yaml file
@@ -173,20 +175,19 @@ class VASP_wfc_overlap_:
             provide the information of mode=imode correspopnding to the 
             `atom`th atom's displacement at `direction` direction with displacement = `dR` angstrom
         """
-        import yaml
+        
         # Load a YAML file
-        with open(f_disp, "r") as f:
+        with open(self.phonopy_disp, "r") as f:
             data = yaml.safe_load(f)  # safer than yaml.load
 
-        print(f"Loading displacement from file {f_disp} ...")
+        # print(f"Loading displacement from file {self.phonopy_disp} ...")
         # Print all top-level keys
-        print("All keys in file:")
-        for key in data.keys():
-            print(" -", key)
-        print("reading displacement....")
-
+        # print("All keys in file:")
+        # for key in data.keys():
+        #     print(" -", key)
+        # print("reading displacement....")
         N_displacement = len(data["displacements"])
-        print(f"found {N_displacement} modes...")
+        # print(f"found {N_displacement} modes...")
         result_displacement = []
         data["displacements"][0]
         for imode in range(N_displacement):
@@ -207,10 +208,10 @@ class VASP_wfc_overlap_:
                 print(f"WARNING, the direction '{direction}' for mode {imode} is not orthonormal, ")
             disp_info = [atom, direction, dR] #displacement info, include number of atom, direction, displacement
             result_displacement.append(disp_info)
-        print("Loading done.")
+        # print("Loading done.")
         return result_displacement
 
-    def read_all_wswq(self, result_displacement):
+    def get_all_wswq_files(self):
         """
         Get the list of WSWQ file paths for positive and negative displacements
 
@@ -222,13 +223,13 @@ class VASP_wfc_overlap_:
         - list_wswq_file_Rp: list of path for R=+dR (positive displacements)
         - list_wswq_file_Rm: list of path for R=-dR (negative displacements)
         """
-
+        result_displacement = self.read_displacements()
         N_mode = int(len(result_displacement)/2)
         #Rp_wswq_list = [read_VASP_files(os.path.join(self.perturbations_dir,f"{self.header}{2*n+1:03d}")).read_wswq() for n in range(N_mode)]
         #Rm_wswq_list = [read_VASP_files(os.path.join(self.perturbations_dir,f"{self.header}{2*n+1+1:03d}")).read_wswq() for n in range(N_mode)]
         
-        Rp_wswq_list = [os.path.join(self.perturbations_dir,f"{self.header}{2*n+1:03d}") for n in range(N_mode)]
-        Rm_wswq_list = [os.path.join(self.perturbations_dir,f"{self.header}{2*n+1+1:03d}") for n in range(N_mode)]
+        Rp_wswq_file_list = [os.path.join(self.wfc_overlaps_dir,f"{self.header}{2*n+1:03d}") for n in range(N_mode)]
+        Rm_wswq_file_list = [os.path.join(self.wfc_overlaps_dir,f"{self.header}{2*n+1+1:03d}") for n in range(N_mode)]
 
         # -----  TO-DO: implement MPI parallelization here -----
 
@@ -242,4 +243,4 @@ class VASP_wfc_overlap_:
 
         # -------------------------------------------------
 
-        return N_mode, Rp_wswq_list, Rm_wswq_list
+        return N_mode, Rp_wswq_file_list, Rm_wswq_file_list

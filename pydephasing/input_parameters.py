@@ -379,6 +379,11 @@ class linear_resp_input(dynamical_data_input):
         super().__init__()
         # e-ph input data
         self.eph_matr_file = None
+        # Perturbation directories and wfc overlaps directories
+        self.pert_dirs = None
+        self.wfc_overlaps_dir = None
+        self.header = None
+
         # time resolved calculation
         self.time_resolved = False
         # freq. resolved
@@ -404,6 +409,17 @@ class linear_resp_input(dynamical_data_input):
         # if eph file
         if 'eph_matr_file' in data:
             self.eph_matr_file = self.work_dir + '/' + data['eph_matr_file']
+        elif 'perturbation_dirs' in data and 'wfc_overlaps_dir' in data and 'header' in data:
+            # If eph_matr_file not provided, proceed to find directory with perturbations and wfc overlaps to compute eph_matr_file
+            self.pert_dirs = data['perturbation_dirs'] # self.work_dir + '/' +
+            self.wfc_overlaps_dir = data['wfc_overlaps_dir']  # self.work_dir + '/' +
+            self.header = data['header']
+            msg = "\t eph_matr_file not provided. Proceeding to compute eph_matr_file from perturbations and wfc overlaps."
+            log.info(msg)
+        else:
+            msg = "\t COULD NOT FIND eph_matr_file or (perturbation_dirs and wfc_overlaps_dir and header) in input."
+            log.error(msg)
+            
         # only T or nwg in data -> either time or freq. resolved
         if 'T' in data and 'nwg' in data:
             log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")

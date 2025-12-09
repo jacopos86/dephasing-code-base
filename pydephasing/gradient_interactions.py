@@ -22,6 +22,9 @@ from pydephasing.utilities.log import log
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.build_unpert_struct import build_gs_struct_base
 from pydephasing.common.print_objects import print_2D_matrix
+from pydephasing.common.phys_constants import hartree2ev, ang2au
+from pydephasing.utilities.log import log
+
 #
 class perturbation_ZFS(ABC):
 	def __init__(self, out_dir):
@@ -1818,25 +1821,67 @@ class gradient_Eg:
 		self.struct_0 = build_gs_struct_base(self.gs_data_dir)
 		# get energy
 		self.struct_0.read_free_energy()
+
+from pydephasing.wfc_overlap_interface import read_VASP_files, VASP_wfc_overlap
+from numpy.linalg import norm
+
 #
 #  class: 
 #  gradient electronic Hamiltonian
 #
 class gradient_elec_hamilt:
 	def __init__(self, data_fil):
+
+		# data_fil: list of files with He gradients. If length 1, read from file. If length 2, compute from perturbations
 		self.data_fil = data_fil
+
 	# read data
 	# from saved file
-	def read_grad_He_matrix(self):
-		data = np.load(self.data_fil, mmap_mode='r')
+	def read_He_gradient_from_file(self):
+		gradH = np.load(self.data_fil[0], mmap_mode='r')
 		if mpi.rank == mpi.root:
-			log.info("\t n. irred. modes: " + str(data.shape[0]))
-			log.info("\t n. k pts.: " + str(data.shape[1]))
-			log.info("\t n. bands: " + str(data.shape[-1]))
+			log.info("\t n. irred. modes: " + str(gradH.shape[0]))
+			log.info("\t n. k pts.: " + str(gradH.shape[1]))
+			log.info("\t n. bands: " + str(gradH.shape[-1]))
+			log.info("\t shape: " + str(gradH.shape))
+		return gradH
+
+	# read wfc overlap files and compute He gradients	
+	def compute_He_gradient_from_perturbations(self):
+
+		phonopy_yaml_disp = self.data_fil[0] # phonopy displacement directory
+		wfc_overlaps_dir = self.data_fil[1] # wfc overlaps directory
+		header = self.data_fil[2] # header file for wfc overlaps
+
+		# read wfc overlaps
+		vasp_wfc_obj = VASP_wfc_overlap(phonopy_yaml_disp, wfc_overlaps_dir, header)
+		N_mode, Rp_wswq_file_list, Rm_wswq_file_list = vasp_wfc_obj.get_all_wswq_files()
+
+		log.info("\t")
+		log.info(f"\t INITIATING EL-PH HAMILTONIAN GRADIENT COMPUTATION FOR {N_mode} MODES")
+		log.info("\t")
+
+		# log.info("\t n. modes:" + str(N_mode))
+		# log.info("\t n. Rp files:" + str(len(Rp_wswq_file_list)))
+		# log.info("\t n. Rm files:" + str(len(Rm_wswq_file_list)))
+		# log.info("\t")
+
+		gs_data_dir = self.data_fil[3] # unperturbed calculation directory
+		pert_dirs = self.data_fil[4] # perturbed calculations directory
+
+		VASP_He_obj = VASP_Hamiltonian_gradient(gs_data_dir, pert_dirs, Rp_wswq_file_list, Rm_wswq_file_list)
+		gradH = VASP_He_obj.compute_all_elph_central_finite()
+		
+		log.info("\t Saving el-ph Hamiltonian gradient to El-ph_data.npy")
+		write_dir = self.data_fil[5] # output directory
+		np.save(os.path.join(write_dir, 'El-ph_data.npy'), gradH)
+
+		log.info("\t")
+		log.info("\t **********************************************************************************************")
+
+		return gradH
 
 
-from pydephasing.wfc_overlap_interface import read_VASP_files, VASP_wfc_overlap_
-from numpy.linalg import norm
 
 class dR_displacement:
 	def __init__(self, Rp_calc, Rp_struct, Rm_calc, Rm_struct):
@@ -1873,7 +1918,7 @@ class dR_displacement:
 			delta_positions[ix] = np.dot(vecR, v)
 
 		#list_delta = [{"species": atom["species"], "delta":pos} for atom, pos in zip(positions1, delta_positions)]
-		list_R = [norm(delta_pos)**2 for delta_pos in delta_positions]
+		list_R = [norm(delta_pos) for delta_pos in delta_positions]
 		dR = sum(list_R)
 
 		return dR
@@ -1884,41 +1929,40 @@ class dR_displacement:
 
 class VASP_Hamiltonian_gradient:
 
-	def __init__(self, unperturbed_dir, perturbations_dir):
-		self.unperturbed_dir = unperturbed_dir # directory of unperturbed calculation
-		self.unperturbed_calc = read_VASP_files(self.unperturbed_dir) # initialize unperturbed calculation reader
-		self.eigenvals_R0 = self.unperturbed_calc.read_eigenvals() # read eigenvalues of unperturbed calculation
+	def __init__(self, gs_data_dir, pert_dirs, Rp_wswq_file_list, Rm_wswq_file_list):
+		self.gs_data_dir = gs_data_dir # directory of unperturbed calculation
+		self.unperturbed_calc = read_VASP_files(self.gs_data_dir) # initialize unperturbed calculation reader
+		self.eigenvals_R0 = self.unperturbed_calc.read_eigenvals() # read eigenvalues of unperturbed calculation		
+		self.perturbations_dir = pert_dirs # directory of perturbations calculations
+		self.Rp_wswq_file_list = Rp_wswq_file_list  # list of wswq paths for (phi(x+dR))
+		self.Rm_wswq_file_list = Rm_wswq_file_list  # list of wswq paths for (phi(x-dR))
 
-		self.perturbations_dir = perturbations_dir # directory of perturbations calculations
-
-
-	def compute_one_elph_central_finite(self, wswq_Rp, wswq_Rm):
+	def compute_one_elph_central_finite(self, eigenR0, dR, wswq_Rp, wswq_Rm):
 		"""
-		Compute 1 electron-phonon Hamiltonian matrix element using finite difference method
+		Compute 1 Gradient Hamiltonian matrix element using finite difference method
 
 		Inputs:
 		- eigenR0: returned array from read_eig_vasp, with eigenvalue of index( k, spin, nband, occ)
+		- dR: displacement amplitude (in angstroms)
 		- wswq_Rp: file with (phi(x+dR))
 		- wswq_Rm: file with (phi(x-dR))
 
-		finite diffrence compute (Em-En)*[(wswq_R+) - (wswq_R-)]/2dR
-		eigenR0: returned array from read_eig_vasp, with eigenvalue of index( k, spin, nband, occ)
+		Central finite difference to compute (Em-En)*[(wswq_R+) - (wswq_R-)]/2dR
+		gradH_elem: returned gradH matrix element, with dimesion index( nspin, kpoint, nband, nband)
 		"""
 		nspin, nk, nbnd, _ = wswq_Rp.shape
-		Welph = np.zeros((nspin, nk , nbnd, nbnd), dtype=np.complex128)
-		eV2Hartree=0.0367493
-		Ang2au=1.8897259886
-		dR=0.1*Ang2au #for now hard code liek this, but need to input
+		gradH_elem = np.zeros((nspin, nk , nbnd, nbnd), dtype=np.complex128)
+		dR_au=dR*ang2au # change units to au
 		for i in range(nspin):
 			for k in range(nk):
 				for n in range(nbnd):
 					for m in range(nbnd):
-						eigen_n = eigenR0[k,i,n,0]*eV2Hartree
-						eigen_m = eigenR0[k,i,m,0]*eV2Hartree
-						Welph[i,k,n,m] = (eigen_m-eigen_n)*(wswq_Rp[i,k,n,m]-wswq_Rm[i,k,n,m])/(2*dR)
-		return Welph
+						eigen_n = eigenR0[k,i,n,0]*1/hartree2ev
+						eigen_m = eigenR0[k,i,m,0]*1/hartree2ev
+						gradH_elem[i,k,n,m] = (eigen_m-eigen_n)*(wswq_Rp[i,k,n,m]-wswq_Rm[i,k,n,m])/(dR_au)
+		return gradH_elem
 
-	def compute_all_elph_central_finite(self, list_wswq_file_Rp, list_wswq_file_Rm, vasprun_file):
+	def compute_all_elph_central_finite(self):
 		"""
 		INPUT:
 			List_wswq_file : a list of WSWQ files path
@@ -1927,34 +1971,55 @@ class VASP_Hamiltonian_gradient:
 		return:
 			Welph_all[imode, spin, kpoint, bandi, bandj]
 		"""
+		
 
-		nkpoint, nspin, nbands, _ = self.eigenvals_R0.shape
-		nmode = len(List_wswq_file_Rp) # number of modes
+		nkpoints, nspin, nbands, _ = self.eigenvals_R0.shape
+		nmode = len(self.Rp_wswq_file_list) # number of modes
 		#initialize the shape:
-		Welph_all = np.zeros((nmode, nspin, nkpoint, nbands, nbands), dtype=np.complex128)
+		gradH = np.zeros((nmode, nspin, nkpoints, nbands, nbands), dtype=np.complex128)
+
 		for imode in range(nmode):
-			f_wswq_Rp = List_wswq_file_Rp[imode]
-			f_wswq_Rm = List_wswq_file_Rm[imode]
-			print(f"imode: {imode}")
+
+			log.info(f"\t imode: {imode}")
+			Rp_wswq_path = self.Rp_wswq_file_list[imode]
+			Rm_wswq_path = self.Rm_wswq_file_list[imode]
+			
+			displ_header_Rp = Rp_wswq_path.split("/")[-1] # get displacement header path for Rp
+			Rp_poscar_path = os.path.join(self.perturbations_dir, displ_header_Rp)
+			displ_header_Rm = Rm_wswq_path.split("/")[-1] # get displacement header path for Rm
+			Rm_poscar_path = os.path.join(self.perturbations_dir, displ_header_Rm)			
+			
+			# Extract WSWQ files:
 			try:
-				print("   read wswq:")
-				wswq_Rp = get_WSWQ_array(f_wswq_Rp, vasprun_file)
-				wswq_Rm = get_WSWQ_array(f_wswq_Rm, vasprun_file)
-				print("   compute el-ph")
-				Welph = compute_one_elph_central_finite(self.eigenvals_R0, wswq_Rp, wswq_Rm)
+				log.info("\t Reading wavefunction overlap...")
+				wswq_Rp = read_VASP_files(Rp_wswq_path).read_wswq(nkpoints, nbands, nspin)
+				wswq_Rm = read_VASP_files(Rm_wswq_path).read_wswq(nkpoints, nbands, nspin)
 			except Exception as e:
-				print(f"Error occurred trying to read wswq: {e}")
-				print(f"Skip the el-ph computation for imode = {imode}")
+				log.error(f"\t Error occurred trying to read wswq: {e}")
+				log.error(f"\t Skip the el-ph computation for imode = {imode}")
 				continue
+			
+			# Get displacement dR between Rp and Rm structures
+			try:
+				log.info("\t Computing displacement dR...") # Rp_calc, Rp_struct, Rm_calc, Rm_struct
+				displ_obj = dR_displacement(Rp_poscar_path, "POSCAR", Rm_poscar_path, "POSCAR")
+				dR = displ_obj.get_displacement_dR()
+				log.info(f"\t dR (angstrom): {dR}")
+			except Exception as e:
+				log.error(f"\t Error occurred trying to compute dR: {e}")
+				log.error(f"\t Skip the el-ph computation for imode = {imode}")
+				continue
+			
+			log.info("\t")
+			gradH_elem = self.compute_one_elph_central_finite(self.eigenvals_R0, dR, wswq_Rp, wswq_Rm)
+
 			for ispin in range(nspin):
-				for ik in range(nkpoint):
+				for ik in range(nkpoints):
 					for n in range(nbands):
 						for m in range(nbands):
-							Welph_all[imode, ispin, ik, n, m] = Welph[ispin, ik, n, m]
-		return Welph_all
+							gradH[imode, ispin, ik, n, m] = gradH_elem[ispin, ik, n, m]
 
-
-
+		return gradH
 #
 #. gradient Hamiltonian matrix elements (JDFTx)
 #

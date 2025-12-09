@@ -1,4 +1,4 @@
-from pydephasing.wfc_overlap_interface import read_VASP_files, VASP_wfc_overlap_, read_file  
+from pydephasing.wfc_overlap_interface import read_VASP_files, VASP_wfc_overlap, read_file  
 import os
 
 
@@ -8,7 +8,7 @@ def check_file_exists(path_to_calc, filename):
 
 def load_perturbations_files(work_dir, header, disp_yaml):
     
-    overlap_instance = VASP_wfc_overlap_(work_dir, header)
+    overlap_instance = VASP_wfc_overlap(work_dir, header)
     result_displacement = overlap_instance.read_displacements(disp_yaml)
     N_mode, Rp_wswq_dirs, Rm_wswq_dirs = overlap_instance.read_all_wswq(result_displacement)
     

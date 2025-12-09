@@ -98,7 +98,7 @@ test :
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_4.py
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_5.py
 	@for np in $$(seq 1 $(NP_MAX)); do \
-		PYDEPHASING_TESTING=1 srun -np $$np $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_6.py; \
+		PYDEPHASING_TESTING=1 srun -n $$np $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_6.py; \
 	done
 
 	

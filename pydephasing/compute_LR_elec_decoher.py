@@ -10,7 +10,7 @@ from pydephasing.build_unpert_struct import build_gs_elec_struct
 from pydephasing.electronic_hamiltonian import electronic_hamiltonian
 from pydephasing.observables import ObservablesElectronicSystem
 from pydephasing.electron_density import ElectronDensity
-from pydephasing.build_interact_grad import calc_elec_hamilt_gradient
+from pydephasing.build_interact_grad import calc_elec_hamilt_gradient_vasp, calc_elec_hamilt_gradient_jdftx
 #
 def compute_elec_dephas():
     # main driver code for the calculation of dephasing time
@@ -42,15 +42,20 @@ def compute_elec_dephas():
         log.info("\t " + p.sep)
     rho = ElectronDensity()
     rho.compute_nelec(wfc)
-    exit()
     # set electronic Hamiltonian
     He = electronic_hamiltonian()
     He.set_energy_spectrum(wfc)
     # compute spin operators
-    observ = ObservablesElectronicSystem(wfc)
-    observ.set_Spin_operators(struct_0)
+    #observ = ObservablesElectronicSystem(wfc)
+    #observ.set_Spin_operators(struct_0)
+    #exit()
     # calc He gradient
-    gradHe = calc_elec_hamilt_gradient(p.eph_matr_file)
+    if p.eph_matr_file is not None:
+        # Read the gradH from eph_matrix_file
+        gradH = calc_elec_hamilt_gradient_vasp("read", [p.eph_matr_file])
+    elif p.pert_dirs is not None and p.wfc_overlaps_dir is not None and p.header is not None:
+        # Compute the gradH from perturbations
+        gradH = calc_elec_hamilt_gradient_vasp("compute", [p.yaml_pos_file, p.wfc_overlaps_dir, p.header, p.gs_data_dir, p.pert_dirs, p.write_dir])
     # set q grid
     exit()
     qgr = qgridClass()
@@ -78,4 +83,12 @@ def compute_elec_dephas():
     eph = electron_phonon(p.eph_matr_file)
     eph.read_eph_matrix()
     mpi.comm.Barrier()
+    exit()
+
+def compute_elec_dephas_jdftx():
+    # main driver code for the calculation of dephasing time for JDFTx code
+    # in electronic systems
+    #
+    # first set up atoms
+    # compute index maps
     exit()

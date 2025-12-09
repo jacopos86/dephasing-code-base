@@ -100,7 +100,17 @@ def calc_interaction_grad(ZFS_CALC, HFI_CALC):
 #
 # electronic hamiltonian
 
-def calc_elec_hamilt_gradient(data_fil):
+def calc_elec_hamilt_gradient_vasp(action, data_fil):
     # initialize Hamiltonian gradient
-    gradH = gradient_elec_hamilt(data_fil)
+    # input: type of gradh to compute jdftx or vasp
+    # options: gradient file name or directory with perturbations
+    gradH_obj = gradient_elec_hamilt(data_fil)
+    if action == "read":
+        gradH = gradH_obj.read_He_gradient_from_file()
+    elif action == "compute":
+        gradH = gradH_obj.compute_He_gradient_from_perturbations()
     return gradH
+
+def calc_elec_hamilt_gradient_jdftx(action, data_fil):
+    # TO DO: implement JDFTx version
+    pass
