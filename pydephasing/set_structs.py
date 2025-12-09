@@ -670,6 +670,14 @@ class DisplacedStructs:
 			poscar = Poscar(struct)
 			poscar.write_file(filename="{}".format(self.out_dir+file_name), direct=direct,
 				vasp4_compatible=vasp4_compatible, significant_figures=significant_figures)
+
+class WfcovlpDisplacedStructs:
+	def __init__(self, out_dir, outcars_dir=''):
+		self.out_dir = out_dir + '/'
+		if not os.path.exists(out_dir):
+			os.makedirs(out_dir)
+		self.outcars_dir = outcars_dir
+
 #
 # 2nd order displaced structure
 # class
