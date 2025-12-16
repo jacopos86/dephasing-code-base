@@ -8,7 +8,7 @@ from pydephasing.common.phys_constants import eps, kb, hbar
 from pydephasing.set_param_object import p
 from pydephasing.utilities.log import log
 from pydephasing.common.phys_constants import hartree2ev, THz_to_ev
-from pydephasing.utilities.plot_functions import plot_ph_band_struct, plot_lph_struct
+from pydephasing.utilities.plot_functions import plot_ph_band_struct, plot_lph_struct, plot_Mph_heatmap
 from pydephasing.atomic_list_struct import atoms
 
 #
@@ -248,6 +248,10 @@ class JDFTxPhonons(PhononsClass):
                         Wqml2 = Wqm[:,l2].reshape(-1,3)
                         for k in range(atoms.nat):
                             self.Mph[:,l1,l2,i] += -1j*np.sqrt(omega_qm[l2] / omega_q[l1])*np.cross(Wql1[k,:], Wqml2[k,:])
+        if mpi.rank == mpi.root:
+            gamma_index = np.where(np.all(qgr.qpts == 0, axis=1))[0]
+            plot_Mph_heatmap(self.Mph[..., gamma_index[0]].imag)# select first Gamma
+        mpi.comm.Barrier()
     def read_ph_hamilt(self, qgr):
         # read ph basis
         self.read_phonon_basis()

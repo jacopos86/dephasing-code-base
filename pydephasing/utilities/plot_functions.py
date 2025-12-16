@@ -69,11 +69,30 @@ def plot_lph_struct(wq, lph, nQ, n_interp=10):
             lc.set_array(PAM[ib])
             lc.set_linewidth(2)
             line = ax.add_collection(lc)
+        ax.set_title(r"$l_{ph}^{" + "xyz"[i] + "}$",fontsize=14)
         ax.set_ylim(ylims)
         ax.set_xlim(0,nQ)
         ax.set_xlabel("K-point index")
     cbar = fig.colorbar(line, ax=axs, ticks=np.linspace(-norm_in,norm_in,5), shrink=0.8)
+    cbar.ax.set_title(r"$l_{ph}$")
     axs[0].set_ylabel("Phonon energy [meV]")
     #plt.tight_layout()# tight_layout moves colorbar in the middle of axs[2]
     plt.savefig(f"{p.write_dir}/Phonon_PAM_bandstructure.png",dpi=300,bbox_inches="tight" )
+    plt.show()
+
+def plot_Mph_heatmap(Mph):
+    cm1 = mcol.LinearSegmentedColormap.from_list("MyColorMap", ['r', 'k', 'b'])
+    norm_in = np.nanmax(np.abs(Mph))
+    norm = plt.Normalize(-norm_in, norm_in)
+    fig, axs = plt.subplots(1,3,figsize=(14,4))
+    for i,ax in enumerate(axs):
+        cax = ax.matshow(Mph[i],norm=norm,cmap=cm1)
+        ax.set_title(r"$\rm M_{ph}^{" + "xyz"[i] + r"}$($\rm q= \Gamma $)",fontsize=14)
+        ax.set_ylabel('Mode Index')
+        ax.set_xlabel('Mode Index')
+        ax.tick_params(top=False, labeltop=False, bottom=True, labelbottom=True)
+    cbar = fig.colorbar(cax, ax=axs, ticks=np.linspace(-norm_in,norm_in,5), shrink=0.8)
+    cbar.ax.set_title(r"$\rm M_{ph}$")
+    #plt.tight_layout()# tight_layout moves colorbar in the middle of axs[2]
+    plt.savefig(f"{p.write_dir}/Mph_heatmap.png",dpi=300,bbox_inches="tight" )
     plt.show()
