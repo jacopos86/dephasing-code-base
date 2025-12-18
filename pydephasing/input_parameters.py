@@ -379,6 +379,8 @@ class linear_resp_input(dynamical_data_input):
         super().__init__()
         # e-ph input data
         self.eph_matr_file = None
+        # force sets file
+        self.force_sets_file = None
         # time resolved calculation
         self.time_resolved = False
         # freq. resolved
@@ -392,6 +394,8 @@ class linear_resp_input(dynamical_data_input):
         # eV units
         self.lorentz_thres = 0.
         # lorentzian treshold
+        self.elec_win = None
+        # electronic energy window
     def read_yml_data(self, input_file):
         try:
             f = open(input_file)
@@ -404,9 +408,18 @@ class linear_resp_input(dynamical_data_input):
         # if eph file
         if 'eph_matr_file' in data:
             self.eph_matr_file = self.work_dir + '/' + data['eph_matr_file']
+        # force sets
+        if 'force_sets_file' in data:
+            self.force_sets_file = self.work_dir + '/' + data['force_sets_file']
         # only T or nwg in data -> either time or freq. resolved
         if 'T' in data and 'nwg' in data:
             log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
+        # energy window
+        if 'elec_ener_window' in data:
+            self.elec_win = data['elec_ener_window']
+        # q grid mesh
+        if 'qgrid_mesh' in data:
+            self.qgr_mesh = data['qgrid_mesh']
         # --------------------------------------------------------------
         #
         #    frequency variables
@@ -529,9 +542,9 @@ class real_time_elec_input(ABC):
 class real_time_JDFTx_input(real_time_elec_input):
     def __init__(self):
         super().__init__()
-        #  local input variables
-        self.eigenv_file = ''
-        self.bnd_kpts_file = ''
+        self.wannier_interp = False
+        self.TR_SYM = True
+        self.elec_win = None
     def read_yml_data(self, input_file):
         try:
             f = open(input_file)
@@ -542,26 +555,12 @@ class real_time_JDFTx_input(real_time_elec_input):
         f.close()
         self.read_yml_data_dyn(data)
         # read specific jdftx files
-        if 'bnd_kpts_file' in data:
-            self.bnd_kpts_file = self.work_dir + '/' + data['bnd_kpts_file']
-        if 'eigenv_file' in data:
-            self.eigenv_file = self.work_dir + '/' + data['eigenv_file']
-        if 'dft_outfile' in data:
-            self.dft_outfile = self.work_dir + '/' + data['dft_outfile']
-        if 'wan_cellmap_file' in data:
-            self.cellmap_file = self.work_dir + '/' + data['wan_cellmap_file']
-        if 'wan_weights_file' in data:
-            self.wan_weights_file = self.work_dir + '/' + data['wan_weights_file']
-        if 'wan_mlwfh_file' in data:
-            self.wan_mlwfh_file = self.work_dir + '/' + data['wan_mlwfh_file']
-        if 'ph_outfile' in data:
-            self.ph_outfile = self.work_dir + '/' + data['ph_outfile']
-        if 'ph_eigenv_file' in data:
-            self.ph_eigenv_file = self.work_dir + '/' + data['ph_eigenv_file']
-        if 'ph_cellmap_file' in data:
-            self.ph_cellmap_file = self.work_dir + '/' + data['ph_cellmap_file']
-        if 'ph_basis_file' in data:
-            self.ph_basis_file = self.work_dir + '/' + data['ph_basis_file']
+        if 'wannier_interp' in data:
+            self.wannier_interp = data['wannier_interp']
+        if 'elec_ener_window' in data:
+            self.elec_win = data['elec_ener_window']
+        if 'TR_SYM' in data:
+            self.TR_SYM = data['TR_SYM']
 
 class real_time_VASP_input(real_time_elec_input):
     def __init__(self):
