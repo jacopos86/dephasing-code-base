@@ -245,12 +245,23 @@ class JDFTxPhonons(PhononsClass):
                 if omega_q[l1] > p.min_freq:
                     Wql1 = Wq[:,l1].reshape(-1,3)
                     for l2 in range(self.nmodes):
-                        Wqml2 = Wqm[:,l2].reshape(-1,3)
-                        for k in range(atoms.nat):
-                            self.Mph[:,l1,l2,i] += -1j*np.sqrt(omega_qm[l2] / omega_q[l1])*np.cross(Wql1[k,:], Wqml2[k,:])
+                        if omega_qm[l2] > p.min_freq:
+                            Wqml2 = Wqm[:,l2].reshape(-1,3)
+                            for k in range(atoms.nat):
+                                self.Mph[:,l1,l2,i] += -1j*np.sqrt(omega_qm[l2] / omega_q[l1])*np.cross(Wql1[k,:], Wqml2[k,:])
+                                if np.isnan(self.Mph[:,l1,l2,i]).any():
+                                    log.warning("\t NaN detected in Mph matrix")
+                                    log.warning(f"\t l1 = {l1}, l2 = {l2}, k = {k}")
+                                    log.warning(f"\t omega_q[l1] ={omega_q[l1]}")
+                                    log.warning(f"\t omega_qm[l2] = {omega_qm[l2]}")
+                                    log.warning(f"\t Wql1[k] = {Wql1[k, :]}")
+                                    log.warning(f"\t Wqml2[k] = {Wqml2[k, :]}")
+                                    log.warning(f"\t cross = {np.cross(Wql1[k, :], Wqml2[k, :])}")
+                                    log.warning(f"\t prefactor = {np.sqrt(omega_qm[l2] / omega_q[l1])}")
+                                    log.warning("\t " + p.sep)
         if mpi.rank == mpi.root:
             gamma_index = np.where(np.all(qgr.qpts == 0, axis=1))[0]
-            plot_Mph_heatmap(self.Mph[..., gamma_index[0]].imag)# select first Gamma
+            plot_Mph_heatmap(self.Mph[..., gamma_index[0]].imag)   # select first Gamma
         mpi.comm.Barrier()
     def read_ph_hamilt(self, qgr):
         # read ph basis
