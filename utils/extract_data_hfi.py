@@ -1,6 +1,6 @@
 import yaml
 import sys
-from pydephasing.log import log
+from utilities.log import log
 # 
 # usage : python extract_data.py file_name dict_key
 #
