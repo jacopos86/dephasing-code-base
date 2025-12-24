@@ -34,6 +34,7 @@ NP_MAX := 2
 DOWNLOAD_EXAMPLES ?= 1
 DOWNLOAD_TESTS3 ?= 1
 
+
 configure : $(ROOT)/requirements.txt
 	$(PYTHON_VERSION) -m venv $(VENV)
 	echo 'export PYTHONPATH="$(ROOT):$$PYTHONPATH"' >> $(VENV)/bin/activate
