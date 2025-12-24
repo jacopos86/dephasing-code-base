@@ -18,3 +18,10 @@ BUILD_MODE ?= local
 # ===================
 
 INSTALL_PYCUDA ?= 0
+
+# ===================
+#  PETSc variables
+# ===================
+
+PETSC_DIR ?=
+PETSC_ARCH ?=
