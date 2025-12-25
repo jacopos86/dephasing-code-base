@@ -15,10 +15,8 @@ PIP := $(VENV)/bin/pip
 #  DATA FILES
 # ===================
 
-EXAMPLES_TAR_FILE := $(ROOT)/EXAMPLES.tar.gz
-TESTS_3_TAR_FILE := $(ROOT)/TESTS_3.tar.gz
-EXAMPLES_URL := "https://drive.google.com/file/d/1ueLGCuRSZO-c1hwrCvhO913TyBTjkuP9/view?usp=sharing&confirm=t"
-TESTS_3_URL := "https://drive.google.com/file/d/1Vv_xmpivm8p0vjsTG0MIlB2Th7GykTQk/view?usp=drive_link"
+EXAMPLES_TAR_FILE := $(TESTS_DIR)/EXAMPLES.tar.gz
+TESTS_3_TAR_FILE := $(TESTS_DIR)/TESTS_3.tar.gz
 
 # ===================
 # TEST DIR
@@ -27,21 +25,13 @@ TESTS_3_URL := "https://drive.google.com/file/d/1Vv_xmpivm8p0vjsTG0MIlB2Th7GykTQ
 UNIT_TEST_DIR := $(ROOT)/pydephasing/unit_tests
 NP_MAX := 2
 
-# ===================
-# Skipping downloads
-# ===================
-
-DOWNLOAD_EXAMPLES ?= 1
-DOWNLOAD_TESTS3 ?= 1
-
 
 configure : $(ROOT)/requirements.txt
 	$(PYTHON_VERSION) -m venv $(VENV)
 	echo 'export PYTHONPATH="$(ROOT):$$PYTHONPATH"' >> $(VENV)/bin/activate
 	. $(VENV)/bin/activate && \
 	$(PIP) install --upgrade pip setuptools wheel && \
-	$(PIP) install --only-binary=phonopy phonopy || $(PIP) install --no-build-isolation phonopy && \
-	$(PIP) install -r $(ROOT)/requirements.txt --no-deps && \
+	$(PIP) install -r $(ROOT)/requirements.txt && \
 	if [ "$(BUILD_MODE)" = "nersc" ]; then \
 		if [ -z "$$PETSC_DIR" ] || [ -z "$$PETSC_ARCH" ]; then \
 			echo "ERROR: PETSC_DIR and PETSC_ARCH must be set"; exit 1; \
@@ -59,25 +49,26 @@ configure : $(ROOT)/requirements.txt
 		fi; \
 	fi;
 build :
-	. $(VENV)/bin/activate ; \
+	. $(VENV)/bin/activate && \
+	mkdir -p "$(TESTS_DIR)" && \
 	if [ "$(DOWNLOAD_EXAMPLES)" = "1" ]; then \
 		if [ ! -f $(EXAMPLES_TAR_FILE) ] ; then \
 			echo "Downloading EXAMPLES..."; \
-			gdown --fuzzy $(EXAMPLES_URL) ; \
-		fi ; \
+			cd "$(TESTS_DIR)" && gdown --fuzzy "$(EXAMPLES_URL)"; \
+		fi; \
 	else \
 		echo "Skipping EXAMPLES download"; \
-	fi
-	
+	fi && \
 	if [ "$(DOWNLOAD_TESTS3)" = "1" ]; then \
-		if [ ! -f $(TESTS_3_TAR_FILE) ] ; then \
+		if [ ! -f $(TESTS_3_TAR_FILE) ]; then \
 			echo "Downloading TESTS_3..."; \
-			gdown --fuzzy $(TESTS_3_URL) ; \
-		fi ; \
+			cd "$(TESTS_DIR)" && gdown --fuzzy "$(TESTS_3_URL)"; \
+		fi; \
 	else \
 		echo "Skipping TESTS_3 download"; \
-	fi
-	./build.sh
+	fi && \
+	cd $(ROOT) && \
+	./build.sh "$(LOG_LEVEL)"
 install :
 	. $(VENV)/bin/activate ; \
 	$(PIP) install .
