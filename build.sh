@@ -1,25 +1,25 @@
 #!/bin/bash
 
-# CI / non-interactive mode detection
-if [ "$CI" = "true" ]; then
-    NONINTERACTIVE=1
-else
-    NONINTERACTIVE=0
-fi
-
 # Remove old config if exists
 [ -e config2.yml ] && rm config.yml
 
 wd=$(pwd)
 
-# log level
-if [ $NONINTERACTIVE -eq 1 ]; then
-	log_level="INFO"
-else
-	echo "log level: "
-	read log_level
+# Read LOG_LEVEL from first argument
+
+LOG_LEVEL=$1
+
+# Exit if not provided
+if [ -z "$LOG_LEVEL" ]; then
+    echo "ERROR: LOG_LEVEL must be provided"
+    exit 1
 fi
-echo "LOG_LEVEL : $log_level" >> config.yml
+
+echo "Using LOG_LEVEL: $LOG_LEVEL"
+
+# log level
+
+echo "LOG_LEVEL : $LOG_LEVEL" >> config.yml
 
 # colored or file logging
 if [ $NONINTERACTIVE -eq 1 ]; then
