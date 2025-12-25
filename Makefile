@@ -50,7 +50,7 @@ configure : $(ROOT)/requirements.txt
 		MPICC=mpicc HDF5_MPI=ON $(PIP) install --no-binary=h5py h5py; \
 		MPICC=mpicc $(PIP) install --no-binary=mpi4py mpi4py; \
 	else \
-		$(PIP) install petsc petsc4py mpi4py; \
+		$(PIP) install petsc petsc4py mpi4py h5py; \
 		if [ "$$INSTALL_PYCUDA" = "1" ]; then \
 			echo "Installing pycuda ..."; \
 			$(PIP) install pycuda; \
