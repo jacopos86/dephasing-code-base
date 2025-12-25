@@ -42,12 +42,21 @@ configure : $(ROOT)/requirements.txt
 	$(PIP) install --upgrade pip setuptools wheel && \
 	$(PIP) install --only-binary=phonopy phonopy || $(PIP) install --no-build-isolation phonopy && \
 	$(PIP) install -r $(ROOT)/requirements.txt --no-deps && \
-	$(PIP) install petsc petsc4py mpi4py; \
-	if [ "$$INSTALL_PYCUDA" = "1" ]; then \
-		echo "Installing pycuda ..."; \
-		$(PIP) install pycuda; \
+	if [ "$(BUILD_MODE)" = "nersc" ]; then \
+		if [ -z "$$PETSC_DIR" ] || [ -z "$$PETSC_ARCH" ]; then \
+			echo "ERROR: PETSC_DIR and PETSC_ARCH must be set"; exit 1; \
+		fi; \
+		PETSC_DIR=$$PETSC_DIR PETSC_ARCH=$$PETSC_ARCH $(PIP) install petsc4py; \
+		MPICC=mpicc HDF5_MPI=ON $(PIP) install --no-binary=h5py h5py; \
+		MPICC=mpicc $(PIP) install --no-binary=mpi4py mpi4py; \
 	else \
-		echo "Skipping pycuda (set INSTALL_PYCUDA=1 to enable)"; \
+		$(PIP) install petsc petsc4py mpi4py; \
+		if [ "$$INSTALL_PYCUDA" = "1" ]; then \
+			echo "Installing pycuda ..."; \
+			$(PIP) install pycuda; \
+		else \
+			echo "Skipping pycuda (set INSTALL_PYCUDA=1 to enable)"; \
+		fi; \
 	fi;
 build :
 	. $(VENV)/bin/activate ; \
