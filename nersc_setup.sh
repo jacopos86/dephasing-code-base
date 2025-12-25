@@ -7,10 +7,7 @@
 source /opt/cray/pe/cpe/24.07/restore_lmod_system_defaults.sh
 
 # Load required modules
-module load PrgEnv-gnu
 module load python
-module load cray-mpich
-module load cray-hdf5
 
 # -----------------------------
 # Build mode and GPU flag
