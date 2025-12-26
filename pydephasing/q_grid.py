@@ -162,6 +162,17 @@ class phonopy_qgridClass(qgridClass):
         assert len(self.qpts) == self.nq
         if log.level <= logging.INFO:
             self.check_weights()
+    #
+    #  compute phase e^{iq R_k}
+    #  at q pt iq
+    def compute_phase_factor(self, iq, nat):
+        eiqR = np.zeros(3*nat, dtype=np.complex128)
+        qv = self.qpts[iq]
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax]
+            Ra = atoms.atoms_dict[ia]['coordinates']
+            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
+        return eiqR
 
 #
 #  jdftx q grid class
