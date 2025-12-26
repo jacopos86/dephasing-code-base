@@ -44,24 +44,6 @@ class PhonopyPhonons(PhononsClass):
         super().__init__()
         self.eq_key = ''
         self.uq_key = ''
-    # phonons amplitudes
-    def compute_ph_amplitude_q(self, nat, ql_list):
-        # A_lq = [hbar/(2*N*w_lq)]^1/2
-        # at a given q vector
-        # [eV^1/2 ps]
-        A_ql = np.zeros(len(ql_list))
-        # run over ph. modes
-        # run over local (q,l) list
-        iql = 0
-        for iq, il in ql_list:
-            # freq.
-            wuq = self.uql[iq]
-            # amplitude
-            if wuq[il] > p.min_freq:
-                A_ql[iql] = np.sqrt(hbar / (4.*np.pi*wuq[il]*nat))
-                # eV^0.5*ps
-            iql += 1
-        return A_ql
     #  get phonon keys
     def get_phonon_keys(self):
         # open file
