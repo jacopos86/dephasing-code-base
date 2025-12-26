@@ -39,24 +39,26 @@ configure : $(ROOT)/requirements.txt $(ROOT)/requirements_GPU.txt
 		fi; \
 	fi
 build :
-	. $(VENV)/bin/activate ; \
+	@echo "Activating virtualenv and checking downloads..."
+	. $(VENV)/bin/activate && \
+	\
 	if [ "$(DOWNLOAD_EXAMPLES)" = "1" ]; then \
 		if [ ! -f $(EXAMPLES_TAR_FILE) ] ; then \
 			echo "Downloading EXAMPLES..."; \
-			gdown --fuzzy $(EXAMPLES_URL) ; \
+			$(VENV)/bin/gdown --fuzzy $(EXAMPLES_URL) ; \
 		fi ; \
 	else \
 		echo "Skipping EXAMPLES download"; \
-	fi
-	
+	fi && \
+	\
 	if [ "$(DOWNLOAD_TESTS3)" = "1" ]; then \
 		if [ ! -f $(TESTS_3_TAR_FILE) ] ; then \
 			echo "Downloading TESTS_3..."; \
-			gdown --fuzzy $(TESTS_3_URL) ; \
+			$(VENV)/bin/gdown --fuzzy $(TESTS_3_URL) ; \
 		fi ; \
 	else \
 		echo "Skipping TESTS_3 download"; \
-	fi
+	fi && \
 	./build.sh
 install :
 	. $(VENV)/bin/activate ; \
