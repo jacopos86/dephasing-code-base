@@ -2,7 +2,7 @@ import numpy as np
 import weakref
 from pathlib import Path
 from pydephasing.parallelization.GPU_arrays_handler import GPU_ARRAY
-from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
+from pydephasing.global_params import GPU_ACTIVE
 if GPU_ACTIVE:
     import pycuda.driver as cuda
     from pycuda.compiler import SourceModule
@@ -10,9 +10,10 @@ if GPU_ACTIVE:
 # GPU class
 
 class GPU_obj:
-    def __init__(self, block_dim, grid_dim, device_id=0):
+    def __init__(self, block_dim, grid_dim, cuda_src_dir, device_id=0):
         self.device_id = device_id
         self.ctx = cuda.Device(device_id).make_context()
+        self.CUDA_SOURCE_DIR = Path(cuda_src_dir).resolve()
         self.BLOCK_SIZE = np.array(block_dim)
         self.GRID_SIZE = np.array(grid_dim)
         max_threads = cuda.Device(device_id).get_attribute(cuda.device_attribute.MAX_THREADS_PER_BLOCK)
@@ -21,8 +22,12 @@ class GPU_obj:
         # Register cleanup function to run even if __del__ is skipped
         self._finalizer = weakref.finalize(self, self._cleanup_internal)
     def get_device_module(self, src_file):
-        gpu_src = Path(CUDA_SOURCE_DIR+src_file).read_text()
-        dev_func = SourceModule(gpu_src, options=["-I"+CUDA_SOURCE_DIR])
+        # Make a proper path
+        gpu_src_path = self.CUDA_SOURCE_DIR / src_file
+        if not gpu_src_path.exists():
+            raise FileNotFoundError(f"CUDA source file does not exist: {gpu_src_path}")
+        gpu_src = gpu_src_path.read_text()
+        dev_func = SourceModule(gpu_src, options=[f"-I{self.CUDA_SOURCE_DIR}"])
         return dev_func
     def set_grid_info(self):
         self.nthr_block = self.BLOCK_SIZE[0]*self.BLOCK_SIZE[1]*self.BLOCK_SIZE[2]
