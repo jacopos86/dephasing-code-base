@@ -111,6 +111,7 @@ def compute_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         log.info("\t END SPIN-PHONON COUPLING CALCULATION")
         log.info("\t " + p.sep)
     print('g_ql', np.max(sp_ph_inter.g_ql.real))
+    exit()
     #
     if p.order_2_correct:
         FGR.compute_relax_time_two_ph(nat, Hsp, sp_ph_inter, interact_dict, ph, qgr, p.temperatures)
