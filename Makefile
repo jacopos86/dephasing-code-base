@@ -90,3 +90,4 @@ test :
 	@for np in $$(seq 1 $(NP_MAX)); do \
 		PYDEPHASING_TESTING=1 mpirun -np $$np $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_6.py; \
 	done
+	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_7.py
