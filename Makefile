@@ -97,3 +97,4 @@ test :
 	else \
 		echo "Skipping MPI tests"; \
 	fi
+	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_7.py
