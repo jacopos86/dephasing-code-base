@@ -17,6 +17,10 @@ class SpinPhononClass(ABC):
         self.HFI_CALC = None
         # add ZFS contribution to the spin-phonon coupl.
         self.ZFS_CALC = None
+        # global (q,l) list
+        self._ql_lst = None
+        # global gq matrix
+        self._gq = None
     # set up < qs1 | S grad_ax D S | qs2 > coefficients
     # n X n matrix -> n: number states Hsp
     def set_gaxD_force(self, gradZFS, Hsp):
@@ -103,6 +107,57 @@ class SpinPhononClass(ABC):
         Fax = mpi.collect_array(Fax) * 2.*np.pi * hbar
         # eV / ang
         return Fax
+    def collect_gql_and_indices(self, g_ql_local, local_q_modes):
+        """
+        Collect g_ql from all ranks and build a global array,
+        along with the global list of (iq, il) indices.
+        Parameters
+        ----------
+        g_ql_local : np.ndarray
+            Local g_ql array of shape (3,3,nql_local) on each rank.
+        local_q_modes : list of tuple
+            List of (iq, il) indices corresponding to g_ql_local on each rank.
+        set
+        -------
+        g_ql_global : np.ndarray
+            Global array of shape (3,3,nql_global)
+        global_q_modes : list of tuple
+            List of (iq, il) indices corresponding to each mode in g_ql_global
+        """
+        # gather arrays and indices to root
+        g_list = mpi.comm.gather(g_ql_local, root=mpi.root)
+        idx_list = mpi.comm.gather(local_q_modes, root=mpi.root)
+        if mpi.rank == mpi.root:
+            # Concatenate along mode axis
+            g_ql_global = np.concatenate(g_list, axis=2)
+            # Flatten list of indices
+            global_q_modes = [idx for sublist in idx_list for idx in sublist]
+        else:
+            g_ql_global = None
+            global_q_modes = None
+        # Broadcast to all ranks
+        self._gq = mpi.comm.bcast(g_ql_global, root=mpi.root)
+        self._ql_lst = mpi.comm.bcast(global_q_modes, root=mpi.root)
+    def gq_at_iq(self, iq_target):
+        """
+        Extract g_ql matrices for a specific q-point `iq_target`,
+        ordering the modes from 0 to n-1.
+        Returns
+        -------
+        gq : np.ndarray
+            Array of shape (3, 3, nmodes) with g_ql matrices for this q.
+        """
+        # Collect indices of this q-point
+        indices = [i for i, (iq, il) in enumerate(self._ql_lst) if iq == iq_target]
+        if not indices:
+            log.error(f"No modes found for q-point {iq_target}")
+        # Extract corresponding g_ql
+        gq = self._gq[:, :, indices]
+        # Order by mode index il
+        ils = [self._ql_lst[i][1] for i in indices]
+        order = np.argsort(ils)
+        gq = gq[:, :, order]
+        return gq
     #
     # compute g_{ab}(q,l)
     # = \sum_{n;s} Aq e^{iq Rn}e_q(s) <a|g_(ns)H|b>
