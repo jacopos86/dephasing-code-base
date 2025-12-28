@@ -17,118 +17,103 @@ fi
 
 echo "Using LOG_LEVEL: $LOG_LEVEL"
 
-# log level
-
-echo "LOG_LEVEL : $LOG_LEVEL" >> config.yml
-
 # colored or file logging
-if [ $NONINTERACTIVE -eq 1 ]; then
-	color_logging="TRUE"
-else
-	echo "redirect to log file? (y/n)"
-	read set_log_file
-	if [[ "$set_log_file" =~ ^(yes|y)$ ]]; then
-		color_logging="FALSE"
-	elif [[ "$set_log_file" =~ ^(no|n)$ ]]; then
-		color_logging="TRUE"
-	else
-		echo "answer: y or n"
-		sleep 3
+
+COLOR_LOG=$2
+LOG_FILE=$3
+
+if [ -z "$COLOR_LOG" ]; then
+	echo "ERROR: COLOR_LOG must be provided"
+	exit 1
+fi
+echo "COLORED_LOGGING : $COLOR_LOG"
+
+if [ $COLOR_LOG -eq 0 ]; then
+	if [ -z "$LOG_FILE" ]; then
+		echo "ERROR: LOG_FILE must be provided"
 		exit 1
 	fi
 fi
-echo "COLORED_LOGGING : $color_logging" >> config.yml
 
 # log file
-if [ "$color_logging" = "FALSE" ] && [ $NONINTERACTIVE -eq 0 ]; then
-	echo "log file name: "
-	read log_file
-	echo "LOGFILE : $log_file" >> config.yml
+
+if [ $COLOR_LOG -eq 0 ]; then
+	echo "WRITE TO LOGFILE : $LOG_FILE"
 fi
 
 # GPU
-if [ $NONINTERACTIVE -eq 1 ]; then
-	GPU="FALSE"
-else
-	echo "perform GPU calculation? "
-	read gpu_calc
-	if [[ "$gpu_calc" =~ ^(yes|y)$ ]]; then
-		GPU="TRUE"
-	elif [[ "$gpu_calc" =~ ^(no|n)$ ]]; then
-		GPU="FALSE"
-	else
-		echo "answer: y or n"
-		sleep 3
+
+INSTALL_PYCUDA=$4
+GPU_ACTIVE=$INSTALL_PYCUDA
+GPU_BLOCK_SIZE=$5
+GPU_GRID_SIZE=$6
+
+if [ $GPU_ACTIVE -eq 0 ]; then
+	echo "Run on CPU"
+elif [ $GPU_ACTIVE -eq 1 ]; then
+	echo "Run on GPU"
+	# Check GPU_BLOCK_SIZE
+	BLOCK_ARR=($GPU_BLOCK_SIZE)
+	if [ ${#BLOCK_ARR[@]} -ne 3 ]; then
+		echo "Error: GPU_BLOCK_SIZE must have exactly 3 elements"
 		exit 1
 	fi
-fi
-echo "GPU : $GPU" >> config.yml
-if [ "$GPU" = "TRUE" ]
-then
-	echo "GPU_BLOCK_SIZE :" >> config.yml
-	echo "GPU block size (nbx): "
-	read nbx
-	echo "  - $nbx" >> config.yml
-	read nby
-	echo "  - $nby" >> config.yml
-	read nbz
-	echo "  - $nbz" >> config.yml
-	#
-	echo "GPU_GRID_SIZE :" >> config.yml
-	echo "GPU grid size (ngx): "
-	read ngx
-	echo "  - $ngx" >> config.yml
-	read ngy
-	echo "  - $ngy" >> config.yml
+	echo "GPU block size: ${BLOCK_ARR[@]}"
+	# Check GPU_GRID_SIZE
+	GRID_ARR=($GPU_GRID_SIZE)
+	if [ ${#GRID_ARR[@]} -ne 2 ]; then
+		echo "Error: GPU_GRID_SIZE must have exactly 2 elements"
+		exit 1
+	fi
+	echo "GPU grid size: ${GRID_ARR[@]}"
 fi
 
 # update input test file paths
-# test 1 -> init
+# if clean tests
 
-if [ $NONINTERACTIVE -eq 1 ]; then
-	CLEAN_TESTS="TRUE"
-else
-	echo "build/clean TESTS directory? "
-	read clean_tests
-	if [[ "$clean_tests" =~ ^(yes|y)$ ]]; then
-		CLEAN_TESTS="TRUE"
-	elif [[ "$clean_tests" =~ ^(no|n)$ ]]; then
-		CLEAN_TESTS="FALSE"
-	else
-		echo "answer: y or n"
-		sleep 3
-		exit 1
-	fi
-fi
+BUILD_TESTS=$7
+TESTS_12_TAR_FILE=$8
+TESTS_3_TAR_FILE=$9
 
-# -------------------------
-# Build TESTS if requested
-# -------------------------
+# Example: export BUILD_TESTS="1 2 3"
 
-if [ "$CLEAN_TESTS" = "TRUE" ]; then
+BUILD_ARR=($BUILD_TESTS)
+
+# Check if 1 or 2 is present
+if [[ " ${BUILD_ARR[@]} " =~ " 1 " ]] || [[ " ${BUILD_ARR[@]} " =~ " 2 " ]]; then
+	    
+	# -------------------------
+	# Build TESTS if requested
+	# -------------------------
+	    
+	echo "Build tests 1 / 2"
+	
 	if [ -d "$wd/EXAMPLES" ]; then
 		echo "EXAMPLES directory already exists"
-	elif [ -f EXAMPLES.tar.gz ]; then
+	elif [ -f $TESTS_12_TAR_FILE ]; then
 		echo "Extracting EXAMPLES.tar.gz ..."
-            	tar -xzf EXAMPLES.tar.gz
+            	tar -xzf $TESTS_12_TAR_FILE
             	echo "Extraction complete."
     	else
-        	echo "EXAMPLES missing, skipping"
+        	echo "EXAMPLES.tar.gz missing"
+        	exit 1
     	fi
     	
     	# TESTS directory
+    	# TEST 1
     	
-	if [ -d TESTS ]; then
-		rm -rf TESTS
-	fi
-	mkdir -p TESTS/1 TESTS/2
+    	if [[ " ${BUILD_ARR[@]} " =~ " 1 " ]]; then
+		if [ -d "$wd/TESTS/1" ]; then
+			rm -rf "$wd/TESTS/1"
+		fi
+		mkdir -p "$wd/TESTS/1"
 	
-	# TEST 1
-	
-	cd TESTS/1
-	wdT1=$(pwd)
-
-	cat > input.yml <<EOF
+		cd "$wd/TESTS/1"
+		wdT1=$(pwd)
+		
+		# write test 1 input		
+		
+cat > $wdT1/input.yml <<EOF
 working_dir : ${wdT1}
 unpert_dir : GS
 displ_poscar_dir :
@@ -144,22 +129,35 @@ max_dab : 2.7
 defect_index : 0
 max_dist_from_defect : 5.0
 EOF
-
-	DIR=${wdT1}/"GS"
-	if [ ! -d "$DIR" ]; then
-		cp -r ${wd}/EXAMPLES/C-CENTER/GS ${wdT1}
+		
+		DIR=${wdT1}/"GS"
+		if [ ! -d "$DIR" ]; then
+			cp -r ${wd}/EXAMPLES/C-CENTER/GS ${wdT1}
+		fi
+		
+		DIR=${wdT1}/"COPY-FOLDER"
+		if [ ! -d "$DIR" ]; then
+			cp -r ${wd}/EXAMPLES/C-CENTER/COPY-FOLDER ${wdT1}
+		fi
+		
+		cd ${wd}
 	fi
-	DIR=${wdT1}/"COPY-FOLDER"
-	if [ ! -d "$DIR" ]; then
-		cp -r ${wd}/EXAMPLES/C-CENTER/COPY-FOLDER ${wdT1}
-	fi
-
-	# test 2 -> pydephasing - NV center
-
-	cd ../2
-	wdT2=$(pwd)
-
-	cat > inputA.yml <<EOF
+	
+	# TEST 2 -> pydephasing - NV center
+	
+	if [[ " ${BUILD_ARR[@]} " =~ " 2 " ]]; then
+		if [ -d "$wd/TESTS/2" ]; then
+			rm -rf "$wd/TESTS/2"
+		fi
+		mkdir -p "$wd/TESTS/2"
+		
+		cd "$wd/TESTS/2"
+		wdT2=$(pwd)
+		
+		# write TEST 2 input files
+		# input A
+		
+cat > $wdT2/inputA.yml <<EOF
 working_dir : ${wdT2}
 output_dir : ${wdT2}/T2-SP-DEPHC_A
 displ_poscar_dir :
@@ -194,8 +192,10 @@ B0 :
    - 0.0
    - 1.0
 EOF
-
-	cat > inputB.yml <<EOF
+		
+		# input B
+		
+cat > $wdT2/inputB.yml <<EOF
 working_dir : ${wdT2}
 output_dir : ${wdT2}/T2-SP-DEPHC_B
 displ_poscar_dir :
@@ -236,8 +236,10 @@ B0 :
    - 0.0
    - 1.0
 EOF
-
-	cat > inputC.yml <<EOF
+		
+		# input C
+		
+cat > $wdT2/inputC.yml <<EOF
 working_dir : ${wdT2}
 output_dir : ${wdT2}/T2-SP-DEPHC_C
 displ_poscar_dir :
@@ -277,8 +279,10 @@ psi0 :
    - 1.0
    - 0.0
 EOF
-
-	cat > inputD.yml <<EOF
+		
+		# input D
+		
+cat > $wdT2/inputD.yml <<EOF
 working_dir : ${wdT2}
 output_dir : ${wdT2}/T2-SP-DEPHC_D
 displ_poscar_dir :
@@ -315,8 +319,10 @@ B0 :
    - 0.0
    - 1.0
 EOF
-
-	cat > inputE.yml <<EOF
+		
+		# input E
+		
+cat > $wdT2/inputE.yml <<EOF
 working_dir : ${wdT2}
 output_dir : ${wdT2}/T2-SP-DEPHC_E
 displ_poscar_dir :
@@ -353,67 +359,81 @@ B0 :
    - 0.0
    - 1.0
 EOF
-	DIR=${wdT2}/"DISPLACEMENT-FILES-01"
-	if [ ! -d "$DIR" ]; then
-		cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-01 ${wdT2}
-		cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-0001 ${wdT2}
-		cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-2NDORDER ${wdT2}
-	fi
-	DIR=${wdT2}/"DISPL-01"
-	if [ ! -d "$DIR" ]; then
-		cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPL-01 ${wdT2}
-		cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPL-0001 ${wdT2}
- 		cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPL-2NDORDER ${wdT2}
-	fi
-	DIR=${wdT2}/"GS"
-	if [ ! -d "$DIR" ]; then
-		cp -r ${wd}/EXAMPLES/NV-DIAMOND/GS ${wdT2}
-	fi
-	FIL=${wdT2}/"mesh-nosymm_3x3x3.hdf5"
-	if [ ! -f "$FIL" ]; then
-		cp -r ${wd}/EXAMPLES/NV-DIAMOND/info.yml ${wdT2}
-		cp -r ${wd}/EXAMPLES/NV-DIAMOND/phonopy*.yaml ${wdT2}
-		cp -r ${wd}/EXAMPLES/NV-DIAMOND/mesh-nosymm_3x3x3.hdf5 ${wdT2}
-	fi
-
-	echo -e "\nNN_model : MLP" >> ${wdT2}/info.yml
-	echo -e "NN_parameters :" >> ${wdT2}/info.yml
-	echo -e "  n_hidden_layers : !!python/tuple [100,]" >> ${wdT2}/info.yml
-	echo -e "  solver : adam" >> ${wdT2}/info.yml
-	echo -e "  activation : relu" >> ${wdT2}/info.yml
-	echo -e "  alpha : 0.1" >> ${wdT2}/info.yml
-	echo -e "  max_iter : 100" >> ${wdT2}/info.yml
-	echo -e "  random_state : 1" >> ${wdT2}/info.yml
-	echo -e "  test_size : 0.25" >> ${wdT2}/info.yml
-	echo -e "  shuffle : True" >> ${wdT2}/info.yml
-
-	rm -rf ${wd}/EXAMPLES
-	
-	cd ${wd}
-	
-	# TESTS 3
-	
-	if [ -f TESTS_3.tar.gz ]; then
-		if [ $NONINTERACTIVE -eq 1 ]; then
-			echo "Skipping TESTS_3 extraction in CI"
-		else
-			if [ ! -d ${wd}/3 ]; then
-				echo "Extracting TESTS_3.tar.gz ..."
-				tar -xzf TESTS_3.tar.gz
-				echo "Extraction complete."
-				mv ${wd}/3 ${wd}/TESTS/
-			fi
+		
+		# copy all required files
+		
+		DIR=${wdT2}/"DISPLACEMENT-FILES-01"
+		if [ ! -d "$DIR" ]; then
+			cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-01 ${wdT2}
+			cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-0001 ${wdT2}
+			cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPLACEMENT-FILES-2NDORDER ${wdT2}
 		fi
+		
+		DIR=${wdT2}/"DISPL-01"
+		if [ ! -d "$DIR" ]; then
+			cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPL-01 ${wdT2}
+			cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPL-0001 ${wdT2}
+ 			cp -r ${wd}/EXAMPLES/NV-DIAMOND/DISPL-2NDORDER ${wdT2}
+		fi
+		
+		DIR=${wdT2}/"GS"
+		if [ ! -d "$DIR" ]; then
+			cp -r ${wd}/EXAMPLES/NV-DIAMOND/GS ${wdT2}
+		fi
+		
+		FIL=${wdT2}/"mesh-nosymm_3x3x3.hdf5"
+		if [ ! -f "$FIL" ]; then
+			cp ${wd}/EXAMPLES/NV-DIAMOND/info.yml ${wdT2}
+			cp ${wd}/EXAMPLES/NV-DIAMOND/phonopy*.yaml ${wdT2}
+			cp ${wd}/EXAMPLES/NV-DIAMOND/mesh-nosymm_3x3x3.hdf5 ${wdT2}
+		fi
+
+		echo -e "\nNN_model : MLP" >> ${wdT2}/info.yml
+		echo -e "NN_parameters :" >> ${wdT2}/info.yml
+		echo -e "  n_hidden_layers : !!python/tuple [100,]" >> ${wdT2}/info.yml
+		echo -e "  solver : adam" >> ${wdT2}/info.yml
+		echo -e "  activation : relu" >> ${wdT2}/info.yml
+		echo -e "  alpha : 0.1" >> ${wdT2}/info.yml
+		echo -e "  max_iter : 100" >> ${wdT2}/info.yml
+		echo -e "  random_state : 1" >> ${wdT2}/info.yml
+		echo -e "  test_size : 0.25" >> ${wdT2}/info.yml
+		echo -e "  shuffle : True" >> ${wdT2}/info.yml
+		
+		# remove EXAMPLES directory
+		
+		rm -rf ${wd}/EXAMPLES
+	
+		cd ${wd}
+		
+	fi
+fi
+	
+# TESTS 3
+
+if [[ " ${BUILD_ARR[@]} " =~ " 3 " ]]; then
+	if [ -d "$wd/TESTS/3" ]; then
+		rm -rf "$wd/TESTS/3"
 	fi
 	
-	wdT3=${wd}/TESTS/3
-	if [ ! -d "$wdT3" ]; then
-		mkdir -p ${wdT3}
-	fi
-				
+	echo "Build test 3"
+	
+	if [ -d "$wd/3" ]; then
+		echo "TEST 3 directory already exists"
+	elif [ -f $TESTS_3_TAR_FILE ]; then
+		echo "Extracting TESTS_3.tar.gz ..."
+            	tar -xzf $TESTS_3_TAR_FILE
+            	echo "Extraction complete."
+    	else
+        	echo "TESTS_3.tar.gz missing"
+        	exit 1
+    	fi
+    	
+    	mv ${wd}/3 ${wd}/TESTS/
+	
+	wdT3=${wd}/TESTS/3	
 	cd ${wdT3}
-
-	cat > input.yml <<EOF
+	
+cat > $wdT3/input.yml <<EOF
 working_dir : ${wdT3}
 output_dir : ${wdT3}/T2-ELEC-DEPH
 yaml_pos_file : phonopy_disp.yaml
@@ -425,3 +445,5 @@ hessian : False
 EOF
 
 fi
+
+echo "BUILD PROCEDURE COMPLETE"
