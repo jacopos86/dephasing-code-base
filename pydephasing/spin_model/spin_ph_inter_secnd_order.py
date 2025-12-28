@@ -8,7 +8,7 @@ from pydephasing.common.matrix_operations import compute_matr_elements
 from pydephasing.parallelization.GPU_arrays_handler import GPU_ARRAY
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.set_param_object import p
-from pydephasing.global_params import GPU_ACTIVE, CUDA_SOURCE_DIR
+from pydephasing.global_params import GPU_ACTIVE
 from pydephasing.spin_model.spin_ph_inter import SpinPhononClass
 from pydephasing.utilities.log import log
 from pydephasing.parallelization.mpi import mpi
@@ -149,11 +149,13 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
         # central cell approximation
         # compute g_ql
-        self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
-        self.ql_list = ql_list
-        nan_indices = np.isnan(self.g_ql)
+        g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
+        nan_indices = np.isnan(g_ql)
         assert nan_indices.any() == False
         print("max Fx", np.max(Fax.real))
+        # collect g_ql
+        self.collect_gql_and_indices(g_ql, ql_list)
+        self.gq_at_iq(iq_target=26)
         # compute g_qqp
         self.set_gqqp_calculation(nat, qgr, ph, Hsp, Fax, Faxby)
     #
@@ -243,23 +245,6 @@ class SpinPhononSecndOrderBase(SpinPhononClass):
     def set_gqqp_calculation(self, nat, qgr, ph, Hsp, Fax, Faxby):
         if not self.hessian:
             assert Faxby == None
-        # first compute raman wq=0 value
-        # CPU algorithm keeps terms only within given fraction of FXXp0
-        if not GPU_ACTIVE:
-            FXXp0 = self.compute_raman(nat, Hsp, Fax)
-            print("max FXX'", np.max(FXXp0.real))
-        # compute gqqp
-        import os
-        file_path = str(os.getcwd())+"/TESTS/2/T2-SP-DEPHC_E/restart/G-iq-0-iqp-0.npz"
-        gqqp = self.read_gqqp_from_file(file_path)
-        print(gqqp.shape)
-        g12 = self.compute_gqqp_l12(nat, 0, 0, 3, 3, qgr, ph, Hsp, Fax, Faxby)
-        for i1 in range(3):
-            for i2 in range(3):
-                print(g12[i1,i2], gqqp[i1,i2,3,3])
-        print(gqqp[0,0,0,500])
-        gpu.cleanup()
-        exit()
         # make list of q vector pairs for each proc.
         qqp_list = qgr.build_irred_qqp_pairs()
         # parallelize calculation over (q,q')
@@ -319,7 +304,9 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
     def compute_gqqp(self, nat, iq, iqp, qgr, ph, Hsp, Fax, Faxby=None):
         # FXXp units -> eV / ang^2
         n = len(Hsp.basis_vectors)
-        gqqp = np.zeros((n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
+        # g_qq'^\pm : 
+        # \pm -> 2 - n -> n. spin states - nmodes
+        gqqp = np.zeros((2, n, n, ph.nmodes, ph.nmodes), dtype=np.complex128)
         GQQP = GPU_ARRAY(gqqp, np.complex128)
         log.info("\t rank: " + str(mpi.rank) + " -> iq=" + str(iq) + " - iqp=" + str(iqp))
         # load file
@@ -330,19 +317,15 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
         # phonon energies
         WQL = GPU_ARRAY(np.array(ph.uql[iq]) * THz_to_ev)
         WQPL= GPU_ARRAY(np.array(ph.uql[iqp]) * THz_to_ev)
-        # amplitudes
-        ql_list = list(product([iq], range(ph.nmodes)))
-        AQL = GPU_ARRAY(ph.compute_ph_amplitude_q(ql_list))
-        qpl_list = list(product([iqp], range(ph.nmodes)))
-        AQPL = GPU_ARRAY(ph.compute_ph_amplitude_q(qpl_list))
+        print(WQL.length(), WQPL.length())
         # energy eigenvalues array -> EIG
         eig = np.zeros(n)
         for a in range(n):
             eig[a] = Hsp.qs[a]['eig']
         EIG = GPU_ARRAY(eig)
         NST = EIG.length()
-        # FX -> allocate GPU array
-        FX = GPU_ARRAY(Fax, np.complex128)
+        exit()
+        # TODO we need to compute gq at q and qp
         # Hessian term
         if Faxby is not None:
             if mpi.rank == mpi.root:
@@ -370,6 +353,11 @@ class SpinPhononSecndOrderGPU(SpinPhononSecndOrderBase):
             # Ang/ev^1/2 ps^-1
         EQ = GPU_ARRAY(eq, np.complex128)
         EQP = GPU_ARRAY(eqp, np.complex128)
+        # amplitudes
+        ql_list = list(product([iq], range(ph.nmodes)))
+        AQL = GPU_ARRAY(ph.compute_ph_amplitude_q(ql_list))
+        qpl_list = list(product([iqp], range(ph.nmodes)))
+        AQPL = GPU_ARRAY(ph.compute_ph_amplitude_q(qpl_list))
         #  call GPU function
         if Faxby is None:
             compute_gqqp(NAT, NL, NST, NMD, INIT_INDEX.to_gpu(), SIZE_LIST.to_gpu(), MODES_LIST.to_gpu(),
