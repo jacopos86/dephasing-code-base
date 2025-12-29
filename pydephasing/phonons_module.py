@@ -139,7 +139,7 @@ class PhonopyPhonons(PhononsClass):
     #
     #  plot phonon DOS
     def plot_phonon_DOS(self):
-        self.phonon.run_mesh([30, 30, 30])
+        self.phonon.run_mesh([5, 5, 5])
         self.phonon.run_total_dos()
         dos = self.phonon.get_total_dos_dict()
         freq = dos["frequency_points"]
