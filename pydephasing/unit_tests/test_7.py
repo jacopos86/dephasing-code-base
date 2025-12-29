@@ -8,11 +8,13 @@ from pydephasing.utilities.input_parser import parser
 #   test Phonopy q grid class
 #
 
-TESTS_DIR = "TESTS"
+TESTS_DIR = os.environ.get("TESTS_DIR")
+if TESTS_DIR is None:
+    raise EnvironmentError("TESTS_DIR environment variable is not set")
 
 def test_irred_qqplist(monkeypatch):
     # set parameters
-    yml_inp = str(os.getcwd())+'/'+str(TESTS_DIR)+"/2/inputE.yml"
+    yml_inp = TESTS_DIR+"/2/inputE.yml"
     # Simulate CLI arguments
     # Create a dummy namespace with all arguments _init() expects
     dummy_args = SimpleNamespace(
