@@ -68,21 +68,17 @@ class MPI_obj:
         if len(list_data) == 0:
             return []
         data = list(np.array(list_data))
-        print(data)
         random.shuffle(data)
-        print(data)
         # compute length for each process
         lengths = np.full(self.size, len(data) // self.size, dtype=int)
         lengths[:len(data) % self.size] += 1
         assert sum(lengths) == len(data)
-        print(lengths, self.size, flush=True)
         # partition the data
         chunks = []
         start_idx = 0
         for length in lengths:
             chunks.append(data[start_idx:start_idx + length])
             start_idx += length
-        print(chunks, flush=True)
         loc_proc_list = self.comm.scatter(chunks, root=self.root)
         return loc_proc_list
     # finalize procedure
