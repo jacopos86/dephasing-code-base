@@ -23,7 +23,9 @@ export PETSC_ARCH=arch-linux-c-opt
 
 if [ ! -d "$PETSC_DIR" ]; then
 	echo "PETSc not found at $PETSC_DIR"
-	echo "Installing PETSc..."
+        echo "Renaming existing petsc directory if it exists..."
+        export PETSC_DIR=$(pwd)/petsc
+        echo "Installing PETSc..."
 	
 	git clone -b release https://gitlab.com/petsc/petsc.git $PETSC_DIR
 	cd $PETSC_DIR	
@@ -35,6 +37,7 @@ if [ ! -d "$PETSC_DIR" ]; then
 		--with-fc=mpif90 \
 		--with-shared-libraries=1
 	make all
+	cd ..
 else
     echo "Using existing PETSc at $PETSC_DIR"
 fi

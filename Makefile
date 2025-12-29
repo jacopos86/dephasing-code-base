@@ -20,8 +20,9 @@ configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requireme
 		if [ -z "$$PETSC_DIR" ] || [ -z "$$PETSC_ARCH" ]; then \
 			echo "ERROR: PETSC_DIR and PETSC_ARCH must be set"; exit 1; \
 		fi; \
+		$(PIP) install -r $(ROOT)/dependencies/requirements-HPC.txt; \
 		PETSC_DIR=$$PETSC_DIR PETSC_ARCH=$$PETSC_ARCH $(PIP) install petsc4py; \
-		MPICC=mpicc HDF5_MPI=ON $(PIP) install --no-binary=h5py h5py; \
+		CC=cc MPICC=mpicc HDF5_MPI=ON $(PIP) install --no-binary=h5py h5py; \
 		MPICC=mpicc $(PIP) install --no-binary=mpi4py mpi4py; \
 	else \
 		$(PIP) install petsc; \
@@ -61,7 +62,7 @@ build :
 		echo "Skipping TESTS_3 download"; \
 	fi; \
 	cd $(ROOT) && \
-	./build.sh "$(LOG_LEVEL)" "$(COLOR_LOG)" "$(LOG_FILE)" "$(INSTALL_PYCUDA)" "$(BLOCK_SIZE)" "$(GRID_SIZE)" "$(BUILD_TESTS)" "$(TESTS_12_TAR_FILE)" "$(TESTS_3_TAR_FILE)" 
+	./build.sh "$(LOG_LEVEL)" "$(COLOR_LOG)" "$(LOG_FILE)" "$(INSTALL_PYCUDA)" "$(BLOCK_SIZE)" "$(GRID_SIZE)" $(BUILD_TESTS) "$(TESTS_12_TAR_FILE)" "$(TESTS_3_TAR_FILE)" 
 install :
 	. $(VENV)/bin/activate ; \
 	$(PIP) install .
