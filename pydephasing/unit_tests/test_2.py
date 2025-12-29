@@ -1,8 +1,9 @@
 from qiskit import QuantumCircuit
 from qiskit.providers.aer import AerSimulator
-from pydephasing.quantum.qubitization_module import PauliTerm
-from pydephasing.quantum.pauli_polynomial_class import fermion_plus_operator, fermion_minus_operator
+from quantum.qubitization_module import PauliTerm
+from quantum.pauli_polynomial_class import fermion_plus_operator, fermion_minus_operator, PauliPolynomial
 import pytest
+import matplotlib.pyplot as plt
 
 #
 #  QISKIT test unit
@@ -147,3 +148,24 @@ def test_pauli_pol_product():
     assert pp[0].pw[0].symbol == 'e'
     assert pp[0].pw[1].symbol == 'e'
     assert pp[0].pw[2].symbol == 'e'
+
+def test_Ising_model():
+    # Define the Ising Hamiltonian H = -J * Z_i Z_(i+1)
+    # Let's use J=1 and apply it to a 2-qubit system for simplicity.
+    J = 1
+    nq = 2
+    # Create a 2-qubit quantum circuit
+    qc = QuantumCircuit(nq)
+    qc.draw('mpl')
+    plt.show()
+
+def test_Hubbard_model():
+    f2q_mode = "JW"
+    nq = 4
+    t = 1.   # hopping coeff.
+    U = 2.   # Hubbard parameter
+    H = PauliPolynomial(f2q_mode)
+    # half filling 4 states |1u,2d>, |1d,2u>, |1u1d>, |2u2d>
+    # 4 qubits |1u>, |1d>, |2u>, |2d>
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 0) * fermion_minus_operator(f2q_mode, nq, 2)
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 1) * fermion_minus_operator(f2q_mode, nq, 3)
