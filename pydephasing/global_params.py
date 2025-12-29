@@ -1,6 +1,4 @@
 from pathlib import Path
-import yaml
-import site
 import os
 #
 MPI_ROOT = 0
@@ -12,14 +10,8 @@ if root_env is None:
 PACKAGE_DIR = Path(root_env).resolve()
 if not PACKAGE_DIR.exists():
     raise FileNotFoundError(f"Specified PACKAGE_DIR does not exist: {PACKAGE_DIR}")
-# === Read config file ===
-config_file = PACKAGE_DIR / "config.yml"
-if not config_file.exists():
-    raise FileNotFoundError(f"config.yml cannot be opened: {config_file}")
-with open(config_file, "r") as f:
-    config = yaml.load(f, Loader=yaml.Loader)
 # === GPU Section ===
-GPU_ACTIVE = config.get("GPU", False)
+GPU_ACTIVE = os.environ.get("GPU_ACTIVE", "0") == "1"
 if GPU_ACTIVE:
     import pycuda.driver as cuda
     from mpi4py import MPI
@@ -37,7 +29,7 @@ if GPU_ACTIVE:
     if not CUDA_SOURCE_DIR.exists():
         raise FileNotFoundError(f"CUDA source directory does not exist: {CUDA_SOURCE_DIR}")
     if ngpus > 0:
-        GPU_BLOCK_SIZE = config.get("GPU_BLOCK_SIZE")
-        GPU_GRID_SIZE = config.get("GPU_GRID_SIZE")
+        GPU_BLOCK_SIZE = [int(x) for x in os.environ.get("BLOCK_SIZE").split()]
+        GPU_GRID_SIZE  = [int(x) for x in os.environ.get("GRID_SIZE").split()]
         gpu = GPU_obj(GPU_BLOCK_SIZE, GPU_GRID_SIZE, CUDA_SOURCE_DIR, device_id=device_id)
         gpu.set_grid_info()
