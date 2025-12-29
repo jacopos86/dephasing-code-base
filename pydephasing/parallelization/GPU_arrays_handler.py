@@ -1,5 +1,5 @@
 import numpy as np
-from common.print_objects import print_2D_matrix, print_1D_array
+from pydephasing.common.print_objects import print_2D_matrix, print_1D_array
 from pydephasing.global_params import GPU_ACTIVE
 
 if GPU_ACTIVE:

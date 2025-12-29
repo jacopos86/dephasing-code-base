@@ -23,7 +23,7 @@ GPU_ACTIVE = config.get("GPU", False)
 if GPU_ACTIVE:
     import pycuda.driver as cuda
     from mpi4py import MPI
-    from parallelization.gpu import GPU_obj
+    from pydephasing.parallelization.gpu import GPU_obj
     # start GPU setting
     cuda.init()
     rank = MPI.COMM_WORLD.Get_rank()
