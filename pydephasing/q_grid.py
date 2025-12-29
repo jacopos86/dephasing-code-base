@@ -114,61 +114,85 @@ class qgridClass(ABC):
 #
 
 class phonopy_qgridClass(qgridClass):
-    def __init__(self):
+    def __init__(self, ph_obj=None, grid_size=None):
         super().__init__()
         # keys dictionary
         self.mesh_key = ''
         self.qpts_key = ''
         self.wq_key = ''
+        # phonon object
+        self.phonon = None
+        if ph_obj is not None:
+            self.phonon = ph_obj.phonon
+        if grid_size is not None:
+            self.grid_size = grid_size
     def get_grid_keys(self):
-        # open file
-        with h5py.File(p.hd5_eigen_file, 'r') as f:
-            # dict keys
-            keys = list(f.keys())
-            for k in keys:
-                if k == "mesh" or k == "Mesh" or k == "MESH":
-                    self.mesh_key = k
-            if self.mesh_key == '':
-                log.error("mesh key not found")
-            for k in keys:
-                if k == "qpoint" or k == "qpoints":
-                    self.qpts_key = k
-            if self.qpts_key == '':
-                log.error("qpts key not found")
-            for k in keys:
-                if k == "weight" or k == "Weight":
-                    self.wq_key = k
-            if self.wq_key == '':
-                log.error("wq key not found")
+        try:
+            # open file
+            with h5py.File(p.hd5_eigen_file, 'r') as f:
+                # dict keys
+                keys = list(f.keys())
+                for k in keys:
+                    if k.lower() == "mesh":
+                        self.mesh_key = k
+                    if k.lower() in ("qpoint", "qpoints"):
+                        self.qpts_key = k
+                    if k.lower() == "weight":
+                        self.wq_key = k
+        except Exception:
+            pass
     # q grid
     def set_qgrid(self):
         self.get_grid_keys()
-        # open file
-        with h5py.File(p.hd5_eigen_file, 'r') as f:
-            # dict keys -> size
-            self.grid_size = list(f[self.mesh_key])
-            self.nq = math.prod(self.grid_size)
+        # ---- fallback trigger ----
+        if self.mesh_key == '' or self.qpts_key == '' or self.wq_key == '':
             if mpi.rank == mpi.root:
-                log.info("\t q grid size: " + str(self.nq))
-            # dict keys -> qpts
-            self.qpts = list(f[self.qpts_key])
-            # dict keys -> wq
-            self.wq = list(f[self.wq_key])
-            self.wq = np.array(self.wq, dtype=float)
-            r = sum(self.wq)
-            self.wq[:] = self.wq[:] / r
+                log.warning("q-grid keys not found in file -> using Phonopy mesh")
+            self._set_qgrid_from_phonopy()
+        else:
+            try:
+                # open file
+                with h5py.File(p.hd5_eigen_file, 'r') as f:
+                    # dict keys -> size
+                    self.grid_size = list(f[self.mesh_key])
+                    self.nq = math.prod(self.grid_size)
+                    if mpi.rank == mpi.root:
+                        log.info("\t q grid size: " + str(self.nq))
+                    # dict keys -> qpts
+                    self.qpts = list(f[self.qpts_key])
+                    # dict keys -> wq
+                    self.wq = list(f[self.wq_key])
+                    self.wq = np.array(self.wq, dtype=float)
+                    r = sum(self.wq)
+                    self.wq[:] = self.wq[:] / r
+            except Exception:
+                log.error(f"file: {p.hd5_eigen_file} not found")
         assert len(self.qpts) == self.nq
         if log.level <= logging.INFO:
             self.check_weights()
+    # q grid from phonopy object
+    def _set_qgrid_from_phonopy(self):
+        if self.phonon is None:
+            log.error("No q-grid file and no Phonopy object available")
+        self.phonon.init_mesh(self.grid_size)
+        mesh_dict = self.phonon.get_mesh_dict()
+        # qpts vectors
+        self.qpts = np.array(mesh_dict["qpoints"], dtype=float)
+        self.nq = len(self.qpts)
+        # weights
+        self.wq   = np.array(mesh_dict["weights"], dtype=float)
+        r = sum(self.wq)
+        self.wq[:] = self.wq[:] / r
+        print(self.wq.shape, sum(self.wq))
 
 #
 #  jdftx q grid class
 #
 
 class jdftx_qgridClass(qgridClass):
-    def __init__(self, QPTS_FILE):
+    def __init__(self, gs_data_dir):
         super().__init__()
-        self.QPTS_FILE = QPTS_FILE
+        self.QPTS_FILE = gs_data_dir + '/bandstruct.kpoints'
     # set up q grid
     def set_qgrid(self):
         self.qpts = np.loadtxt(self.QPTS_FILE, skiprows=2, usecols=(1,2,3))
