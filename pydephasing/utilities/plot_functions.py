@@ -10,7 +10,26 @@ from pydephasing.set_param_object import p
 #  module to plot functions
 #
 
-def plot_elec_struct(Ew, Eks, mu, n_interp=10):
+def plot_elec_struct(Eks, mu, Ylim=[-0.3, 0.5]):
+    plt.figure(figsize=(8,5))
+    for isp in range(Eks.shape[2]):
+        for ib in range(Eks.shape[0]):
+            plt.plot(range(Eks.shape[1]), Eks[ib, :, isp]-mu, 'k.', markersize=2, label='DFT (KS)' if ib==0 else "")
+    plt.axhline(0, color='gray', lw=1.5)
+    plt.ylim(Ylim[0], Ylim[1])
+    if Eks.shape[1] == 1:
+        plt.xlim([-1, 1])
+    else:
+        plt.xlim(0., Eks.shape[1])
+    plt.ylabel("E - VBM [eV]")
+    plt.xlabel("k-point index")
+    plt.legend()
+    plt.title("KS Band Structure (shifted to VBM)")
+    plt.tight_layout()
+    plt.savefig(f"{p.write_dir}/Electronic_bandstructure.png",dpi=300,bbox_inches="tight" )
+    plt.show()
+
+def plot_wan_struct(Ew, Eks, mu, n_interp=10, Ylim=[-0.3, 0.5]):
     plt.figure(figsize=(8,5))
     for ib in range(Eks.shape[1]):
         plt.plot(range(Eks.shape[0]), Eks[:, ib]-mu, 'k.', markersize=2, label='DFT (KS)' if ib==0 else "")
@@ -19,14 +38,14 @@ def plot_elec_struct(Ew, Eks, mu, n_interp=10):
     for ib in range(Ew.shape[1]):
         plt.plot(xw, Ew[:, ib]-mu, 'r-', color='r', lw=1, label='Wannier' if ib==0 else "")
     plt.axhline(0, color='gray', lw=1.5)
-    plt.ylim(-0.3, 0.5)
+    plt.ylim(Ylim[0], Ylim[1])
     plt.xlim(0., Eks.shape[0])
-    plt.ylabel("E - VBM [eV]")
+    plt.ylabel("E - VBM [Ha]")
     plt.xlabel("k-point index")
     plt.legend()
     plt.title("Wannier vs KS Band Structure (shifted to VBM)")
     plt.tight_layout()
-    plt.savefig(f"{p.write_dir}/Electronic_bandstructure.png",dpi=300,bbox_inches="tight" )
+    plt.savefig(f"{p.write_dir}/Wannier_bandstructure.png",dpi=300,bbox_inches="tight" )
     plt.show()
 
 def plot_ph_band_struct(wq, nQ, n_interp=10):
@@ -49,6 +68,17 @@ def plot_ph_band_struct(wq, nQ, n_interp=10):
     plt.grid(True, linestyle='--', alpha=0.5)
     plt.tight_layout()
     plt.savefig(f"{p.write_dir}/Phonon_bandstructure.png",dpi=300,bbox_inches="tight" )
+    plt.show()
+
+def plot_ph_dos(w, dos):
+    # Plot phonon DOS
+    plt.figure(figsize=(8,6))
+    plt.plot(w, dos)
+    plt.ylabel("Phonon DOS")
+    plt.xlabel("phonon freq. [THz]")
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(f"{p.write_dir}/Phonon_DOS.png",dpi=300,bbox_inches="tight" )
     plt.show()
 
 def plot_lph_struct(wq, lph, nQ, n_interp=10):

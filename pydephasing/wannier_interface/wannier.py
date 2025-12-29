@@ -3,12 +3,11 @@ from scipy.interpolate import interp1d
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
-from pydephasing.utilities.plot_functions import plot_elec_struct
+from pydephasing.utilities.plot_functions import plot_wan_struct
+from pydephasing.common.phys_constants import hartree2ev
 
 class Wannier:
-    def __init__(self, elec_struct, CELLMAP_FILE, WWEIGHTS_FILE, WMLH_FILE):
-        self.Kpts = None
-        self.nK = None
+    def __init__(self, gs_data_dir, elec_struct):
         self.nBands = None
         # elec. structure object
         self.elec_struct = elec_struct
@@ -21,16 +20,30 @@ class Wannier:
         self.kStride = None
         # wannier hamiltonian
         self.Hwan = None
+        self.wann_setup = False
         # files
-        self.CELLMAP_FILE = CELLMAP_FILE
-        self.WWEIGHTS_FILE = WWEIGHTS_FILE
-        self.WMLH_FILE = WMLH_FILE
+        self.CELLMAP_FILE = gs_data_dir + '/wannier.mlwfCellMap'
+        self.WWEIGHTS_FILE = gs_data_dir + '/wannier.mlwfCellWeights'
+        self.WMLH_FILE = gs_data_dir + '/wannier.mlwfH'
+    def setup_wann_calc(self):
+        # read MLW cell map
+        self.read_MLWF_cell_map()
+        # read weights
+        self.read_wan_weights()
+        # get K pts folding
+        self.get_Kpts_folding()
+        # Hwann
+        self.compute_Hwann()
+        # check hermitean matrix
+        self.check_Hw_hermitean()
+        self.wann_setup = True
     def interp_k_pts(self, n_interp=10):
         # interpolate finer k path
         xIn = np.arange(self.elec_struct.nkpt)
         x = (1./n_interp)*np.arange(1+n_interp*(self.elec_struct.nkpt-1))
-        self.Kpts = interp1d(xIn, self.elec_struct.Kpts, axis=0)(x)
-        self.nK = self.Kpts.shape[0]
+        Kpts = interp1d(xIn, self.elec_struct.Kpts, axis=0)(x)
+        nK = Kpts.shape[0]
+        return Kpts, nK
     def read_MLWF_cell_map(self):
         self.cellMap = np.loadtxt(self.CELLMAP_FILE)[:,0:3].astype(int)
         if mpi.rank == mpi.root:
@@ -82,9 +95,9 @@ class Wannier:
                     log.warning(str(i) + " - " + str(j[0]) + " -> R=" + str(R) + "H(R) != H(-R)^dagg")
             else:
                 log.warning(str(i) + " " + str(R) + "no -R found")
-    def compute_band_struct(self):
+    def compute_band_struct(self, Kpts):
         # Fourier transf. to k space
-        Hk = np.tensordot(np.exp((2j*np.pi)*np.dot(self.Kpts, self.cellMap.T)), self.Hwan, axes=1)
+        Hk = np.tensordot(np.exp((2j*np.pi)*np.dot(Kpts, self.cellMap.T)), self.Hwan, axes=1)
         Ek, Vk = np.linalg.eigh(Hk)
         if mpi.rank == mpi.root:
             log.info("\t shape Ek: " + str(Ek.shape))
@@ -94,27 +107,57 @@ class Wannier:
             out_file = p.write_dir + "/wannier.eigenvals"
             np.savetxt(out_file, Ek)
         mpi.comm.Barrier()
-        return Ek
-    def plot_band_structure(self):
-        # read MLW cell map
-        self.read_MLWF_cell_map()
-        # read weights
-        self.read_wan_weights()
-        # get K pts folding
-        self.get_Kpts_folding()
-        # Hwann
-        self.compute_Hwann()
-        # check hermitean matrix
-        self.check_Hw_hermitean()
-        # read k points
+        return Ek, Vk
+    def plot_band_structure(self, n_interp=10, Ylim=[-0.3, 0.5]):
+        if not self.wann_setup:
+            self.setup_wann_calc()
+        # interp. k points
         if mpi.rank == mpi.root:
             log.info("\t INTERPOLATE K POINTS ")
-        self.interp_k_pts()
-        Ew = self.compute_band_struct()
+        Kpts, nK = self.interp_k_pts(n_interp=n_interp)
+        # compute wann. bands
+        Ew, Vw = self.compute_band_struct(Kpts=Kpts)
         if self.elec_struct.spintype in ('spin-orbit', 'vector-spin'):
-            Eks = self.elec_struct.Eks[0]
+            Eks = self.elec_struct.eigv[0]
         # call plot function
         if mpi.rank == mpi.root:
             mu = self.elec_struct.mu
-            plot_elec_struct(Ew, Eks, mu)
+            plot_wan_struct(Ew, Eks, mu, Ylim=Ylim)
         mpi.comm.Barrier()
+    def get_band_structure(self, n_interp=1, units="eV"):
+        """
+        Compute Wannier-interpolated band energies and eigenvectors.
+        Returns
+        -------
+        E  : array (nbnd, nkpt, nspin)
+        V  : array (nbnd, nbnd, nkpt, nspin)
+         (Eigenvectors: v[n, m, k, s] = component m of eigenvector n)
+        """
+        # Build k-dependent Hamiltonian matrix
+        if not self.wann_setup:
+            self.setup_wann_calc()
+        nbnd = self.nBands
+        Kpts, nK = self.interp_k_pts(n_interp=n_interp)
+        nspin = self.elec_struct.nsp_index
+        # Allocate arrays
+        E  = np.zeros((nbnd, nK, nspin))
+        V  = np.zeros((nbnd, nbnd, nK, nspin), dtype=np.complex128)
+        # compute wann. bands
+        Ew, Vw = self.compute_band_struct(Kpts=Kpts)
+        if nspin == 1:
+            E[:, :, 0] = Ew.T
+            V[:, :, :, 0] = Vw.transpose(1, 2, 0)
+        else:
+            # duplicate spectrum / adjust if required
+            E[:, :, 0] = Ew.T
+            E[:, :, 1] = Ew.T
+            V[:, :, :, 0] = Vw.transpose(1, 2, 0)
+            V[:, :, :, 1] = Vw.transpose(1, 2, 0)
+        # Optional conversion
+        if units.lower() == "ev":
+            E = E * hartree2ev
+        elif units.lower() == "ha":
+            pass  # already Ha
+        else:
+            log.error("units must be 'eV' or 'Ha'")
+        return E, V

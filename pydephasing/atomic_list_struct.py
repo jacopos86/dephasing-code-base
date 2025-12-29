@@ -149,10 +149,12 @@ class phonopyAtomicStructureClass(AtomicStructureClass):
 class JDFTxAtomicStructureClass(AtomicStructureClass):
     def __init__(self):
         super().__init__()
-        self.mass_key = "mass"
         self.pos_pattern = r"ion (\w+) +([0-9\.]+) +([0-9\.]+) +([0-9\.]+)"
+        self.mass_key = "mass"
+        self.DFT_OUTFILE = None
     # set atoms data
-    def set_atoms_data(self):
+    def set_atoms_data(self, gs_data_dir):
+        self.DFT_OUTFILE = gs_data_dir + '/totalE.out'
         self.set_number_of_atoms()
         self.compute_index_to_ia_map()
         self.compute_index_to_idx_map()
@@ -163,7 +165,7 @@ class JDFTxAtomicStructureClass(AtomicStructureClass):
     # set number of atoms
     def set_number_of_atoms(self):
         self.nat = 0
-        with open(p.dft_outfile) as f:
+        with open(self.DFT_OUTFILE) as f:
             data = f.readlines()
             for line in data:
                 match = re.match(self.pos_pattern, line)
@@ -174,7 +176,7 @@ class JDFTxAtomicStructureClass(AtomicStructureClass):
         keys = ["symbol", "coordinates", "mass"]
         # read from dft output
         self.atoms_dict = []
-        with open(p.dft_outfile) as f:
+        with open(self.DFT_OUTFILE) as f:
             data = f.readlines()
             for line in data:
                 match = re.match(self.pos_pattern, line)

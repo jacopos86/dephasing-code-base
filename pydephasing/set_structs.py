@@ -17,6 +17,7 @@ from pydephasing.utilities.log import log
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.atomic_list_struct import atoms
+from pydephasing.common.phys_constants import hartree2ev
 #
 #  atom dictionary class
 #
@@ -106,6 +107,7 @@ class UnpertStruct:
 		self.nkpt= None
 		self.nbnd= None
 		self.eigv = None
+		self.mu = None
 		self.occ = None
 		self.nup = None
 		self.ndw = None
@@ -238,6 +240,55 @@ class UnpertStruct:
 							bi = int(line2[0])-1
 							self.eigv[bi,ki,spi] = float(line2[1])
 							self.occ[bi,ki,spi]  = float(line2[2])
+	# extract chemical potential
+	def read_chem_pot_from_data(self):
+		# Try vasprun.xml first
+		file_name = "{}".format(self.ipath+"vasprun.xml")
+		file_vasprun = Path(file_name)
+		if file_vasprun.exists():
+			try:
+				vasprun = Vasprun(file_name)
+				self.mu = vasprun.efermi  # eV
+				if mpi.rank == mpi.root:
+					log.info(f"\t Chemical potential (from vasprun.xml): {self.mu:.6f} eV")
+				return
+			except Exception as e:
+				if mpi.rank == mpi.root:
+					log.warning(f"\t Failed reading vasprun efermi -> {e}")
+		# Fallback: OUTCAR
+		file_outcar = Path(self.ipath+"OUTCAR")
+		if file_outcar.exists():
+			with open(file_outcar, "r") as f:
+				for line in f:
+					if "E-fermi" in line:
+						try:
+							# extract first floating value
+							self.mu = float(line.split()[2])
+							if mpi.rank == mpi.root:
+								log.info(f"\t Chemical potential (from OUTCAR): {self.mu:.6f} eV")
+							return
+						except:
+							pass
+		# If we reach here, Fermi level not found
+		if mpi.rank == mpi.root:
+			log.error("\t ERROR: Chemical potential not found in vasprun.xml nor OUTCAR")
+		self.mu = None
+	#
+	# return electronic band structure / chemical pot.
+	def get_band_structure(self, units):
+		if units == "eV":
+			return self.eigv
+		elif units == "Ha":
+			return self.eigv / hartree2ev
+		else:
+			log.error("units: " + units + " not recognized: only eV/Ha")
+	def get_chem_potential(self, units):
+		if units.lower() == "ev":
+			return self.mu
+		elif units.lower() == "ha":
+			return self.mu / hartree2ev
+		else:
+			log.error("units: " + units + " not recognized: only eV/Ha")
 	### read k points weights
 	def read_k_points_weights(self):
 		file_name = "{}".format(self.ipath+"vasprun.xml")
@@ -789,8 +840,8 @@ class DisplacedStructures2ndOrder:
 #
 
 class JDFTxStruct:
-	def __init__(self, KPOINTS_FILE, EIGENV_FILE, OUTPUT_FILE):
-		# electronic parameters
+	def __init__(self, gs_data_dir):
+		# electronic structure
 		self.nkpt = None
 		self.Kpts = None
 		self.nbnd = None
@@ -802,14 +853,13 @@ class JDFTxStruct:
 		# 1 for SOC -> no spin index in energies / wfc
 		self.nsp_index = None
 		self.spintype = None
-		# dft bands
-		self.Eks = None
+		# electronic parameters
 		self.mu = None
 		self.nelec = None
 		# external file
-		self.OUT_FILE = OUTPUT_FILE
-		self.KPTS_FILE = KPOINTS_FILE
-		self.EIG_FILE = EIGENV_FILE
+		self.OUT_FILE = gs_data_dir + '/totalE.out'
+		self.KPTS_FILE = gs_data_dir + '/bandstruct.kpoints'
+		self.EIG_FILE = gs_data_dir + '/bandstruct.eigenvals'
 	def read_Kpts(self):
 		self.Kpts = np.loadtxt(self.KPTS_FILE, skiprows=2, usecols=(1,2,3))
 		self.nkpt = self.Kpts.shape[0]
@@ -871,10 +921,10 @@ class JDFTxStruct:
 				self.nelec = float(line.split()[1])
 				if self.spintype in ("no-spin", "z-spin"):
 					nval = int(self.nelec/2)               # valence bands
-					self.mu = np.max(self.Eks[:,:,:nval])
+					self.mu = np.max(self.eigv[:,:,:nval])
 				else:
 					nval = int(self.nelec)
-					self.mu = np.max(self.Eks[0,:,:nval])  # VBM
+					self.mu = np.max(self.eigv[0,:,:nval])  # VBM
 		if mpi.rank == mpi.root:
 			log.info("\t " + p.sep)
 			log.info("\t num. electrons: " + str(self.nelec))
@@ -883,7 +933,27 @@ class JDFTxStruct:
 	def read_band_struct(self):
 		Edft = np.fromfile(self.EIG_FILE).reshape(self.nsp_index,self.nkpt,-1)
 		assert Edft.shape[-1] == self.nbnd
-		self.Eks = Edft
+		self.eigv = Edft
+	def get_band_structure(self, units):
+		eigv2 = np.zeros((self.nbnd,self.nkpt,self.nsp_index))
+		for isp in range(self.nsp_index):
+			for ik in range(self.nkpt):
+				eigv2[:,ik,isp] = self.eigv[isp,ik,:]
+		if units.lower() == "ev":
+			eigv2 = eigv2 * hartree2ev
+			return eigv2
+		elif units.lower() == "ha":
+			return eigv2
+		else:
+			log.error("units: " + units + " not recognized: only eV/Ha")
+	def get_chem_potential(self, units):
+		if units.lower() == "ev":
+			mu2 = self.mu * hartree2ev
+			return mu2
+		elif units.lower() == "ha":
+			return self.mu
+		else:
+			log.error("units: " + units + " not recognized: only eV/Ha")
 	def set_elec_parameters(self):
 		# read K points
 		self.read_Kpts()
