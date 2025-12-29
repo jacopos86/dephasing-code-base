@@ -3,7 +3,13 @@ import inspect
 import sys
 import yaml
 import site
+import os
 from colorlog import ColoredFormatter
+print("DEBUG ENV CHECK:")
+print("ROOT:", os.environ.get("ROOT"))
+print("LOG_LEVEL:", os.environ.get("LOG_LEVEL"))
+#print("MPI_ROOT:", os.environ.get("MPI_ROOT"))
+#print("INSTALL_PYCUDA:", os.environ.get("INSTALL_PYCUDA"))
 
 #
 #   Log class
@@ -141,27 +147,23 @@ class ColoredLogClass(LogSingleton):
 #
 # set up logger
 # read config.yml
-def setup_logger(config_file):
-    try:
-        with open(config_file, 'r') as f:
-            config = yaml.load(f, Loader=yaml.Loader)
-    except Exception as e:
-        raise Exception(f"Failed to load config file: {e}")
-
+def setup_logger():
     LOG_LEVEL = logging.DEBUG   # default
-    if 'LOG_LEVEL' in config:
-        log_level_str = config['LOG_LEVEL'].upper()
-        if log_level_str in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
-            LOG_LEVEL = getattr(logging, log_level_str)
-        else:
-            LOG_LEVEL = logging.NOTSET
-    COLOR = config.get('COLORED_LOGGING', False)
-    if 'LOGFILE' in config:
-        LOGFILE = LOGFILE = config.get('LOGFILE', 'output.log')
+    log_level_str = os.environ.get("LOG_LEVEL").upper()
+    if log_level_str is None:
+        raise EnvironmentError("LOG_LEVEL environment variable is not set")
+    if log_level_str in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+        LOG_LEVEL = getattr(logging, log_level_str)
+    else:
+        LOG_LEVEL = logging.NOTSET
+    COLOR = os.environ.get("COLOR_LOG", "0") == "1"
     # set up logging system
     if COLOR:
         log = ColoredLogClass(LOG_LEVEL)
     else:
+        LOGFILE = os.environ.get("LOG_FILE")
+        if LOGFILE is None:
+            raise EnvironmentError("LOGFILE environment variable is not set")
         log = LogClass(LOG_LEVEL, LOGFILE)
     return log
 
@@ -169,13 +171,4 @@ def setup_logger(config_file):
 #  set up log object
 #
 
-# find code directory
-site_packages = site.getsitepackages()[0].strip().split('/')
-i=0
-for d in site_packages:
-    if d == 'lib':
-        j = i - 2
-    i += 1
-PACKAGE_DIR = '/'.join(site_packages[:j+1])
-config_file = PACKAGE_DIR + "/config.yml"
-log = setup_logger(config_file)
+log = setup_logger()
