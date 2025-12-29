@@ -3,7 +3,7 @@ config.yml
 
 # === Scripts === #
 scr.sh
-run.sh
+run*.sh
 
 # === Build & distribution === #
 build
