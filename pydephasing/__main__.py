@@ -1,3 +1,4 @@
+from petsc4py import PETSc
 from pydephasing.set_param_object import p
 from pydephasing.create_displ_struct_files import gen_poscars, gen_2ndorder_poscar
 from pydephasing.parallelization.mpi import mpi
@@ -113,7 +114,7 @@ def run():
         log.info("\t ++++++                    CALCULATION SUCCESSFULLY COMPLETED                            ++++++")
         log.info("\t ++++++                                                                                  ++++++")
         log.info("\t ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    mpi.finalize_procedure()
+    PETSc.garbage_cleanup()
 
 if __name__ == "__main__":
     run()
