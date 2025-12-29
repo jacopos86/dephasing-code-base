@@ -5,6 +5,21 @@
 include config.mk
 
 # ===================
+#  export variables
+#  Python
+# ===================
+
+export ROOT
+export GPU_ACTIVE
+export GRID_SIZE
+export BLOCK_SIZE
+export TESTS_DIR
+export PYDEPHASING_TESTING
+export LOG_LEVEL
+export COLOR_LOG
+export LOG_FILE
+
+# ===================
 #  Local python
 # ===================
 
@@ -24,7 +39,6 @@ configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requireme
 		MPICC=mpicc HDF5_MPI=ON $(PIP) install --no-binary=h5py h5py; \
 		MPICC=mpicc $(PIP) install --no-binary=mpi4py mpi4py; \
 	else \
-		$(PIP) install petsc; \
 		if [ "$$INSTALL_PYCUDA" = "1" ]; then \
 			echo "Installing pycuda ..."; \
 			$(PIP) install -r $(ROOT)/dependencies/requirements_GPU.txt; \
