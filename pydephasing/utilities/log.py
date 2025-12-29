@@ -2,6 +2,7 @@ import logging
 import inspect
 import sys
 import os
+from pathlib import Path
 from colorlog import ColoredFormatter
 
 #
@@ -157,6 +158,11 @@ def setup_logger():
         LOGFILE = os.environ.get("LOG_FILE")
         if LOGFILE is None:
             raise EnvironmentError("LOGFILE environment variable is not set")
+        root_env = os.environ.get("ROOT")
+        if root_env is None:
+            raise EnvironmentError("ROOT environment variable is not set")
+        PACKAGE_DIR = Path(root_env).resolve()
+        LOGFILE = PACKAGE_DIR / LOGFILE
         log = LogClass(LOG_LEVEL, LOGFILE)
     return log
 
