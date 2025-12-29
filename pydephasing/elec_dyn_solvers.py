@@ -4,11 +4,12 @@
 from pydephasing.set_param_object import p
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
+from pydephasing.build_unpert_struct import build_jdftx_gs_elec_struct
 from pydephasing.wannier_interface.wannier import Wannier
 from pydephasing.phonons_module import JDFTxPhonons
 from pydephasing.q_grid import jdftx_qgridClass
-from pydephasing.set_structs import JDFTxStruct
 from pydephasing.atomic_list_struct import atoms
+from pydephasing.electronic_hamiltonian import electronic_hamiltonian
 
 #
 def solve_elec_model_dyn():
@@ -36,7 +37,7 @@ def solve_elec_dyn_JDFTx_data():
     '''
     use JDFTx data to perform RT dynamics
     '''
-    atoms.set_atoms_data()
+    atoms.set_atoms_data(p.work_dir)
     if mpi.rank == mpi.root:
         log.info("\t " + p.sep)
         log.info("\n")
@@ -47,15 +48,16 @@ def solve_elec_dyn_JDFTx_data():
         atoms.print_atoms_info()
         log.info("\t " + p.sep)
     # set electronic structure
-    elec_struct = JDFTxStruct(p.bnd_kpts_file, p.eigenv_file, p.dft_outfile)
-    elec_struct.set_elec_parameters()
-    # read Wannier data
-    wan = Wannier(elec_struct, p.cellmap_file, p.wan_weights_file, p.wan_mlwfh_file)
-    wan.plot_band_structure()
+    elec_struct = build_jdftx_gs_elec_struct(p.work_dir)
+    He = electronic_hamiltonian(Ewin_Ha=p.elec_win, wann=p.wannier_interp)
+    He.set_energy_spectrum(elec_struct)
+    He.plot_band_structure()
+    He.set_H0_matr()
+    # set phonon structure
     if p.dynamical_mode[1] > 0:
         # read phonons data
         # set q grid
-        qgr = jdftx_qgridClass(p.bnd_kpts_file)
+        qgr = jdftx_qgridClass(p.work_dir)
         qgr.set_qgrid()
         # if we need to compute e-ph interactions
         if mpi.rank == mpi.root:
@@ -63,8 +65,10 @@ def solve_elec_dyn_JDFTx_data():
             log.info("\t COLLECT PHONONS INFORMATION")
             log.info("\t " + p.sep)
             log.info("\n")
-        ph = JDFTxPhonons(p.ph_cellmap_file, p.ph_eigenv_file, p.ph_outfile, p.ph_basis_file)
+        ph = JDFTxPhonons(p.work_dir, p.TR_SYM)
         ph.read_ph_hamilt(qgr=qgr)
         ph.get_ph_supercell()
         ph.compute_eq_ph_angular_momentum_dispersion(qgr)
         ph.compute_full_ph_angular_momentum_matrix(qgr)
+    # clean up
+    He.clean_up()
