@@ -12,8 +12,8 @@ gputil
 gdown
 phonopy
 pytest
-pytest-mpi
 jarvis-tools
+pylatexenc
 qiskit==0.45.1
 qiskit-aer==0.13.3
 pybind11
