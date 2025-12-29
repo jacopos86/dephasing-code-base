@@ -17,6 +17,10 @@ class SpinPhononClass(ABC):
         self.HFI_CALC = None
         # add ZFS contribution to the spin-phonon coupl.
         self.ZFS_CALC = None
+        # global (q,l) list
+        self._ql_lst = None
+        # global gq matrix
+        self._gq = None
     # set up < qs1 | S grad_ax D S | qs2 > coefficients
     # n X n matrix -> n: number states Hsp
     def set_gaxD_force(self, gradZFS, Hsp):
@@ -103,6 +107,57 @@ class SpinPhononClass(ABC):
         Fax = mpi.collect_array(Fax) * 2.*np.pi * hbar
         # eV / ang
         return Fax
+    def collect_gql_and_indices(self, g_ql_local, local_q_modes):
+        """
+        Collect g_ql from all ranks and build a global array,
+        along with the global list of (iq, il) indices.
+        Parameters
+        ----------
+        g_ql_local : np.ndarray
+            Local g_ql array of shape (3,3,nql_local) on each rank.
+        local_q_modes : list of tuple
+            List of (iq, il) indices corresponding to g_ql_local on each rank.
+        set
+        -------
+        g_ql_global : np.ndarray
+            Global array of shape (3,3,nql_global)
+        global_q_modes : list of tuple
+            List of (iq, il) indices corresponding to each mode in g_ql_global
+        """
+        # gather arrays and indices to root
+        g_list = mpi.comm.gather(g_ql_local, root=mpi.root)
+        idx_list = mpi.comm.gather(local_q_modes, root=mpi.root)
+        if mpi.rank == mpi.root:
+            # Concatenate along mode axis
+            g_ql_global = np.concatenate(g_list, axis=2)
+            # Flatten list of indices
+            global_q_modes = [idx for sublist in idx_list for idx in sublist]
+        else:
+            g_ql_global = None
+            global_q_modes = None
+        # Broadcast to all ranks
+        self._gq = mpi.comm.bcast(g_ql_global, root=mpi.root)
+        self._ql_lst = mpi.comm.bcast(global_q_modes, root=mpi.root)
+    def gq_at_iq(self, iq_target):
+        """
+        Extract g_ql matrices for a specific q-point `iq_target`,
+        ordering the modes from 0 to n-1.
+        Returns
+        -------
+        gq : np.ndarray
+            Array of shape (3, 3, nmodes) with g_ql matrices for this q.
+        """
+        # Collect indices of this q-point
+        indices = [i for i, (iq, il) in enumerate(self._ql_lst) if iq == iq_target]
+        if not indices:
+            log.error(f"No modes found for q-point {iq_target}")
+        # Extract corresponding g_ql
+        gq = self._gq[:, :, indices]
+        # Order by mode index il
+        ils = [self._ql_lst[i][1] for i in indices]
+        order = np.argsort(ils)
+        gq = gq[:, :, order]
+        return gq
     #
     # compute g_{ab}(q,l)
     # = \sum_{n;s} Aq e^{iq Rn}e_q(s) <a|g_(ns)H|b>
@@ -111,24 +166,21 @@ class SpinPhononClass(ABC):
         n = len(Hsp.basis_vectors)
         g_ql = np.zeros((n, n, len(ql_list)), dtype=np.complex128)
         # ph. amplitude
-        A_ql = ph.compute_ph_amplitude_q(nat, ql_list)
+        A_ql = ph.compute_ph_amplitude_q(ql_list)
         iql = 0
         for iq, il in ql_list:
-            qv = qgr.qpts[iq]
-            for iL in range(atoms.supercell_size):
-                Rn = atoms.supercell_grid[iL]
-                for jax in range(3*nat):
-                    ia = atoms.index_to_ia_map[jax]
-                    m_ia = atoms.atoms_mass[ia]             
-                    # eV ps^2/A^2
-                    eq = ph.eql[iq][jax,il] / np.sqrt(m_ia)
-                    eiqRn = cmath.exp(1j*2.*np.pi*np.dot(qv, Rn))
-                    g_ql[:,:,iql] += A_ql[iql] * eiqRn * eq * Fax[:,:,jax]
-                    # [eV/ang * ang/eV^1/2 *ps^-1 * eV^1/2 ps]
-                    # = eV
+            eiqR = qgr.compute_phase_factor(iq, nat)
+            for jax in range(3*nat):
+                ia = atoms.index_to_ia_map[jax]
+                m_ia = atoms.atoms_mass[ia]             
+                # eV ps^2/A^2
+                eq = ph.eql[iq][jax,il] / np.sqrt(m_ia)
+                g_ql[:,:,iql] += A_ql[iql] * eiqR[jax] * eq * Fax[:,:,jax]
+                # [eV/ang * ang/eV^1/2 *ps^-1 * eV^1/2 ps]
+                # = eV
             iql += 1
         return g_ql
-        
+
 #
 # first order spin-phonon coupling class
 #
@@ -155,6 +207,7 @@ class SpinPhononFirstOrder(SpinPhononClass):
             Fax += self.set_Fax_hfi(gradHFI, Hsp, sp_config)
         # build ql_list
         ql_list = mpi.split_ph_modes(qgr.nq, ph.nmodes)
+        # central cell approximation
         # compute g_ql
         self.g_ql = self.compute_gql(nat, ql_list, qgr, ph, Hsp, Fax)
         self.ql_list = ql_list

@@ -19,7 +19,6 @@ from pydephasing.auto_correlation_driver import acf_ph
 if GPU_ACTIVE:
     from pycuda.compiler import SourceModule
     import pycuda.driver as cuda
-    import pycuda.autoinit
     from pydephasing.global_params import gpu
 # --------------------------------------------------------------
 #

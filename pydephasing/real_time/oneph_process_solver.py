@@ -10,7 +10,7 @@ from pydephasing.common.phys_constants import THz_to_ev
 from pydephasing.electr_ph_dens_matr import elec_ph_dmatr
 
 if GPU_ACTIVE:
-    from pydephasing.global_params import CUDA_SOURCE_DIR, gpu
+    from pydephasing.global_params import gpu
     from pycuda.compiler import SourceModule
     import pycuda.driver as cuda
     from pydephasing.parallelization.GPU_arrays_handler import GPU_ARRAY

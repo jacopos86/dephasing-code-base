@@ -35,6 +35,7 @@ PETSC_ARCH ?=
 
 NP_MAX ?= 2
 UNIT_TEST_DIR := $(ROOT)/pydephasing/unit_tests
+PYDEPHASING_TESTING ?= 0
 
 # ===================
 #  TESTS dir.
