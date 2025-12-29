@@ -1,15 +1,8 @@
 import logging
 import inspect
 import sys
-import yaml
-import site
 import os
 from colorlog import ColoredFormatter
-print("DEBUG ENV CHECK:")
-print("ROOT:", os.environ.get("ROOT"))
-print("LOG_LEVEL:", os.environ.get("LOG_LEVEL"))
-#print("MPI_ROOT:", os.environ.get("MPI_ROOT"))
-#print("INSTALL_PYCUDA:", os.environ.get("INSTALL_PYCUDA"))
 
 #
 #   Log class
@@ -146,7 +139,7 @@ class ColoredLogClass(LogSingleton):
         sys.exit(1)
 #
 # set up logger
-# read config.yml
+#
 def setup_logger():
     LOG_LEVEL = logging.DEBUG   # default
     log_level_str = os.environ.get("LOG_LEVEL").upper()
