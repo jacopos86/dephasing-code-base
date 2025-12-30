@@ -8,8 +8,9 @@ from pydephasing.common.phys_constants import eps, kb, hbar
 from pydephasing.set_param_object import p
 from pydephasing.utilities.log import log
 from pydephasing.common.phys_constants import hartree2ev, THz_to_ev
-from pydephasing.utilities.plot_functions import plot_ph_band_struct, plot_lph_struct, plot_Mph_heatmap
+from pydephasing.utilities.plot_functions import plot_ph_band_struct, plot_lph_struct, plot_ph_dos, plot_Mph_heatmap
 from pydephasing.atomic_list_struct import atoms
+from pydephasing.phonopy_interface import setup_phonopy_from_forcesets
 
 #
 #  phonons class
@@ -44,22 +45,21 @@ class PhonopyPhonons(PhononsClass):
         super().__init__()
         self.eq_key = ''
         self.uq_key = ''
+        self.phonon = None
     #  get phonon keys
     def get_phonon_keys(self):
-        # open file
-        with h5py.File(p.hd5_eigen_file, 'r') as f:
-            # dict keys
-            keys = list(f.keys())
-            for k in keys:
-                if k == "eigenvector" or k == "Eigenvector" or k == "modes" or k == "Modes":
-                    self.eq_key = k
-            if self.eq_key == '':
-                log.error("phonon eigenvector key not found")
-            for k in keys:
-                if k == "frequency" or k == "Frequency":
-                    self.uq_key = k
-            if self.uq_key == '':
-                log.error("phonon frequency key not found")
+        try:
+            # open file
+            with h5py.File(p.hd5_eigen_file, 'r') as f:
+                # dict keys
+                keys = list(f.keys())
+                for k in keys:
+                    if k.lower() in ("eigenvector", "modes"):
+                        self.eq_key = k
+                    if k.lower() == "frequency":
+                        self.uq_key = k
+        except Exception:
+            pass
     #   set phonon energies
     def set_ph_data(self, qgr):
         self.get_phonon_keys()
@@ -131,13 +131,29 @@ class PhonopyPhonons(PhononsClass):
             log.info("\t FREQUENCY TEST    ->    PASSED")
             log.info("\t " + p.sep)
             log.info("\n")
+    #
+    # read phonopy interface
+    def set_phonopy_calc(self, YAML_POS_FIL, FORCE_SETS_FIL):
+        # first set phonopy from FORCE_SETS
+        self.phonon = setup_phonopy_from_forcesets(YAML_POS_FIL, FORCE_SETS_FIL)
+    #
+    #  plot phonon DOS
+    def plot_phonon_DOS(self):
+        self.phonon.run_mesh([5, 5, 5])
+        self.phonon.run_total_dos()
+        dos = self.phonon.get_total_dos_dict()
+        freq = dos["frequency_points"]
+        g = dos["total_dos"]
+        if mpi.rank == mpi.root:
+            plot_ph_dos(freq, g)
+        mpi.comm.Barrier()
 
 #
 #   JDFTx phonons
 #
 
 class JDFTxPhonons(PhononsClass):
-    def __init__(self, CELLMAP_FILE, EIGENV_FILE, OUT_FILE, PHBASIS_FILE, TR_SYM=True):
+    def __init__(self, gs_data_dir, TR_SYM=True):
         super().__init__()
         self.cellMapPh = None
         self.nCellsPh = None
@@ -148,10 +164,10 @@ class JDFTxPhonons(PhononsClass):
         self.lph_eq = None
         self.Mph = None
         # input files
-        self.CELLMAP_FILE = CELLMAP_FILE
-        self.EIGENV_FILE = EIGENV_FILE
-        self.OUT_FILE = OUT_FILE
-        self.PHBASIS_FILE = PHBASIS_FILE
+        self.CELLMAP_FILE = gs_data_dir + '/totalE.phononCellMap'
+        self.EIGENV_FILE = gs_data_dir + '/totalE.phononOmegaSq'
+        self.OUT_FILE = gs_data_dir + '/phonon.out'
+        self.PHBASIS_FILE = gs_data_dir + '/totalE.phononBasis'
         self.TR_SYM = TR_SYM
     def read_ph_cell_map(self):
         self.cellMapPh = np.loadtxt(self.CELLMAP_FILE)[:,:3].astype(int)
