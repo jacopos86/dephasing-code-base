@@ -16,7 +16,7 @@ from pydephasing.spin_dens_matr import spin_dmatr
 from pydephasing.q_grid import qgridClass
 from pydephasing.nuclear_spin_config import nuclear_spins_config
 from pydephasing.spin_model.spin_hamiltonian import set_spin_hamiltonian
-from pydephasing.real_time.set_real_time_solver import set_real_time_solver
+from pydephasing.real_time.set_real_time_solver import set_spin_model_real_time_solver
 from pydephasing.magnetic_field import magnetic_field
 from pydephasing.phonons_module import PhononsClass
 from pydephasing.spin_model.spin_ph_handler import spin_ph_handler
@@ -106,7 +106,7 @@ def compute_RT_spin_dephas(ZFS_CALC, HFI_CALC, config_index=0):
         print('g_ql', np.max(sp_ph_inter.g_ql.real))
     # set real time solver (time in ps)
     Bfield = magnetic_field(p.Bt)
-    solver = set_real_time_solver(HFI_CALC)
+    solver = set_spin_model_real_time_solver(HFI_CALC)
     if np.sum(p.dynamical_mode) == 0:
         solver.evolve(p.dt, p.T, rho, Hsp, Bfield)
     else:
