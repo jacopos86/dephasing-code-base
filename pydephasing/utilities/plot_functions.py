@@ -74,7 +74,7 @@ def plot_lph_struct(wq, lph, nQ, n_interp=10):
         ax.set_xlim(0,nQ)
         ax.set_xlabel("K-point index")
     cbar = fig.colorbar(line, ax=axs, ticks=np.linspace(-norm_in,norm_in,5), shrink=0.8)
-    cbar.ax.set_title(r"$l_{ph}$")
+    cbar.ax.set_title(r"$l_{ph} (\hbar)$")
     axs[0].set_ylabel("Phonon energy [meV]")
     #plt.tight_layout()# tight_layout moves colorbar in the middle of axs[2]
     plt.savefig(f"{p.write_dir}/Phonon_PAM_bandstructure.png",dpi=300,bbox_inches="tight" )
@@ -92,7 +92,7 @@ def plot_Mph_heatmap(Mph):
         ax.set_xlabel('Mode Index')
         ax.tick_params(top=False, labeltop=False, bottom=True, labelbottom=True)
     cbar = fig.colorbar(cax, ax=axs, ticks=np.linspace(-norm_in,norm_in,5), shrink=0.8)
-    cbar.ax.set_title(r"$\rm M_{ph}$")
+    cbar.ax.set_title(r"$\rm M_{ph} (\hbar)$")
     #plt.tight_layout()# tight_layout moves colorbar in the middle of axs[2]
     plt.savefig(f"{p.write_dir}/Mph_heatmap.png",dpi=300,bbox_inches="tight" )
     plt.show()
