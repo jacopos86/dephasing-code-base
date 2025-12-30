@@ -1,0 +1,219 @@
+import h5py
+import math
+from collections import Counter
+import numpy as np
+import logging
+import cmath
+from itertools import product
+from abc import ABC
+from scipy.interpolate import interp1d
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.set_param_object import p
+from pydephasing.utilities.log import log
+from pydephasing.common.phys_constants import eps
+from pydephasing.atomic_list_struct import atoms
+#
+#   q grid class
+#
+class qgridClass(ABC):
+    def __init__(self):
+        # grid size
+        self.grid_size = None
+        self.nq = None
+        # q points list
+        self.qpts = None
+        # q weight
+        self.wq = None
+    #
+    #  this method creates a list of pairs
+    #  (q, -q)
+    #
+    def set_q2mq_list(self):
+        qvlist = []
+        qplist = []
+        nqp = 0
+        for iq1 in range(self.nq):
+            q1 = self.qpts[iq1]
+            for iq2 in range(self.nq):
+                q2 = self.qpts[iq2]
+                adding = False
+                if np.abs(q1[0]+q2[0]) < eps and np.abs(q1[1]+q2[1]) < eps and np.abs(q1[2]+q2[2]) < eps:
+                    if np.sqrt(q1[0]**2+q1[1]**2+q1[2]**2) > eps:
+                        adding = True
+                        for qp in qvlist:
+                            if np.array_equal(np.array([q1, q2]), np.asarray(qp)) or np.array_equal(np.array([q2, q1]), np.asarray(qp)):
+                                adding = False
+                        if adding:
+                            nqp += 2
+                            qvlist.append([q1, q2])
+                            qplist.append([iq1, iq2])
+                    else:
+                        nqp += 1
+                        qvlist.append([q1, q2])
+                        qplist.append([iq1, iq2])
+        assert nqp == self.nq
+        return qplist
+    #
+    #  build all possible unique 
+    #  (q, q') pairs
+    #
+    def build_qqp_pairs(self):
+        qqp_pairs = []
+        for i in range(self.nq):
+            for j in range(self.nq):
+                if (i, j) not in qqp_pairs:
+                    qqp_pairs.append((i, j))
+        return qqp_pairs
+    #
+    #  find -q index given q index
+    #
+    def find_ip_from_iq(self, iq, qp_list):
+        for qp_pair in qp_list:
+            if iq in qp_pair:
+                if iq == qp_pair[0]:
+                    return qp_pair[1]
+                else:
+                    return qp_pair[0]
+    #
+    #  build irreducible (q,q') pairs
+    #  (q1,-q2)^* -> (q2,-q1)
+    #  (q1,q2)^* -> (-q2,-q1)
+    #  under TR symmetry
+    #
+    def build_irred_qqp_pairs(self):
+        qqp_list = self.build_qqp_pairs()
+        qp_list = self.set_q2mq_list()
+        for iq1 in range(self.nq):
+            ip1 = self.find_ip_from_iq(iq1, qp_list)
+            for iq2 in range(self.nq):
+                ip2 = self.find_ip_from_iq(iq2, qp_list)
+                if (iq1, iq2) in qqp_list and (ip2, ip1) in qqp_list and iq1 != ip2 and iq2 != ip1:
+                    qqp_list.remove((ip2, ip1))
+        for qp in qp_list:
+            [iq1, iq2] = qp
+            if iq1 != iq2 and (iq1, iq2) in qqp_list:
+                qqp_list.remove((iq2, iq1))
+        c = Counter(qqp_list)
+        qqp_list_uniq = [pair for pair in c if c[pair] == 1]
+        assert(len(qqp_list_uniq) == (1 + (self.nq*self.nq-1)/2))
+        return qqp_list_uniq
+    #
+    # check weights
+    def check_weights(self):
+        # check w(q) = w(-q)
+        qplist = self.set_q2mq_list()
+        for [iq, iqp] in qplist:
+            assert self.wq[iq] == self.wq[iqp]
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t W(Q) TEST    ->    PASSED")
+            log.info("\t " + p.sep)
+            log.info("\n")
+
+#
+#  phonopy q grid
+#
+
+class phonopy_qgridClass(qgridClass):
+    def __init__(self, ph_obj=None, grid_size=None):
+        super().__init__()
+        # keys dictionary
+        self.mesh_key = ''
+        self.qpts_key = ''
+        self.wq_key = ''
+        # phonon object
+        self.phonon = None
+        if ph_obj is not None:
+            self.phonon = ph_obj.phonon
+        if grid_size is not None:
+            self.grid_size = grid_size
+    def get_grid_keys(self):
+        try:
+            # open file
+            with h5py.File(p.hd5_eigen_file, 'r') as f:
+                # dict keys
+                keys = list(f.keys())
+                for k in keys:
+                    if k.lower() == "mesh":
+                        self.mesh_key = k
+                    if k.lower() in ("qpoint", "qpoints"):
+                        self.qpts_key = k
+                    if k.lower() == "weight":
+                        self.wq_key = k
+        except Exception:
+            pass
+    # q grid
+    def set_qgrid(self):
+        self.get_grid_keys()
+        # ---- fallback trigger ----
+        if self.mesh_key == '' or self.qpts_key == '' or self.wq_key == '':
+            if mpi.rank == mpi.root:
+                log.warning("q-grid keys not found in file -> using Phonopy mesh")
+            self._set_qgrid_from_phonopy()
+        else:
+            try:
+                # open file
+                with h5py.File(p.hd5_eigen_file, 'r') as f:
+                    # dict keys -> size
+                    self.grid_size = list(f[self.mesh_key])
+                    self.nq = math.prod(self.grid_size)
+                    if mpi.rank == mpi.root:
+                        log.info("\t q grid size: " + str(self.nq))
+                    # dict keys -> qpts
+                    self.qpts = list(f[self.qpts_key])
+                    # dict keys -> wq
+                    self.wq = list(f[self.wq_key])
+                    self.wq = np.array(self.wq, dtype=float)
+                    r = sum(self.wq)
+                    self.wq[:] = self.wq[:] / r
+            except Exception:
+                log.error(f"file: {p.hd5_eigen_file} not found")
+        assert len(self.qpts) == self.nq
+        if log.level <= logging.INFO:
+            self.check_weights()
+    # q grid from phonopy object
+    def _set_qgrid_from_phonopy(self):
+        if self.phonon is None:
+            log.error("No q-grid file and no Phonopy object available")
+        self.phonon.init_mesh(self.grid_size)
+        mesh_dict = self.phonon.get_mesh_dict()
+        # qpts vectors
+        self.qpts = np.array(mesh_dict["qpoints"], dtype=float)
+        self.nq = len(self.qpts)
+        # weights
+        self.wq   = np.array(mesh_dict["weights"], dtype=float)
+        r = sum(self.wq)
+        self.wq[:] = self.wq[:] / r
+        print(self.wq.shape, sum(self.wq))
+    #
+    #  compute phase e^{iq R_k}
+    #  at q pt iq
+    def compute_phase_factor(self, iq, nat):
+        eiqR = np.zeros(3*nat, dtype=np.complex128)
+        qv = self.qpts[iq]
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax]
+            Ra = atoms.atoms_dict[ia]['coordinates']
+            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
+        return eiqR
+
+#
+#  jdftx q grid class
+#
+
+class jdftx_qgridClass(qgridClass):
+    def __init__(self, gs_data_dir):
+        super().__init__()
+        self.QPTS_FILE = gs_data_dir + '/bandstruct.kpoints'
+    # set up q grid
+    def set_qgrid(self):
+        self.qpts = np.loadtxt(self.QPTS_FILE, skiprows=2, usecols=(1,2,3))
+        self.nq = self.qpts.shape[0]
+    # set grid for plot -> phonons
+    def set_qgr_plot(self, n_interp=10):
+        xIn = np.arange(self.nq)
+        x = (1./n_interp)*np.arange(1+n_interp*(self.nq-1))  # range nx more density
+        qp = interp1d(xIn, self.qpts, axis=0)(x)
+        n = qp.shape[0]
+        return qp, n
