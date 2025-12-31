@@ -1,3 +1,4 @@
+from pathlib import Path
 import h5py
 import logging
 import numpy as np
@@ -164,10 +165,11 @@ class JDFTxPhonons(PhononsClass):
         self.lph_eq = None
         self.Mph = None
         # input files
-        self.CELLMAP_FILE = gs_data_dir + '/totalE.phononCellMap'
-        self.EIGENV_FILE = gs_data_dir + '/totalE.phononOmegaSq'
-        self.OUT_FILE = gs_data_dir + '/phonon.out'
-        self.PHBASIS_FILE = gs_data_dir + '/totalE.phononBasis'
+        GSDATA_DIR = Path(gs_data_dir).resolve()
+        self.CELLMAP_FILE = GSDATA_DIR / "totalE.phononCellMap"
+        self.EIGENV_FILE = GSDATA_DIR / "totalE.phononOmegaSq"
+        self.OUT_FILE = GSDATA_DIR / "phonon.out"
+        self.PHBASIS_FILE = GSDATA_DIR / "totalE.phononBasis"
         self.TR_SYM = TR_SYM
     def read_ph_cell_map(self):
         self.cellMapPh = np.loadtxt(self.CELLMAP_FILE)[:,:3].astype(int)
@@ -183,14 +185,26 @@ class JDFTxPhonons(PhononsClass):
             log.info("\t " + p.sep)
         self.ForceMatrix = np.reshape(Forces, (self.nCellsPh,self.nmodes,self.nmodes))
     def get_ph_supercell(self):
-        for line in open(self.OUT_FILE):
-            tokens = line.split()
-            if len(tokens) == 5:
-                if tokens[0] == 'supercell' and tokens[4] == '\\':
-                    self.supercell = np.array([int(token) for token in tokens[1:4]])
         if mpi.rank == mpi.root:
-            log.info("\t ph. supercell grid: " + str(self.supercell))
-            log.info("\t " + p.sep)
+            log.info("\t EXTRACT PH SUPERCELL -> " + str(self.OUT_FILE))
+        try:
+            with open(self.OUT_FILE, "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    tokens = line.strip().split()
+                    if len(tokens) == 5:
+                        if tokens[0].lower() == 'supercell' and tokens[4] == '\\':
+                            try:
+                                self.supercell = np.array([int(tok) for tok in tokens[1:4]], dtype=int)
+                                break  # stop after finding the first valid supercell line
+                            except ValueError:
+                                log.warning("\tCould not parse supercell integers: " + str(tokens[1:4]))
+            if self.supercell is None:
+                log.warning("\tSupercell not found in output file: " + str(self.OUT_FILE))
+            elif mpi.rank == mpi.root:
+                log.info("\t ph. supercell grid: " + str(self.supercell))
+                log.info("\t " + p.sep)
+        except FileNotFoundError:
+            log.error(f"DFT output file not found: {self.OUT_FILE}")
     def read_phonon_basis(self):
         self.phBasis = np.loadtxt(self.PHBASIS_FILE, usecols=[2,3,4])
         self.phBasis = np.sqrt(np.sum(self.phBasis ** 2, axis=1))
