@@ -11,9 +11,9 @@ if GPU_ACTIVE:
 
 class GPU_ARRAY:
     def __init__(self, array, dtype=np.double):
-        self.shape = array.shape
-        self.cpu_array = array.astype(dtype)
-        self.dtype = dtype
+        self.cpu_array = np.ascontiguousarray(array, dtype=dtype)
+        self.shape = self.cpu_array.shape
+        self.dtype = self.cpu_array.dtype
         self.gpu_array = None
     def to_gpu(self, allocate_only=False):
         '''transfer CPU array to GPU memory'''
@@ -28,7 +28,7 @@ class GPU_ARRAY:
         cuda.memcpy_dtoh(result, self.gpu_array)
         return result
     def length(self):
-        return np.int32(len(self.cpu_array))
+        return np.int32(self.cpu_array.size)
     def print_array(self):
         if len(self.shape) == 1:
             print_1D_array(self.cpu_array)
