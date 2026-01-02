@@ -11,7 +11,7 @@ include config.mk
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requirements_GPU.txt $(ROOT)/dependencies/requirements-HPC.txt $(ROOT)/dependencies/requirements-HPC_GPU.txt
+configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requirements_GPU.txt $(ROOT)/dependencies/requirements-HPC.txt $(ROOT)/dependencies/requirements-HPC-Delta.txt $(ROOT)/dependencies/requirements-HPC_GPU.txt
 	$(PYTHON_VERSION) -m venv $(VENV)
 	echo 'export PYTHONPATH="$(ROOT):$$PYTHONPATH"' >> $(VENV)/bin/activate
 	. $(VENV)/bin/activate && \
@@ -24,6 +24,11 @@ configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requireme
 		PETSC_DIR=$$PETSC_DIR PETSC_ARCH=$$PETSC_ARCH $(PIP) install petsc4py; \
 		CC=cc MPICC=mpicc HDF5_MPI=ON $(PIP) install --no-binary=h5py h5py; \
 		MPICC=mpicc $(PIP) install --no-binary=mpi4py mpi4py; \
+	elif [ "$(BUILD_MODE)" = "delta" ]; then \
+		$(PIP) install -r $(ROOT)/dependencies/requirements-HPC-Delta.txt; \
+		module load petsc/3.23.4-cuda-gcc13.3.1; \
+		$(PIP) install petsc4py==3.23.4; \
+		MPICC=cc $(PIP) install --no-binary=mpi4py mpi4py; \
 	else \
 		$(PIP) install petsc; \
 		if [ "$$INSTALL_PYCUDA" = "1" ]; then \
