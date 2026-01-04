@@ -8,6 +8,11 @@ mp = physical_constants["proton mass"][0]
 mp = mp / electron_volt * 1.E30 * 1.E-20
 # proton mass (eV fs^2/Ang^2)
 mp = mp * 1.E-6                      # eV ps^2/Ang^2
+# electron mass
+me = physical_constants["electron mass"][0]
+me = me / electron_volt * 1.E30 * 1.E-20
+# electron mass (eV fs^2/Ang^2)
+me = me * 1.E-6                      # eV ps^2/Ang^2
 #
 THz_to_ev = physical_constants["Planck constant"][0]
 # J sec
