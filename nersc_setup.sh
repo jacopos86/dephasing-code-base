@@ -8,14 +8,15 @@ source /opt/cray/pe/cpe/24.07/restore_lmod_system_defaults.sh
 
 # Load required modules
 module load python
+module load cray-mpich
 
 # -----------------------------
 # Build mode and GPU flag
 # -----------------------------
 export BUILD_MODE=nersc
 export INSTALL_PYCUDA=0
-export PETSC_DIR=/pscratch/sd/j/jsimoni/PYDEPHASING/petsc
-export PETSC_ARCH=arch-linux-c-opt
+# export PETSC_DIR=/pscratch/sd/j/jsimoni/PYDEPHASING/petsc
+# export PETSC_ARCH=arch-linux-c-opt
 
 # -----------------------------
 # PETSc installation
@@ -47,6 +48,11 @@ which mpicc
 mpicc -show
 echo "Check PETSc header:"
 ls $PETSC_DIR/include/petsc.h 2>/dev/null || echo "PETSc header not found."
+# -----------------------------
+#   CONFIGURATION LOCAL ENV
+# -----------------------------
+make configure
+
 # -----------------------------
 # Finished
 # -----------------------------
