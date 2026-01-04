@@ -40,7 +40,7 @@ configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requireme
 			$(PIP) install -r $(ROOT)/dependencies/requirements-HPC.txt; \
 		fi; \
 		echo "Installing petsc4py linked to system MPI..."; \
-		CC=cc MPICC=mpicc $(PIP) install --no-binary=mpi4py,petsc4py mpi4py petsc4py; \
+		CC=cc MPICC=$(shell which mpicc) $(PIP) install --no-binary=mpi4py,petsc4py mpi4py petsc4py; \
 	elif [ "$(BUILD_MODE)" = "delta" ]; then \
 		$(PIP) install -r $(ROOT)/dependencies/requirements-HPC-Delta.txt; \
 		module load petsc/3.23.4-cuda-gcc13.3.1; \
@@ -83,7 +83,7 @@ build :
 		echo "Skipping TESTS_3 download"; \
 	fi; \
 	cd $(ROOT) && \
-	./build.sh "$(LOG_LEVEL)" "$(COLOR_LOG)" "$(LOG_FILE)" "$(INSTALL_PYCUDA)" "$(BLOCK_SIZE)" "$(GRID_SIZE)" $(BUILD_TESTS) "$(TESTS_12_TAR_FILE)" "$(TESTS_3_TAR_FILE)" 
+	./build.sh "$(LOG_LEVEL)" "$(COLOR_LOG)" "$(LOG_FILE)" "$(INSTALL_PYCUDA)" "$(BLOCK_SIZE)" "$(GRID_SIZE)" "$(BUILD_TESTS)" "$(TESTS_12_TAR_FILE)" "$(TESTS_3_TAR_FILE)" 
 install :
 	. $(VENV)/bin/activate ; \
 	$(PIP) install .
