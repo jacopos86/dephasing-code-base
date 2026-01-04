@@ -26,7 +26,7 @@ export LOG_FILE
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requirements_GPU.txt $(ROOT)/dependencies/requirements-HPC.txt $(ROOT)/dependencies/requirements-HPC_GPU.txt
+configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requirements_GPU.txt $(ROOT)/dependencies/requirements-HPC.txt $(ROOT)/dependencies/requirements-HPC-Delta.txt $(ROOT)/dependencies/requirements-HPC_GPU.txt
 	$(PYTHON_VERSION) -m venv $(VENV)
 	echo 'export PYTHONPATH="$(ROOT):$$PYTHONPATH"' >> $(VENV)/bin/activate
 	. $(VENV)/bin/activate && \
@@ -41,6 +41,11 @@ configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requireme
 		fi; \
 		echo "Installing petsc4py linked to system MPI..."; \
 		CC=cc MPICC=mpicc $(PIP) install --no-binary=mpi4py,petsc4py mpi4py petsc4py; \
+	elif [ "$(BUILD_MODE)" = "delta" ]; then \
+		$(PIP) install -r $(ROOT)/dependencies/requirements-HPC-Delta.txt; \
+		module load petsc/3.23.4-cuda-gcc13.3.1; \
+		$(PIP) install petsc4py==3.23.4; \
+		MPICC=cc $(PIP) install --no-binary=mpi4py mpi4py; \
 	else \
 		if [ "$$INSTALL_PYCUDA" = "1" ]; then \
 			echo "Installing pycuda ..."; \
@@ -78,7 +83,7 @@ build :
 		echo "Skipping TESTS_3 download"; \
 	fi; \
 	cd $(ROOT) && \
-	./build.sh "$(LOG_LEVEL)" "$(COLOR_LOG)" "$(LOG_FILE)" "$(INSTALL_PYCUDA)" "$(BLOCK_SIZE)" "$(GRID_SIZE)" "$(BUILD_TESTS)" "$(TESTS_12_TAR_FILE)" "$(TESTS_3_TAR_FILE)" 
+	./build.sh "$(LOG_LEVEL)" "$(COLOR_LOG)" "$(LOG_FILE)" "$(INSTALL_PYCUDA)" "$(BLOCK_SIZE)" "$(GRID_SIZE)" $(BUILD_TESTS) "$(TESTS_12_TAR_FILE)" "$(TESTS_3_TAR_FILE)" 
 install :
 	. $(VENV)/bin/activate ; \
 	$(PIP) install .
