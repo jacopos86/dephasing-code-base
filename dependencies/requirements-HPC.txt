@@ -1,9 +1,10 @@
 numpy
+scipy
 cython
+h5py
 matplotlib
 pymatgen
 PyYAML
-scipy
 colorlog
 mendeleev
 scikit-learn
@@ -12,7 +13,6 @@ gputil
 gdown
 phonopy
 pytest
-pytest-mpi
 jarvis-tools
 qiskit==0.45.1
 qiskit-aer==0.13.3
