@@ -26,18 +26,26 @@ export LOG_FILE
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requirements_GPU.txt $(ROOT)/dependencies/requirements-HPC.txt $(ROOT)/dependencies/requirements-HPC_GPU.txt
+configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requirements_GPU.txt $(ROOT)/dependencies/requirements-HPC.txt $(ROOT)/dependencies/requirements-HPC-Delta.txt $(ROOT)/dependencies/requirements-HPC_GPU.txt
 	$(PYTHON_VERSION) -m venv $(VENV)
 	echo 'export PYTHONPATH="$(ROOT):$$PYTHONPATH"' >> $(VENV)/bin/activate
 	. $(VENV)/bin/activate && \
 	$(PIP) install --upgrade pip setuptools wheel && \
 	if [ "$(BUILD_MODE)" = "nersc" ]; then \
-		if [ -z "$$PETSC_DIR" ] || [ -z "$$PETSC_ARCH" ]; then \
-			echo "ERROR: PETSC_DIR and PETSC_ARCH must be set"; exit 1; \
+		if [ "$$INSTALL_PYCUDA" = "1" ]; then \
+			echo "Installing pycuda ..."; \
+			$(PIP) install -r $(ROOT)/dependencies/requirements-HPC_GPU.txt; \
+		else \
+			echo "Skipping pycuda (set INSTALL_PYCUDA=1 to enable)"; \
+			$(PIP) install -r $(ROOT)/dependencies/requirements-HPC.txt; \
 		fi; \
-		PETSC_DIR=$$PETSC_DIR PETSC_ARCH=$$PETSC_ARCH $(PIP) install petsc4py; \
-		MPICC=mpicc HDF5_MPI=ON $(PIP) install --no-binary=h5py h5py; \
-		MPICC=mpicc $(PIP) install --no-binary=mpi4py mpi4py; \
+		echo "Installing petsc4py linked to system MPI..."; \
+		CC=cc MPICC=$(shell which mpicc) $(PIP) install --no-binary=mpi4py,petsc4py mpi4py petsc4py; \
+	elif [ "$(BUILD_MODE)" = "delta" ]; then \
+		$(PIP) install -r $(ROOT)/dependencies/requirements-HPC-Delta.txt; \
+		module load petsc/3.23.4-cuda-gcc13.3.1; \
+		$(PIP) install petsc4py==3.23.4; \
+		MPICC=cc $(PIP) install --no-binary=mpi4py mpi4py; \
 	else \
 		if [ "$$INSTALL_PYCUDA" = "1" ]; then \
 			echo "Installing pycuda ..."; \
@@ -110,5 +118,5 @@ test :
 		done; \
 	else \
 		echo "Skipping MPI tests"; \
-	fi
+	fi && \
 	PYDEPHASING_TESTING=1 $(PYTHON) -m pytest $(UNIT_TEST_DIR)/test_7.py

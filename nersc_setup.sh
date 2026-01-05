@@ -3,50 +3,49 @@
 # NERSC HPC environment setup
 # -----------------------------
 
+module purge
 # Restore system defaults first
 source /opt/cray/pe/cpe/24.07/restore_lmod_system_defaults.sh
 
 # Load required modules
 module load python
+module load PrgEnv-gnu
 
 # -----------------------------
 # Build mode and GPU flag
 # -----------------------------
 export BUILD_MODE=nersc
 export INSTALL_PYCUDA=0
-export PETSC_DIR=/pscratch/sd/j/jsimoni/PYDEPHASING/petsc
-export PETSC_ARCH=arch-linux-c-opt
+export DOWNLOAD_EXAMPLES=1
+export DOWNLOAD_TESTS3=0
+export BUILD_TESTS="1 2"
 
 # -----------------------------
-# PETSc installation
-# -----------------------------
-
-if [ ! -d "$PETSC_DIR" ]; then
-	echo "PETSc not found at $PETSC_DIR"
-	echo "Installing PETSc..."
-	
-	git clone -b release https://gitlab.com/petsc/petsc.git $PETSC_DIR
-	cd $PETSC_DIR	
-
-	./configure \
-		--PETSC_ARCH="$PETSC_ARCH" \
-		--with-cc=mpicc \
-		--with-cxx=mpicxx \
-		--with-fc=mpif90 \
-		--with-shared-libraries=1
-	make all
-else
-    echo "Using existing PETSc at $PETSC_DIR"
-fi
-
-# -----------------------------
-# Verify MPI and PETSc
+# Verify MPI
 # -----------------------------
 echo "MPI compiler:"
 which mpicc
 mpicc -show
-echo "Check PETSc header:"
-ls $PETSC_DIR/include/petsc.h 2>/dev/null || echo "PETSc header not found."
+
+# -----------------------------
+# Configure Python environment
+# -----------------------------
+make configure
+
+# -----------------------------
+#  Build / install
+# -----------------------------
+
+make build
+
+make install
+
+# -----------------------------
+#   TESTS
+# -----------------------------
+
+make test
+
 # -----------------------------
 # Finished
 # -----------------------------
