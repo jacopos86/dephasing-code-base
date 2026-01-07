@@ -608,6 +608,10 @@ class real_time_MODEL_input(real_time_elec_input):
             self.chem_pot = data['chem_pot']
         if 'elec_ener_window' in data:
             self.elec_win = data['elec_ener_window']
+        if 'smearing' in data:
+            self.smearing = data['smearing']
+        if 'Te' in data:
+            self.Te = data['Te']
 
 class Q_real_time_input(dynamical_data_input):
     # initialization
