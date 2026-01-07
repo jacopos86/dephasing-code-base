@@ -857,9 +857,10 @@ class JDFTxStruct:
 		self.mu = None
 		self.nelec = None
 		# external file
-		self.OUT_FILE = gs_data_dir + '/totalE.out'
-		self.KPTS_FILE = gs_data_dir + '/bandstruct.kpoints'
-		self.EIG_FILE = gs_data_dir + '/bandstruct.eigenvals'
+		GSDATA_DIR = Path(gs_data_dir).resolve()
+		self.OUT_FILE = GSDATA_DIR / "totalE.out"
+		self.KPTS_FILE = GSDATA_DIR / "bandstruct.kpoints"
+		self.EIG_FILE = GSDATA_DIR / "bandstruct.eigenvals"
 	def read_Kpts(self):
 		self.Kpts = np.loadtxt(self.KPTS_FILE, skiprows=2, usecols=(1,2,3))
 		self.nkpt = self.Kpts.shape[0]
@@ -868,63 +869,88 @@ class JDFTxStruct:
 			log.info("\t n. K pts: " + str(self.nkpt))
 	def read_nspin(self):
 		if mpi.rank == mpi.root:
-			log.info("\t EXTRACT N. SPIN FROM -> " + self.OUT_FILE)
-		with open(self.OUT_FILE, "r") as fil:
-			for line in fil:
-				line = line.strip().split()
-				if len(line) > 0:
-					if line[0] == "spintype":
-						self.spintype = line[1]
-						if line[1] == "no-spin":
-							''' spin unpolarized '''
-							self.npol = 1
-							self.nsp_index = 1
-						elif line[1] == "spin-orbit":
-							''' spin orbit with no magnetization '''
-							self.npol = 2
-							self.nsp_index = 1
-						elif line[1] == "vector-spin":
-							''' non collinear magnetism '''
-							self.npol = 2
-							self.nsp_index = 1
-						elif line[1] == "z-spin":
-							''' spin polarized calculation '''
-							self.npol = 1
-							self.nsp_index = 2
-						else:
+			log.info("\t EXTRACT N. SPIN FROM -> " + str(self.OUT_FILE))
+		try:
+			with open(self.OUT_FILE, "r", encoding="utf-8", errors="replace") as f:
+				for line in f:
+					line = line.strip()
+					if not line or line.startswith("#"):
+						continue
+					line = line.split()
+					if len(line) >= 2 and line[0] == "spintype":
+						try:
+							self.spintype = line[1]
+							if line[1] == "no-spin":
+								''' spin unpolarized '''
+								self.npol = 1
+								self.nsp_index = 1
+							elif line[1] == "spin-orbit":
+								''' spin orbit with no magnetization '''
+								self.npol = 2
+								self.nsp_index = 1
+							elif line[1] == "vector-spin":
+								''' non collinear magnetism '''
+								self.npol = 2
+								self.nsp_index = 1
+							elif line[1] == "z-spin":
+								''' spin polarized calculation '''
+								self.npol = 1
+								self.nsp_index = 2
+							else:
+								log.warning("spin index not recognized")
+							break
+						except ValueError:
 							log.error("spintype flag not recognized in " + self.OUT_FILE)
+		except FileNotFoundError:
+			log.error(f"DFT output file not found: {self.OUT_FILE}")
 		if mpi.rank == mpi.root:
 			log.info("\t n. spin indexes: " + str(self.nsp_index))
 			log.info("\t spin polarization: " + str(self.npol))
 			log.info("\t " + p.sep)
 	def read_nbands(self):
 		if mpi.rank == mpi.root:
-			log.info("\t EXTRACT N. BANDS FROM -> " + self.OUT_FILE)
-		with open(self.OUT_FILE, "r") as fil:
-			for line in fil:
-				line = line.strip().split()
-				if len(line) > 0:
-					if line[0] == "elec-n-bands":
-						self.nbnd = int(line[1])
+			log.info("\t EXTRACT N. BANDS FROM -> " + str(self.OUT_FILE))
+		try:
+			with open(self.OUT_FILE, "r", encoding="utf-8", errors="replace") as f:
+				for line in f:
+					line = line.strip()
+					if not line or line.startswith("#"):
+						continue  # skip empty lines or comments
+					line = line.split()
+					if len(line) >= 2 and line[0] == "elec-n-bands":
+						try:
+							self.nbnd = int(line[1])
+							break  # stop after first match
+						except ValueError:
+							log.error(f"Cannot parse number of bands from line: {line}")
+		except FileNotFoundError:
+			log.error(f"DFT output file not found: {self.OUT_FILE}")
+		if self.nbnd is None:
+			log.warning("Number of bands ('elec-n-bands') not found in output file. Setting nbnd=0.")
+			self.nbnd = 0
 		if mpi.rank == mpi.root:
 			log.info("\t " + p.sep)
 			log.info("\t n. electronic bands: " + str(self.nbnd))
 	def set_chem_pot(self):
 		self.mu = np.nan
 		initDone = False
-		for line in open(self.OUT_FILE):
-			if line.startswith('Initialization completed'):
-				initDone = True
-			if initDone and line.find('FillingsUpdate:')>=0:
-				self.mu = float(line.split()[2])
-			if (not initDone) and line.startswith('nElectrons:'):
-				self.nelec = float(line.split()[1])
-				if self.spintype in ("no-spin", "z-spin"):
-					nval = int(self.nelec/2)               # valence bands
-					self.mu = np.max(self.eigv[:,:,:nval])
-				else:
-					nval = int(self.nelec)
-					self.mu = np.max(self.eigv[0,:,:nval])  # VBM
+		try:
+			with open(self.OUT_FILE, "r", encoding="utf-8", errors="replace") as f:
+				for line in f:
+					if line.startswith('Initialization completed'):
+						initDone = True
+					if initDone and line.find('FillingsUpdate:')>=0:
+						self.mu = float(line.split()[2])
+					if (not initDone) and line.startswith('nElectrons:'):
+						self.nelec = float(line.split()[1])
+						if self.spintype in ("no-spin", "z-spin"):
+							nval = int(self.nelec/2)               # valence bands
+							self.mu = np.max(self.eigv[:,:,:nval])
+						else:
+							nval = int(self.nelec)
+							self.mu = np.max(self.eigv[0,:,:nval])  # VBM
+		except FileNotFoundError:
+			log.error(f"DFT output file not found: {self.OUT_FILE}")
 		if mpi.rank == mpi.root:
 			log.info("\t " + p.sep)
 			log.info("\t num. electrons: " + str(self.nelec))
@@ -932,6 +958,11 @@ class JDFTxStruct:
 			log.info("\t " + p.sep)
 	def read_band_struct(self):
 		Edft = np.fromfile(self.EIG_FILE).reshape(self.nsp_index,self.nkpt,-1)
+		if Edft.shape[-1] < self.nbnd:
+			self.nbnd = Edft.shape[-1]
+			log.warning(f"Edft shape: {Edft.shape}")
+			log.warning("n. of bands < n. bands in DFT output file")
+			log.warning("n. bands reset")
 		assert Edft.shape[-1] == self.nbnd
 		self.eigv = Edft
 	def get_band_structure(self, units):
@@ -962,7 +993,7 @@ class JDFTxStruct:
 		self.read_nspin()
 		# read electronic band structure
 		if mpi.rank == mpi.root:
-			log.info("\t EXTRACT BAND STRUCTURE from -> " + self.EIG_FILE)
+			log.info("\t EXTRACT BAND STRUCTURE from -> " + str(self.EIG_FILE))
 		self.read_band_struct()
 		# get mu/VBM from totalE.out
 		self.set_chem_pot()

@@ -2,6 +2,7 @@ import numpy as np
 import os
 import re
 import yaml
+from pathlib import Path
 import mendeleev
 from pydephasing.utilities.input_parser import parser
 from pydephasing.utilities.log import log
@@ -149,12 +150,18 @@ class phonopyAtomicStructureClass(AtomicStructureClass):
 class JDFTxAtomicStructureClass(AtomicStructureClass):
     def __init__(self):
         super().__init__()
-        self.pos_pattern = r"ion (\w+) +([0-9\.]+) +([0-9\.]+) +([0-9\.]+)"
+        # regex for "ion SYMBOL x y z [optional_index]" with flexible spacing
+        self.pos_pattern = re.compile(
+            r"^ion\s+(\w+)\s+([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)\s+"
+            r"([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)\s+"
+            r"([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)"
+        )
         self.mass_key = "mass"
         self.DFT_OUTFILE = None
     # set atoms data
     def set_atoms_data(self, gs_data_dir):
-        self.DFT_OUTFILE = gs_data_dir + '/totalE.out'
+        GSDATA_DIR = Path(gs_data_dir).resolve()
+        self.DFT_OUTFILE = GSDATA_DIR / "totalE.out"
         self.set_number_of_atoms()
         self.compute_index_to_ia_map()
         self.compute_index_to_idx_map()
@@ -165,29 +172,48 @@ class JDFTxAtomicStructureClass(AtomicStructureClass):
     # set number of atoms
     def set_number_of_atoms(self):
         self.nat = 0
-        with open(self.DFT_OUTFILE) as f:
+        with open(self.DFT_OUTFILE, "r", encoding="utf-8", errors="replace") as f:
             data = f.readlines()
+            reading_block = False
             for line in data:
-                match = re.match(self.pos_pattern, line)
-                if match:
-                    self.nat += 1
+                # start of the atomic block
+                if line.strip().startswith("# Ionic positions"):
+                    reading_block = True
+                    continue
+                # stop reading at the next empty line or comment after block
+                if reading_block and (line.strip() == "" or line.strip().startswith("#")):
+                    break
+                if reading_block:
+                    match = self.pos_pattern.search(line)
+                    if match:
+                        self.nat += 1
     # set atomic coordinates
     def extract_atoms_coords(self):
         keys = ["symbol", "coordinates", "mass"]
         # read from dft output
         self.atoms_dict = []
-        with open(self.DFT_OUTFILE) as f:
+        with open(self.DFT_OUTFILE, "r", encoding="utf-8", errors="replace") as f:
             data = f.readlines()
+            reading_block = False
             for line in data:
-                match = re.match(self.pos_pattern, line)
-                if match:
-                    species = match.group(1)
-                    x = float(match.group(2))
-                    y = float(match.group(3))
-                    z = float(match.group(4))
-                    R = np.array([x, y, z])
-                    M = mendeleev.element(species).mass
-                    self.atoms_dict.append(dict(zip(keys, [species, R, M])))
+                # start of the atomic block
+                if line.strip().startswith("# Ionic positions"):
+                    reading_block = True
+                    continue
+                # stop reading at the next empty line or comment after block
+                if reading_block and (line.strip() == "" or line.strip().startswith("#")):
+                    break
+                if reading_block:
+                    match = self.pos_pattern.search(line)
+                    if match:
+                        species = match.group(1)
+                        x = float(match.group(2))
+                        y = float(match.group(3))
+                        z = float(match.group(4))
+                        R = np.array([x, y, z])
+                        M = mendeleev.element(species).mass
+                        self.atoms_dict.append(dict(zip(keys, [species, R, M])))
+        assert(len(self.atoms_dict) == self.nat)
     def print_atoms_info(self):
         """
         Prints the atomic information including species and positions from the extracted atoms_dict.

@@ -7,6 +7,7 @@ from pydephasing.common.matrix_operations import commute
 import numpy as np
 
 #
+#      TODO rewrite -> implement Liouvile solver from base class in real_time_solver
 #      Liouville solver without nuclear spins
 #
 

@@ -576,6 +576,43 @@ class real_time_VASP_input(real_time_elec_input):
         f.close()
         self.read_yml_data_dyn(data)
 
+class real_time_MODEL_input(real_time_elec_input):
+    def __init__(self):
+        super().__init__()
+        #  local input variables
+        self.elec_bands = None
+        self.nkpt = None
+        self.elec_eff_mass = None
+        self.elec_band_offset = None
+        self.chem_pot = None
+        self.elec_win = None
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # read specific model inputs
+        if 'elec_bands' in data:
+            self.elec_bands = data['elec_bands']
+        if 'k_points' in data:
+            self.nkpt = data['k_points']
+        if 'eff_mass' in data:
+            self.elec_eff_mass = data['eff_mass']
+        if 'elec_band_offset' in data:
+            self.elec_band_offset = data['elec_band_offset']
+        if 'chem_pot' in data:
+            self.chem_pot = data['chem_pot']
+        if 'elec_ener_window' in data:
+            self.elec_win = data['elec_ener_window']
+        if 'smearing' in data:
+            self.smearing = data['smearing']
+        if 'Te' in data:
+            self.Te = data['Te']
+
 class Q_real_time_input(dynamical_data_input):
     # initialization
     def __init__(self):
