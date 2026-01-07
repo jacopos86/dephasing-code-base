@@ -6,6 +6,7 @@ from pydephasing.utilities.log import log
 from pydephasing.utilities.timer import timer
 from pydephasing.utilities.input_parser import parser
 from pydephasing.calculation_drivers import energy_linewidth_driver, spin_qubit_driver, elec_system_driver
+from pathlib import Path
 
 def run():
     #
@@ -21,9 +22,13 @@ def run():
     #  input structure :
     #  pydephasing -ct1 [LR, LBLD, NMARK, init, postproc] -co [spin, energy] -ct2 [stat,statdd,homo,inhomo,full] - yml_inp [input]
     # 
-    yml_file = parser.parse_args().yml_inp[0]
-    if yml_file is None:
+    yml_file_in = parser.parse_args().yml_inp[0]
+    if yml_file_in is None:
         log.error("-> yml file name missing")
+    else:
+        yml_file = Path(yml_file_in).resolve()
+        if not Path.exists(yml_file):
+            log.error(f"-> yml file not found in: {yml_file}")
     nargs = 2
     if parser.parse_args().co is not None:
         nargs += 1
