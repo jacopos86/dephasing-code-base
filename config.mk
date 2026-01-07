@@ -23,13 +23,6 @@ GRID_SIZE ?=
 BLOCK_SIZE ?=
 
 # ===================
-#  PETSc variables
-# ===================
-
-PETSC_DIR ?=
-PETSC_ARCH ?=
-
-# ===================
 #  unit tests
 # ===================
 

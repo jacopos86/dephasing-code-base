@@ -15,8 +15,9 @@ module load cray-mpich
 # -----------------------------
 export BUILD_MODE=delta
 export INSTALL_PYCUDA=0
-export PETSC_DIR=/pscratch/sd/j/jsimoni/PYDEPHASING/petsc
-export PETSC_ARCH=arch-linux-c-opt
+export DOWNLOAD_EXAMPLES=1
+export DOWNLOAD_TESTS3=0
+export BUILD_TESTS="1 2"
 
 # -----------------------------
 # Verify MPI
@@ -24,6 +25,26 @@ export PETSC_ARCH=arch-linux-c-opt
 echo "MPI compiler:"
 which mpicc
 mpicc -show
+
+# -----------------------------
+# Configure Python environment
+# -----------------------------
+make configure
+
+# -----------------------------
+#  Build / install
+# -----------------------------
+
+make build
+
+make install
+
+# -----------------------------
+#   TESTS
+# -----------------------------
+
+make test
+
 # -----------------------------
 # Finished
 # -----------------------------
