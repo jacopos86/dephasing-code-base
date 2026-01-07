@@ -302,3 +302,13 @@ class JDFTxPhonons(PhononsClass):
         self.read_force_matrix()
         # read K points
         self.compute_energy_dispersion(qgr)
+
+#
+#   Phonons structure model
+#
+
+class PhononsStructModel(PhononsClass):
+    def __init__(self):
+        super().__init__()
+        # model -> ONLY acoustic ph branch
+        self.nmodes = 1
