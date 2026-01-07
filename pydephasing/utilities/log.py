@@ -143,25 +143,36 @@ class ColoredLogClass(LogSingleton):
 #
 def setup_logger():
     LOG_LEVEL = logging.DEBUG   # default
-    log_level_str = os.environ.get("LOG_LEVEL").upper()
-    if log_level_str is None:
-        raise EnvironmentError("LOG_LEVEL environment variable is not set")
+    if "LOG_LEVEL" in os.environ:
+        log_level_str = os.environ.get("LOG_LEVEL").upper()
+    else:
+        log_level_str = "NOTSET"
     if log_level_str in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
         LOG_LEVEL = getattr(logging, log_level_str)
     else:
+        if "LOG_LEVEL" in os.environ:
+            import warnings
+            warnings.warn(f"WARNING environment variable \"LOG_LEVEL\" set to {log_level_str} which is not one of the valid options:\n\tDEBUG, INFO, WARNING, ERROR, CRITICAL\nUsing default instead.")
+            
         LOG_LEVEL = logging.NOTSET
     COLOR = os.environ.get("COLOR_LOG", "0") == "1"
     # set up logging system
     if COLOR:
         log = ColoredLogClass(LOG_LEVEL)
     else:
-        LOGFILE = os.environ.get("LOG_FILE")
-        if LOGFILE is None:
-            raise EnvironmentError("LOGFILE environment variable is not set")
-        root_env = os.environ.get("ROOT")
-        if root_env is None:
-            raise EnvironmentError("ROOT environment variable is not set")
-        PACKAGE_DIR = Path(root_env).resolve()
+        if "LOG_FILE" in os.environ:
+            LOGFILE = os.environ.get("LOG_FILE")
+        else:
+            LOGFILE = "py-dephase.log"
+
+        #AG This if block can be removed now 
+        #root_env = os.environ.get("ROOT")
+        #if root_env is None:
+        #    raise EnvironmentError("ROOT environment variable is not set")
+        #PACKAGE_DIR = Path(root_env).resolve()
+        
+        ## AG should this be the directory of the package or cwd? 
+        PACKAGE_DIR = Path.cwd()
         LOGFILE = PACKAGE_DIR / LOGFILE
         log = LogClass(LOG_LEVEL, LOGFILE)
     return log

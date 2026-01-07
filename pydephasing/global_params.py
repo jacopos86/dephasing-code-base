@@ -1,15 +1,16 @@
 from pathlib import Path
 import os
+import pydephasing
+
+
 #
 MPI_ROOT = 0
 ngpus = 0
 # === Repo root MUST be set via environment variable ===
-root_env = os.environ.get("ROOT")
-if root_env is None:
-    raise EnvironmentError("ROOT environment variable is not set")
-PACKAGE_DIR = Path(root_env).resolve()
-if not PACKAGE_DIR.exists():
-    raise FileNotFoundError(f"Specified PACKAGE_DIR does not exist: {PACKAGE_DIR}")
+
+# === Get path from module ===
+PACKAGE_DIR = Path(pydephasing.__path__[0]).resolve()
+
 # === GPU Section ===
 GPU_ACTIVE = os.environ.get("GPU_ACTIVE", "0") == "1"
 if GPU_ACTIVE:
@@ -25,7 +26,7 @@ if GPU_ACTIVE:
     device_id = rank % ngpus
     print(f"[Rank {rank}] Using CUDA device {device_id}/{ngpus}")
     # CUDA SOURCE DIR
-    CUDA_SOURCE_DIR = PACKAGE_DIR / "pydephasing" / "gpu_source"
+    CUDA_SOURCE_DIR = PACKAGE_DIR / "gpu_source"
     if not CUDA_SOURCE_DIR.exists():
         raise FileNotFoundError(f"CUDA source directory does not exist: {CUDA_SOURCE_DIR}")
     if ngpus > 0:
