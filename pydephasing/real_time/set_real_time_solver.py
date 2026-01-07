@@ -3,13 +3,15 @@ from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.real_time.Liouville_solver import LiouvilleSolverSpin, LiouvilleSolverHFI
-from pydephasing.real_time.oneph_process_solver import OnephSolver
+from pydephasing.real_time.oneph_kernel import OnephSolver
 
+# ================================================================
 #
-#   This module set the real time solver
+#   This module set the real time solver (spin Hamiltonian ONLY)
 #
+# ================================================================
 
-def set_real_time_solver(HFI_CALC):
+def set_spin_model_real_time_solver(HFI_CALC):
     calc_type1 = parser.parse_args().ct1[0]
     # assert calc_type1 is set to RT
     assert calc_type1 == "RT"
