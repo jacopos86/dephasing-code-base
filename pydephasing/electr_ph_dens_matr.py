@@ -58,3 +58,33 @@ class CPU_elec_ph_dmatr(elec_ph_dmatr):
 class GPU_elec_ph_dmatr(elec_ph_dmatr):
     def __init__(self):
         super(GPU_elec_ph_dmatr, self).__init__()
+
+# =============================================================
+# Model electron-phonon density matrix (deformation potential)
+# =============================================================
+class model_elec_ph_dmatr(elec_ph_dmatr):
+    def __init__(self, nbnd, n_ph_modes):
+        super(model_elec_ph_dmatr, self).__init__()
+        self.nbnd = nbnd
+        self.n_ph_modes = n_ph_modes
+        self.dmatr = None  # will hold PETSc matrices per mode
+    # generate PETSc matrices for each phonon mode
+    def initialize_matrices(self):
+        self.dmatr = []
+        for iq in range(self.n_ph_modes):
+            # each matrix: nbnd x nbnd complex
+            mat = PETSc.Mat().createDense(
+                size=(self.nbnd, self.nbnd),
+                array=np.zeros((self.nbnd, self.nbnd), dtype=np.complex128)
+            )
+            mat.assemble()
+            self.dmatr.append(mat)
+    # set initial population (diagonal)
+    def set_initial_population(self, rho0=None):
+        if rho0 is None:
+            rho0 = np.zeros((self.nbnd, self.nbnd), dtype=np.complex128)
+            for b in range(self.nbnd):
+                rho0[b, b] = 0.0  # default: empty
+        for iq, mat in enumerate(self.dmatr):
+            mat.setValues(range(self.nbnd), range(self.nbnd), rho0)
+            mat.assemble()
