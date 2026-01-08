@@ -100,8 +100,7 @@ def compute_JDFTx_elec_dephas():
     if mpi.rank == mpi.root:
         log.info("\t " + p.sep)
         log.info("\n")
-        log.info("\t PERFORM LINEAR RESPONSE CALCULATION")
-        log.info("\t COLLECT DATA FROM JDFTx CALCULATION")
+        log.info("\t COLLECTING DATA FROM JDFTx CALCULATION")
         log.info("\n")
         log.info("\t " + p.sep)
         atoms.print_atoms_info()
@@ -111,8 +110,8 @@ def compute_JDFTx_elec_dephas():
     He = electronic_hamiltonian(Ewin_Ha=p.elec_win, wann=p.wannier_interp)
     He.set_energy_spectrum(elec_struct)
     He.plot_band_structure()
-    exit()
     He.set_H0_matr()
+    exit()
     # set phonon structure
     if p.dynamical_mode[1] > 0:
         # read phonons data
