@@ -16,7 +16,8 @@ def plot_elec_struct(Eks, mu, Ylim=[-0.3, 0.5]):
         for ib in range(Eks.shape[0]):
             plt.plot(range(Eks.shape[1]), Eks[ib, :, isp]-mu, 'k.', markersize=2, label='DFT (KS)' if ib==0 else "")
     plt.axhline(0, color='gray', lw=1.5)
-    plt.ylim(Ylim[0], Ylim[1])
+    if Ylim is not None:
+        plt.ylim(Ylim[0], Ylim[1])
     if Eks.shape[1] == 1:
         plt.xlim([-1, 1])
     else:
@@ -38,7 +39,8 @@ def plot_wan_struct(Ew, Eks, mu, n_interp=10, Ylim=[-0.3, 0.5]):
     for ib in range(Ew.shape[1]):
         plt.plot(xw, Ew[:, ib]-mu, 'r-', color='r', lw=1, label='Wannier' if ib==0 else "")
     plt.axhline(0, color='gray', lw=1.5)
-    plt.ylim(Ylim[0], Ylim[1])
+    if Ylim is not None:
+        plt.ylim(Ylim[0], Ylim[1])
     plt.xlim(0., Eks.shape[0])
     plt.ylabel("E - VBM [Ha]")
     plt.xlabel("k-point index")
