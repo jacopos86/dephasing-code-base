@@ -9,7 +9,7 @@ from pydephasing.read_wfc_interface import read_wfc
 from pydephasing.electronic_hamiltonian import electronic_hamiltonian
 from pydephasing.observables import ObservablesElectronicSystem
 from pydephasing.electron_density import ElectronDensity
-from pydephasing.build_unpert_struct import build_vasp_gs_elec_struct
+from pydephasing.build_unpert_struct import build_vasp_gs_elec_struct, build_jdftx_gs_elec_struct
 from pydephasing.build_interact_grad import calc_elec_hamilt_gradient
 #
 def compute_VASP_elec_dephas():
@@ -91,3 +91,42 @@ def compute_VASP_elec_dephas():
     eph.read_eph_matrix()
     mpi.comm.Barrier()
     exit()
+
+def compute_JDFTx_elec_dephas():
+    '''
+    use JDFTx data to perform LR calculation
+    '''
+    atoms.set_atoms_data(p.work_dir)
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info("\n")
+        log.info("\t PERFORM LINEAR RESPONSE CALCULATION")
+        log.info("\t COLLECT DATA FROM JDFTx CALCULATION")
+        log.info("\n")
+        log.info("\t " + p.sep)
+        atoms.print_atoms_info()
+        log.info("\t " + p.sep)
+    # set electronic structure
+    elec_struct = build_jdftx_gs_elec_struct(p.work_dir, p.gamma_point)
+    He = electronic_hamiltonian(Ewin_Ha=p.elec_win, wann=p.wannier_interp)
+    He.set_energy_spectrum(elec_struct)
+    He.plot_band_structure()
+    exit()
+    He.set_H0_matr()
+    # set phonon structure
+    if p.dynamical_mode[1] > 0:
+        # read phonons data
+        # set q grid
+        qgr = jdftx_qgridClass(p.work_dir)
+        qgr.set_qgrid()
+        # if we need to compute e-ph interactions
+        if mpi.rank == mpi.root:
+            log.info("\t " + p.sep)
+            log.info("\t COLLECT PHONONS INFORMATION")
+            log.info("\t " + p.sep)
+            log.info("\n")
+        ph = JDFTxPhonons(p.work_dir, p.TR_SYM)
+        ph.read_ph_hamilt(qgr=qgr)
+        ph.get_ph_supercell()
+        ph.compute_eq_ph_angular_momentum_dispersion(qgr)
+        ph.compute_full_ph_angular_momentum_matrix(qgr)

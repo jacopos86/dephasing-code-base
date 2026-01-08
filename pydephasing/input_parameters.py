@@ -373,6 +373,76 @@ class dynamical_data_input(data_input):
                 self.atoms_2nd_displ.append(np.array(data['displ_ang']))
                 f.close()
 
+class linear_resp_JDFTx_input(dynamical_data_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        # time resolved calculation
+        self.time_resolved = False
+        # freq. resolved
+        self.w_resolved = False
+        ####################################
+        # freq. resolved calculation inputs
+        self.w_grid = None
+        # k-point grid
+        self.gamma_point = False
+        # freq. w grid
+        self.nwg = 0
+        self.w_max = 0.
+        # eV units
+        self.lorentz_thres = 0.
+        # lorentzian treshold
+        self.elec_win = None
+        # electronic energy window
+
+        # wannier interpolation
+        self.wannier_interp = False
+
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # only T or nwg in data -> either time or freq. resolved
+        if 'T' in data and 'nwg' in data:
+            log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
+        # energy window
+        if 'elec_ener_window' in data:
+            self.elec_win = data['elec_ener_window']
+        # q grid mesh
+        if 'qgrid_mesh' in data:
+            self.qgr_mesh = data['qgrid_mesh']
+        if 'gamma_point' in data:
+            self.gamma_point = data['gamma_point']
+        # --------------------------------------------------------------
+        #
+        #    frequency variables
+        #
+        # --------------------------------------------------------------
+        if 'nwg' in data:
+            self.w_resolved = True
+            # n. w grid points
+            self.nwg = data['nwg']
+            # min. freq (THz)
+            if 'min_freq' in data:
+                self.min_freq = data['min_freq']
+            # lorentz. threshold
+            if 'lorentz_thres' in data:
+                self.lorentz_thres = data['lorentz_thres']
+        if mpi.rank == mpi.root:
+            if np.abs(self.min_freq) < 1.E-7:
+                log.info("\n")
+                log.info("\t " + self.sep)
+                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
+                log.info("\t " + self.sep)
+                log.info("\n")
+
+
+
 class linear_resp_input(dynamical_data_input):
     # initialization
     def __init__(self):
@@ -420,6 +490,7 @@ class linear_resp_input(dynamical_data_input):
         # q grid mesh
         if 'qgrid_mesh' in data:
             self.qgr_mesh = data['qgrid_mesh']
+
         # --------------------------------------------------------------
         #
         #    frequency variables
