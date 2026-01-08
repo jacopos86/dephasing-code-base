@@ -864,10 +864,12 @@ class JDFTxStruct:
 			self.KPTS_FILE = GSDATA_DIR / "bandstruct.kpoints"
 			self.EIG_FILE = GSDATA_DIR / "bandstruct.eigenvals"
 		else:
+			self.KPTS_FILE = GSDATA_DIR / "totalE.kPts"
 			self.EIG_FILE = GSDATA_DIR / "totalE.eigenvals"
 	def read_Kpts(self):
 		if self.gamma_point_only:
-			self.Kpts = np.array([[0.0, 0.0, 0.0]])
+			kpts_data = np.loadtxt(self.KPTS_FILE, usecols=(2,3,4)) # np.array([[0.0, 0.0, 0.0]])
+			self.Kpts = np.array([kpts_data])
 		else:
 			self.Kpts = np.loadtxt(self.KPTS_FILE, skiprows=2, usecols=(1,2,3))
 		self.nkpt = self.Kpts.shape[0]
