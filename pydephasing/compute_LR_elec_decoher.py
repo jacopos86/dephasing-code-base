@@ -7,6 +7,8 @@ from pydephasing.phonons_module import PhonopyPhonons
 from pydephasing.q_grid import phonopy_qgridClass
 from pydephasing.read_wfc_interface import read_wfc
 from pydephasing.electronic_hamiltonian import electronic_hamiltonian
+from pydephasing.q_grid import jdftx_qgridClass
+from pydephasing.phonons_module import JDFTxPhonons
 from pydephasing.observables import ObservablesElectronicSystem
 from pydephasing.electron_density import ElectronDensity
 from pydephasing.build_unpert_struct import build_vasp_gs_elec_struct, build_jdftx_gs_elec_struct
@@ -111,21 +113,19 @@ def compute_JDFTx_elec_dephas():
     He.set_energy_spectrum(elec_struct)
     He.plot_band_structure()
     He.set_H0_matr()
+
+    qgr = jdftx_qgridClass(p.work_dir,p.gamma_point)
+    qgr.set_qgrid(mesh_size = p.qmesh_size)
+    # if we need to compute e-ph interactions
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info("\t COLLECT PHONONS INFORMATION")
+        log.info("\t " + p.sep)
+        log.info("\n")
+    ph = JDFTxPhonons(p.work_dir, PREFIX=p.phonon_calc_prefix, gamma_point_only = p.gamma_point)
+    ph.read_ph_hamilt(qgr=qgr)
     exit()
-    # set phonon structure
-    if p.dynamical_mode[1] > 0:
-        # read phonons data
-        # set q grid
-        qgr = jdftx_qgridClass(p.work_dir)
-        qgr.set_qgrid()
-        # if we need to compute e-ph interactions
-        if mpi.rank == mpi.root:
-            log.info("\t " + p.sep)
-            log.info("\t COLLECT PHONONS INFORMATION")
-            log.info("\t " + p.sep)
-            log.info("\n")
-        ph = JDFTxPhonons(p.work_dir, p.TR_SYM)
-        ph.read_ph_hamilt(qgr=qgr)
-        ph.get_ph_supercell()
-        ph.compute_eq_ph_angular_momentum_dispersion(qgr)
-        ph.compute_full_ph_angular_momentum_matrix(qgr)
+
+    ph.get_ph_supercell()
+    ph.compute_eq_ph_angular_momentum_dispersion(qgr)
+    ph.compute_full_ph_angular_momentum_matrix(qgr)
