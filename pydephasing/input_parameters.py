@@ -446,6 +446,10 @@ class linear_resp_JDFTx_input(linear_resp_input):
         self.gamma_point = False
         # wannier interpolation
         self.wannier_interp = False
+        # Mesh grid
+        self.qmesh_size = None
+        # Phonon calculation prefix
+        self.phonon_calc_prefix = "totalE"
 
     def read_yml_data(self, input_file):
         try:
@@ -459,6 +463,12 @@ class linear_resp_JDFTx_input(linear_resp_input):
 
         if 'gamma_point' in data:
             self.gamma_point = data['gamma_point']
+
+        if "qmesh_size" in data:
+            self.qmesh_size = data['qmesh_size']
+        
+        if "phonon_calc_prefix" in data:
+            self.phonon_calc_prefix = data['phonon_calc_prefix']
 
 class linear_resp_VASP_input(linear_resp_input):
     # initialization
