@@ -154,7 +154,7 @@ class PhonopyPhonons(PhononsClass):
 #
 
 class JDFTxPhonons(PhononsClass):
-    def __init__(self, gs_data_dir, TR_SYM=True):
+    def __init__(self, gs_data_dir, TR_SYM=True, PREFIX="totalE", gamma_point_only=False):
         super().__init__()
         self.cellMapPh = None
         self.nCellsPh = None
@@ -166,16 +166,18 @@ class JDFTxPhonons(PhononsClass):
         self.Mph = None
         # input files
         GSDATA_DIR = Path(gs_data_dir).resolve()
-        self.CELLMAP_FILE = GSDATA_DIR / "totalE.phononCellMap"
-        self.EIGENV_FILE = GSDATA_DIR / "totalE.phononOmegaSq"
+        self.CELLMAP_FILE = GSDATA_DIR / f"{PREFIX}.phononCellMap"
+        self.EIGENV_FILE = GSDATA_DIR / f"{PREFIX}.phononOmegaSq"
         self.OUT_FILE = GSDATA_DIR / "phonon.out"
-        self.PHBASIS_FILE = GSDATA_DIR / "totalE.phononBasis"
+        self.PHBASIS_FILE = GSDATA_DIR / f"{PREFIX}.phononBasis"
         self.TR_SYM = TR_SYM
+        self.gamma_point_only = gamma_point_only
     def read_ph_cell_map(self):
         self.cellMapPh = np.loadtxt(self.CELLMAP_FILE)[:,:3].astype(int)
         self.nCellsPh = self.cellMapPh.shape[0]
     def read_force_matrix(self):
         self.read_ph_cell_map()
+        
         Forces = np.fromfile(self.EIGENV_FILE, dtype=np.float64)
         # n. modes
         self.nmodes = int(np.sqrt(Forces.shape[0] / self.nCellsPh))
@@ -183,7 +185,9 @@ class JDFTxPhonons(PhononsClass):
             log.info("\t " + p.sep)
             log.info("\t n. ph. modes: " + str(self.nmodes))
             log.info("\t " + p.sep)
+        
         self.ForceMatrix = np.reshape(Forces, (self.nCellsPh,self.nmodes,self.nmodes))
+
     def get_ph_supercell(self):
         if mpi.rank == mpi.root:
             log.info("\t EXTRACT PH SUPERCELL -> " + str(self.OUT_FILE))
@@ -210,7 +214,12 @@ class JDFTxPhonons(PhononsClass):
         self.phBasis = np.sqrt(np.sum(self.phBasis ** 2, axis=1))
     def compute_energy_dispersion(self, qgr, n_interp=10):
         # set q grid
-        qp, n = qgr.set_qgr_plot(n_interp)
+        if self.gamma_point_only:
+            qp = qgr.qpts
+            n = qgr.nq
+        else:
+            qp, n = qgr.set_qgr_plot(n_interp)
+        
         if mpi.rank == mpi.root:
             log.info("\t COMPUTE PHONON DISPERSION")
             log.info("\t " + p.sep)
@@ -218,6 +227,7 @@ class JDFTxPhonons(PhononsClass):
         # diagonalization
         omegaSq, normalModes = np.linalg.eigh(TildeForceMatrix)   # energies in Hartree
         omega = np.copysign(np.sqrt(np.abs(omegaSq)), omegaSq)
+        exit()
         if mpi.rank == mpi.root:
             log.info("\t shape wq^2: " + str(omega.shape))
             log.info("\t " + p.sep)
@@ -295,13 +305,22 @@ class JDFTxPhonons(PhononsClass):
             gamma_index = np.where(np.all(qgr.qpts == 0, axis=1))[0]
             plot_Mph_heatmap(self.Mph[..., gamma_index[0]].imag)   # select first Gamma
         mpi.comm.Barrier()
+
+    #  plot phonon DOS
+    def plot_phonon_DOS(self):
+        ## Develop the Phonon DOS for JDFTx
+        pass
+
     def read_ph_hamilt(self, qgr):
         # read ph basis
         self.read_phonon_basis()
+        
         # read force matrix from file
         self.read_force_matrix()
+        
         # read K points
         self.compute_energy_dispersion(qgr)
+        exit()
 
 #
 #   Phonons structure model
