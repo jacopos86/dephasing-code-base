@@ -14,6 +14,12 @@ class PauliPolynomial:
         if pol is not None:
             self._pol.extend(pol)
             self._reduce()
+    def get_nq(self):
+        if len(self._pol) > 0:
+            nq = self._pol[0].nqubit()
+        else:
+            log.error("Cannot add a constant to empty PauliPolynomial without qubit count")
+        return nq
     def return_polynomial(self):
         return self._pol
     def count_number_terms(self):
@@ -21,16 +27,51 @@ class PauliPolynomial:
     def add_term(self, pt):
         self._pol.append(pt)
     def __add__(self, pp):
-        if not isinstance(pp, PauliPolynomial):
+        if isinstance(pp, PauliPolynomial):
+            assert self._repr_mode == pp._repr_mode
+            new_pol = self._pol + pp.return_polynomial()
+        elif isinstance(pp, (float, complex)):
+            nq = self.get_nq()
+            const_term = PauliTerm(nq, pc=pp, ps="e"*nq)
+            new_pol = self._pol + [const_term]
+        else:
             return NotImplemented
-        assert self._repr_mode == pp._repr_mode
-        new_pol = self._pol + pp.return_polynomial()
         return PauliPolynomial(self._repr_mode, new_pol)
     def __iadd__(self, pp):
-        if not isinstance(pp, PauliPolynomial):
+        if isinstance(pp, PauliPolynomial):
+            assert self._repr_mode == pp._repr_mode
+            self._pol.extend(pp.return_polynomial())
+        elif isinstance(pp, (float, complex)):
+            nq = self.get_nq()
+            const_term = PauliTerm(nq, pc=pp, ps="e"*nq)
+            self.add_term(const_term)
+        else:
             return NotImplemented
-        assert self._repr_mode == pp._repr_mode
-        self._pol.extend(pp.return_polynomial())
+        self._reduce()
+        return self
+    def __sub__(self, pp):
+        if isinstance(pp, PauliPolynomial):
+            assert self._repr_mode == pp._repr_mode
+            min_pp = (-1.0) * pp
+            new_pol = self._pol + min_pp
+        elif isinstance(pp, (float, complex)):
+            nq = self.get_nq()
+            const_term = PauliTerm(nq, pc=-pp, ps="e"*nq)
+            new_pol = self._pol + [const_term]
+        else:
+            return NotImplemented
+        return PauliPolynomial(self._repr_mode, new_pol)
+    def __isub__(self, pp):
+        if isinstance(pp, PauliPolynomial):
+            assert self._repr_mode == pp._repr_mode
+            min_pp = (-1.0) * pp
+            self._pol.extend(min_pp.return_polynomial())
+        elif isinstance(pp, (float, complex)):
+            nq = self.get_nq()
+            const_term = PauliTerm(nq, pc=-pp, ps="e"*nq)
+            self.add_term(const_term)
+        else:
+            return NotImplemented
         self._reduce()
         return self
     def __mul__(self, pp):
@@ -63,6 +104,19 @@ class PauliPolynomial:
             pp_new.add_term(pt)
         pp_new._reduce()
         return pp_new
+    def __pow__(self, exponent):
+        if isinstance(exponent, int) and exponent >= 0:
+            if exponent == 0:
+                nq = self.get_nq()
+                Id = PauliPolynomial(self._repr_mode)
+                Id.add_term(PauliTerm(nq, pc=1.0, ps="e"*nq))
+                return Id
+            result = PauliPolynomial(self._repr_mode, self._pol.copy())
+            for _ in range(exponent-1):
+                result = result * self
+            return result
+        else:
+            log.error("Only non-negative integer powers are supported for PauliPolynomial")
     def _reduce(self):
         pol_temp = list(np.copy(self._pol))
         self._pol = []
