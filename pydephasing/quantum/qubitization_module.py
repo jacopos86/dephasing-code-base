@@ -52,6 +52,11 @@ class PauliTerm:
         for iq in range(self.__nq):
             strng += self.pw[iq].symbol
         return strng
+    def pw2sparsePauliOp(self):
+        strng = ""
+        for iq in range(self.__nq):
+            strng += self.pw[iq].symbol.upper().replace("E", "I")
+        return (strng, self.p_coeff)
     def visualize(self):
         strng = "\t " + str(self.p_coeff) + " "
         for iq in range(self.__nq):
