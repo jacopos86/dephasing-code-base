@@ -1725,6 +1725,7 @@ class gradient_2nd_HFI(perturbation_HFI):
 #  class 
 #  gradient ZPL
 #
+
 class gradient_Eg:
 	def __init__(self, atoms_info, dict_key):
 		self.gradE = None
@@ -1819,14 +1820,90 @@ class gradient_Eg:
 #  class: 
 #  gradient electronic Hamiltonian
 #
+import linecache
+
+def check_binary_file(filename, nbytes=4096):
+    """
+    Returns True if file is binary, False if text.
+    """
+    with open(filename, "rb") as f:
+        chunk = f.read(nbytes)
+    return b"\x00" in chunk
+
+def build_line_offsets(filename):
+	"""Return byte offsets for each line (0-based, INCLUDING header)."""
+	offsets = []
+	with open(filename, "rb") as f:
+		offsets.append(f.tell())
+		for line in f:
+			offsets.append(f.tell())
+	return np.asarray(offsets, dtype=np.int64)
+
+def line_index_in_file(iMode, ib1, ib2, nBands):
+	"""0-based data-line index excluding header."""
+	return iMode * (nBands * nBands) + ib1 * nBands + ib2
+
+def read_gradH_from_dat(filename, band_range_idx, nModes, nBands, offsets=None):
+	
+	b1 , b2 = band_range_idx
+	if offsets is None:
+		offsets = build_line_offsets(filename)
+	gradH = np.empty((nModes, 7), dtype=float)
+
+	with open(filename, "rb") as f:
+		for m in range(nModes):
+			data_idx = line_index_in_file(m, b1, b2, nBands)
+			# +1 to account for header line in offsets
+			line_no = data_idx + 1
+			f.seek(offsets[line_no])
+			line = f.readline().decode("utf-8", errors="replace").strip()
+			fields = line.split()
+			# iMode ik1 ib1 ik2 ib2 real imag
+			gradH[m, 0] = int(fields[0])
+			gradH[m, 1] = int(fields[1])
+			gradH[m, 2] = int(fields[2])
+			gradH[m, 3] = int(fields[3])
+			gradH[m, 4] = int(fields[4])
+			gradH[m, 5] = float(fields[5])
+			gradH[m, 6] = float(fields[6])
+
+	# data[:,0] is iMode, data[:,5]+1j*data[:,6] are the complex elements
+	cc = gradH[:,5] + 1j*gradH[:,6]
+	print(cc[0])
+	return gradH, offsets
+
+def read_gradH_from_binary(filename, band_range_idx, nModes, nBands):
+	bin_file = np.fromfile(filename, dtype=np.complex128).reshape((1,nModes,nBands,nBands))
+	b1 , b2 = band_range_idx 
+	gradH = bin_file[0,:,b1, b2]
+	print(gradH.shape)
+	print(gradH[0])
+	return gradH
+
 class gradient_elec_hamilt:
 	def __init__(self, data_fil):
 		self.data_fil = data_fil
 	# read data
 	# from saved file
-	def read_grad_He_matrix(self):
-		data = np.load(self.data_fil, mmap_mode='r')
-		if mpi.rank == mpi.root:
-			log.info("\t n. irred. modes: " + str(data.shape[0]))
-			log.info("\t n. k pts.: " + str(data.shape[1]))
-			log.info("\t n. bands: " + str(data.shape[-1]))
+	def read_grad_He_matrix(self, band_range_idx, nModes, nBands, offsets=None):
+
+		""" Extract rows for fixed (ib1=b1, ib2=b2) over all modes 0..nModes-1.
+		Returns array shape (nModes, 7): iMode ik1 ib1 ik2 ib2 re im """
+
+		filename = self.data_fil
+		if check_binary_file(filename):
+			gradH = read_gradH_from_binary(filename, band_range_idx, nModes, nBands)
+		else:
+			gradH, _ = read_gradH_from_dat(filename, band_range_idx, nModes, nBands, offsets)
+		return gradH
+
+		# data = np.load(self.data_fil, mmap_mode='r')
+		# if mpi.rank == mpi.root:
+		# 	log.info("\t n. irred. modes: " + str(data.shape[0]))
+		# 	log.info("\t n. k pts.: " + str(data.shape[1]))
+		# 	log.info("\t n. bands: " + str(data.shape[-1]))
+
+
+		# Parallelize over q index over MPI ranks.
+		# GPU function to parallelize over phonon mode.
+		# Given a phonon vector
