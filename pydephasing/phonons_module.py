@@ -149,6 +149,17 @@ class PhonopyPhonons(PhononsClass):
             plot_ph_dos(freq, g)
         mpi.comm.Barrier()
 
+def gaussian_broaden_hist(centers, counts, sigma):
+    """Broaden a histogram (counts at centers) with Gaussian of width sigma (same units as centers)."""
+    if sigma <= 0:
+        return counts
+    x = centers[:, None]
+    xc = centers[None, :]
+    K = np.exp(-0.5 * ((x - xc) / sigma) ** 2) / (np.sqrt(2*np.pi) * sigma)
+    # approximate integral with uniform spacing
+    dx = centers[1] - centers[0]
+    return (K @ counts) * dx
+
 #
 #   JDFTx phonons
 #
@@ -227,7 +238,6 @@ class JDFTxPhonons(PhononsClass):
         # diagonalization
         omegaSq, normalModes = np.linalg.eigh(TildeForceMatrix)   # energies in Hartree
         omega = np.copysign(np.sqrt(np.abs(omegaSq)), omegaSq)
-        exit()
         if mpi.rank == mpi.root:
             log.info("\t shape wq^2: " + str(omega.shape))
             log.info("\t " + p.sep)
@@ -307,9 +317,32 @@ class JDFTxPhonons(PhononsClass):
         mpi.comm.Barrier()
 
     #  plot phonon DOS
-    def plot_phonon_DOS(self):
-        ## Develop the Phonon DOS for JDFTx
-        pass
+    def compute_phonon_DOS(self, qgr, n_bins, sigma):
+        qpts = qgr.qpts
+        nq = qgr.nq
+        omega_conv, Wq = self.compute_ph_state_q(qpts) # Compute frequencies and eigenvectors
+        # omega_conv = omega * THz_to_ev # Frequencies in eV
+
+        all_omega = omega_conv.reshape(-1)
+        all_omega_pos = all_omega[all_omega > 0]  # keep only non-negative frequencies for DOS
+        
+        omega_max = all_omega_pos.max()
+        edges = np.linspace(0, omega_max, n_bins + 1)
+        omega_centers = 0.5 * (edges[:-1] + edges[1:])
+
+        counts, _ = np.histogram(all_omega_pos, bins = edges)
+        dos = counts.astype(float)
+
+        dw = omega_centers[1] - omega_centers[0]
+        dos = dos / (nq * dw)
+
+        # Gaussian broadening
+        dos = gaussian_broaden_hist(omega_centers, dos, sigma)
+
+        plot_ph_dos(omega_centers, dos)
+
+        # return centers, dos, all_omega_pos
+        
 
     def read_ph_hamilt(self, qgr):
         # read ph basis
@@ -320,7 +353,9 @@ class JDFTxPhonons(PhononsClass):
         
         # read K points
         self.compute_energy_dispersion(qgr)
-        exit()
+
+        # # Plot the Phonon DOS
+        # self.compute_phonon_DOS(qgr, n_bins, sigma)
 
 #
 #   Phonons structure model
