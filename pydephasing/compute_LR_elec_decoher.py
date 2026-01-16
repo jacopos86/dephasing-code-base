@@ -13,6 +13,7 @@ from pydephasing.observables import ObservablesElectronicSystem
 from pydephasing.electron_density import ElectronDensity
 from pydephasing.build_unpert_struct import build_vasp_gs_elec_struct, build_jdftx_gs_elec_struct
 from pydephasing.build_interact_grad import calc_elec_hamilt_gradient
+from pydephasing.elec_ph_inter import eph_initialization
 #
 def compute_VASP_elec_dephas():
     # main driver code for the calculation of dephasing time
@@ -124,8 +125,16 @@ def compute_JDFTx_elec_dephas():
         log.info("\n")
     ph = JDFTxPhonons(p.work_dir, PREFIX=p.phonon_calc_prefix, gamma_point_only = p.gamma_point)
     ph.read_ph_hamilt(qgr=qgr)
-    exit()
+    ph.compute_phonon_DOS(qgr=qgr, n_bins = p.num_bins, sigma = p.sigma)
 
-    ph.get_ph_supercell()
-    ph.compute_eq_ph_angular_momentum_dispersion(qgr)
-    ph.compute_full_ph_angular_momentum_matrix(qgr)
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info("\t START E-PH CALCULATION")
+        log.info("\t" + p.sep)
+        log.info("\t E-PH APPROXIMATION: " + p.EPH_APPROX)
+        log.info("\t Reading dH from " + p.eph_matr_file)
+    
+    gradH = calc_elec_hamilt_gradient(p.eph_matr_file)
+    eph = eph_initialization(p.EPH_APPROX, p.band_range_idx, ph.nmodes, elec_struct.nbnd)
+    eph.compute_gql(gradH)
+    exit()
