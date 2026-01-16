@@ -165,15 +165,8 @@ def setup_logger():
         else:
             LOGFILE = "py-dephase.log"
 
-        #AG This if block can be removed now 
-        #root_env = os.environ.get("ROOT")
-        #if root_env is None:
-        #    raise EnvironmentError("ROOT environment variable is not set")
-        #PACKAGE_DIR = Path(root_env).resolve()
-        
-        ## AG should this be the directory of the package or cwd? 
-        PACKAGE_DIR = Path.cwd()
-        LOGFILE = PACKAGE_DIR / LOGFILE
+        LAUNCH_DIR = Path.cwd()
+        LOGFILE = LAUNCH_DIR / LOGFILE
         log = LogClass(LOG_LEVEL, LOGFILE)
     return log
 

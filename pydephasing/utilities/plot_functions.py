@@ -113,7 +113,7 @@ def plot_lph_struct(wq, lph, nQ, n_interp=10):
     plt.show()
 
 def plot_Mph_heatmap(Mph):
-    cm1 = mcol.LinearSegmentedColormap.from_list("MyColorMap", ['r', 'k', 'b'])
+    cm1 = mcol.LinearSegmentedColormap.from_list("MyColorMap", ['r', (1,1,1), 'b'])
     norm_in = np.nanmax(np.abs(Mph))
     norm = plt.Normalize(-norm_in, norm_in)
     fig, axs = plt.subplots(1,3,figsize=(14,4))
