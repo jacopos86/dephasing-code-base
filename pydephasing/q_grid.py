@@ -110,6 +110,17 @@ class qgridClass(ABC):
             log.info("\t W(Q) TEST    ->    PASSED")
             log.info("\t " + p.sep)
             log.info("\n")
+    #
+    #  compute phase e^{iq R_k}
+    #  at q pt iq
+    def compute_phase_factor(self, iq, nat):
+        eiqR = np.zeros(3*nat, dtype=np.complex128)
+        qv = self.qpts[iq]
+        for jax in range(3*nat):
+            ia = atoms.index_to_ia_map[jax]
+            Ra = atoms.atoms_dict[ia]['coordinates']
+            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
+        return eiqR
 
 #
 #  phonopy q grid
@@ -203,13 +214,35 @@ class phonopy_qgridClass(qgridClass):
 #
 
 class jdftx_qgridClass(qgridClass):
-    def __init__(self, gs_data_dir):
+    def __init__(self, gs_data_dir, gamma_point_only):
         super().__init__()
-        self.QPTS_FILE = gs_data_dir + '/bandstruct.kpoints'
+        self.QPTS_FILE = None
+        self.gamma_point_only = gamma_point_only
+        if not self.gamma_point_only:
+            self.QPTS_FILE = gs_data_dir + '/bandstruct.kpoints'
+
     # set up q grid
-    def set_qgrid(self):
-        self.qpts = np.loadtxt(self.QPTS_FILE, skiprows=2, usecols=(1,2,3))
-        self.nq = self.qpts.shape[0]
+    def set_qgrid(self, mesh_size=None):
+        if mesh_size is not None:
+
+            # number of points per axis
+            nx, ny, nz = mesh_size
+
+            # 3 points in each direction (you can change this range if you want)
+            x = np.linspace(-0.5, 0.5, nx)
+            y = np.linspace(-0.5, 0.5, ny)
+            z = np.linspace(-0.5, 0.5, nz)
+
+            # mesh grid (n x n x n)
+            X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
+
+            # stack into a list of 3D vectors: shape (n^3, 3)
+            self.qpts = np.stack([X, Y, Z], axis=-1).reshape(-1, 3)
+            self.nq = self.qpts.shape[0]
+
+        else:
+            self.qpts = np.loadtxt(self.QPTS_FILE, skiprows=2, usecols=(1,2,3))
+            self.nq = self.qpts.shape[0]
     # set grid for plot -> phonons
     def set_qgr_plot(self, n_interp=10):
         xIn = np.arange(self.nq)

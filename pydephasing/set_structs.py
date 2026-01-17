@@ -840,7 +840,7 @@ class DisplacedStructures2ndOrder:
 #
 
 class JDFTxStruct:
-	def __init__(self, gs_data_dir):
+	def __init__(self, gs_data_dir, gamma_point_only):
 		# electronic structure
 		self.nkpt = None
 		self.Kpts = None
@@ -859,10 +859,19 @@ class JDFTxStruct:
 		# external file
 		GSDATA_DIR = Path(gs_data_dir).resolve()
 		self.OUT_FILE = GSDATA_DIR / "totalE.out"
-		self.KPTS_FILE = GSDATA_DIR / "bandstruct.kpoints"
-		self.EIG_FILE = GSDATA_DIR / "bandstruct.eigenvals"
+		self.gamma_point_only = gamma_point_only
+		if not self.gamma_point_only:
+			self.KPTS_FILE = GSDATA_DIR / "bandstruct.kpoints"
+			self.EIG_FILE = GSDATA_DIR / "bandstruct.eigenvals"
+		else:
+			self.KPTS_FILE = GSDATA_DIR / "totalE.kPts"
+			self.EIG_FILE = GSDATA_DIR / "totalE.eigenvals"
 	def read_Kpts(self):
-		self.Kpts = np.loadtxt(self.KPTS_FILE, skiprows=2, usecols=(1,2,3))
+		if self.gamma_point_only:
+			kpts_data = np.loadtxt(self.KPTS_FILE, usecols=(2,3,4)) # np.array([[0.0, 0.0, 0.0]])
+			self.Kpts = np.array([kpts_data])
+		else:
+			self.Kpts = np.loadtxt(self.KPTS_FILE, skiprows=2, usecols=(1,2,3))
 		self.nkpt = self.Kpts.shape[0]
 		if mpi.rank == mpi.root:
 			log.info("\t " + p.sep)

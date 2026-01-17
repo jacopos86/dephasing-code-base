@@ -4,7 +4,8 @@ from pydephasing.utilities.log import log
 from pydephasing.input_parameters import (
     preproc_data_input, 
     static_data_input, 
-    linear_resp_input, 
+    linear_resp_VASP_input, 
+    linear_resp_JDFTx_input,
     real_time_SQ_input,
     Q_real_time_input,
     real_time_JDFTx_input,
@@ -62,7 +63,9 @@ class param_proxy:
                     log.error(f"Unknown ct2 value: {ct2!r}")
             elif ct1 == "LR":
                 if ct2 == "vasp":
-                    self._real_p = linear_resp_input()
+                    self._real_p = linear_resp_VASP_input()
+                if ct2 == "jdftx":
+                    self._real_p = linear_resp_JDFTx_input()
                 else:
                     log.error(f"Unknown ct2 value: {ct2!r}")
             else:

@@ -32,8 +32,8 @@ def build_vasp_gs_elec_struct(gs_data_dir):
     struct0.read_chem_pot_from_data()
     return struct0
 
-def build_jdftx_gs_elec_struct(gs_data_dir):
-    struct0 = JDFTxStruct(gs_data_dir)
+def build_jdftx_gs_elec_struct(gs_data_dir, gamma_point_only):
+    struct0 = JDFTxStruct(gs_data_dir, gamma_point_only)
     # set up electronic parameters
     struct0.set_elec_parameters()
     return struct0

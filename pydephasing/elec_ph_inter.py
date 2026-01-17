@@ -8,6 +8,16 @@ from pydephasing.utilities.log import log
 #   read external data grad H0
 #   and compute the matrix using the phonon modes
 #
+
+#
+#.  initialization function
+#
+
+def eph_initialization(APPROX_MODEL, band_range_idx, nModes, nBands):
+    if APPROX_MODEL == "CCA":
+        return ElectronPhononCentralCellApprox(band_range_idx, nModes, nBands)
+
+# The abstract class for electron-phonon coupling
 class ElectronPhononClass(ABC):
     def __init__(self):
         self.g_ql = None
@@ -95,3 +105,12 @@ class DeformationPotentialElectronPhonon(ElectronPhononClass):
                     )
         self.g_ql = g_ql
         return g_ql
+
+class ElectronPhononCentralCellApprox(ElectronPhononClass):
+    def __init__(self, band_range_idx, nModes, nBands):
+        super().__init__()
+        self.band_range_idx = band_range_idx
+        self.nModes = nModes
+        self.nBands = nBands
+    def compute_gql(self, gradH):
+        gradHe = gradH.read_grad_He_matrix(self.band_range_idx, self.nModes, self.nBands)

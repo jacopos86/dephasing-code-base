@@ -377,40 +377,33 @@ class linear_resp_input(dynamical_data_input):
     # initialization
     def __init__(self):
         super().__init__()
-        # e-ph input data
-        self.eph_matr_file = None
-        # force sets file
-        self.force_sets_file = None
         # time resolved calculation
         self.time_resolved = False
         # freq. resolved
         self.w_resolved = False
+
         ####################################
         # freq. resolved calculation inputs
         self.w_grid = None
         # freq. w grid
         self.nwg = 0
         self.w_max = 0.
-        # eV units
+        # lorentzian treshold in eV units
         self.lorentz_thres = 0.
-        # lorentzian treshold
-        self.elec_win = None
         # electronic energy window
-    def read_yml_data(self, input_file):
-        try:
-            f = open(input_file)
-        except:
-            msg = "\t COULD NOT FIND : " + input_file
-            log.error(msg)
-        data = yaml.load(f, Loader=yaml.Loader)
-        f.close()
+        self.elec_win = None
+
+        # e-ph input data
+        self.eph_matr_file = None
+        # Central cell approximation
+        self.EPH_APPROX = None
+
+        # Range of bands
+        self.band_range_idx = None
+
+    def read_yml_data_lr(self, data):
+        # Import read yml data from dynamical data input
         self.read_yml_data_dyn(data)
-        # if eph file
-        if 'eph_matr_file' in data:
-            self.eph_matr_file = self.work_dir + '/' + data['eph_matr_file']
-        # force sets
-        if 'force_sets_file' in data:
-            self.force_sets_file = self.work_dir + '/' + data['force_sets_file']
         # only T or nwg in data -> either time or freq. resolved
         if 'T' in data and 'nwg' in data:
             log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
@@ -420,6 +413,17 @@ class linear_resp_input(dynamical_data_input):
         # q grid mesh
         if 'qgrid_mesh' in data:
             self.qgr_mesh = data['qgrid_mesh']
+        # if eph file
+        if 'eph_matr_file' in data:
+            self.eph_matr_file = self.work_dir + '/' + data['eph_matr_file']
+        if "eph_approx" in data:
+            self.EPH_APPROX = data["eph_approx"]
+            if self.EPH_APPROX not in {"CCA", "KS", "WANNIER"}:
+                log.error("EPH APPROX input is wrong")
+        else:
+            log.error("Missing eph_approx input")
+        if "band_range_idx" in data:
+            self.band_range_idx = data["band_range_idx"]
         # --------------------------------------------------------------
         #
         #    frequency variables
@@ -442,7 +446,6 @@ class linear_resp_input(dynamical_data_input):
                 log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
                 log.info("\t " + self.sep)
                 log.info("\n")
-    #
     # set w_grid
     def set_w_grid(self, wu):
         self.w_max = np.max(wu) * THz_to_ev * 10.
@@ -452,6 +455,72 @@ class linear_resp_input(dynamical_data_input):
         # compute w grid
         for iw in range(self.nwg):
             self.w_grid[iw] = iw * dw
+
+
+class linear_resp_JDFTx_input(linear_resp_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        # k-point grid
+        self.gamma_point = False
+        # wannier interpolation
+        self.wannier_interp = False
+        # Mesh grid
+        self.qmesh_size = None
+        # Phonon calculation prefix
+        self.phonon_calc_prefix = "totalE"
+
+        self.num_bins = None
+        self.sigma = None
+
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_lr(data)
+
+        if 'gamma_point' in data:
+            self.gamma_point = data['gamma_point']
+
+        if "qmesh_size" in data:
+            self.qmesh_size = data['qmesh_size']
+        
+        if "phonon_calc_prefix" in data:
+            self.phonon_calc_prefix = data['phonon_calc_prefix']
+
+        if "num_bins" in data:
+            self.num_bins = data["num_bins"]
+
+        if "sigma" in data:
+            self.sigma = data["sigma"]
+
+        
+
+class linear_resp_VASP_input(linear_resp_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+
+        # force sets file
+        self.force_sets_file = None
+
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_lr(data)
+
+        # force sets
+        if 'force_sets_file' in data:
+            self.force_sets_file = self.work_dir + '/' + data['force_sets_file']
 
 class real_time_SQ_input(dynamical_data_input):
     # initialization
