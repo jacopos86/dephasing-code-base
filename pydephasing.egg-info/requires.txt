@@ -1,6 +1,0 @@
-numpy
-pandas
-matplotlib
-pymatgen
-mpi4py
-statsmodels
