@@ -3,7 +3,8 @@ from pydephasing.utilities.input_parser import parser
 from pydephasing.utilities.log import log
 from pydephasing.input_parameters import (
     preproc_data_input, 
-    static_data_input, 
+    static_data_input,
+    linear_resp_SQ,
     linear_resp_VASP_input, 
     linear_resp_JDFTx_input,
     real_time_SQ_input,
@@ -39,7 +40,7 @@ class param_proxy:
                 ct2 = args.ct2
                 if ct1 == "LR":
                     if ct2 == "inhomo" or ct2 == "homo" or ct2 == "full":
-                        self._real_p = linear_resp_input()
+                        self._real_p = linear_resp_SQ()
                     elif ct2 == "stat" or ct2 == "statdd":
                         self._real_p = static_data_input()
                     else:
