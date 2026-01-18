@@ -17,7 +17,10 @@ def eph_initialization(APPROX_MODEL, band_range_idx, nModes, nBands):
     if APPROX_MODEL == "CCA":
         return ElectronPhononCentralCellApprox(band_range_idx, nModes, nBands)
 
+#
 # The abstract class for electron-phonon coupling
+#
+
 class ElectronPhononClass(ABC):
     def __init__(self):
         self.g_ql = None
@@ -105,6 +108,12 @@ class DeformationPotentialElectronPhonon(ElectronPhononClass):
                     )
         self.g_ql = g_ql
         return g_ql
+
+#
+# ============================================================
+#   central cell approx. Electron-Phonon Coupling
+# ============================================================
+#
 
 class ElectronPhononCentralCellApprox(ElectronPhononClass):
     def __init__(self, band_range_idx, nModes, nBands):
