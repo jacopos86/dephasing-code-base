@@ -36,8 +36,6 @@ __global__ void compute_gqqp_1st_Raman(int nst, int nmd, int *INIT_INDEX, int *S
                 size_t INDG = ILP + IL * nmd + ap * nmd * nmd + a * nst * nmd * nmd;
                 size_t INDG_M = 2 * INDG;
                 size_t INDG_P = 2 * INDG + 1;
-                GQQP[INDG_M] = make_cuDoubleComplex(0.0, 0.0);
-                GQQP[INDG_P] = make_cuDoubleComplex(0.0, 0.0);
                 /* b iteration */
                 for (int b = 0; b < nst; b++)
                 {
@@ -68,10 +66,6 @@ __global__ void compute_gqqp_1st_Raman(int nst, int nmd, int *INIT_INDEX, int *S
                 }
             }
         }
-        // if (i0x == 0)
-        //{
-        //     printf("%d   -> END\n", ix);
-        // }
     }
 }
 
@@ -96,49 +90,50 @@ __global__ void compute_gqqp_2nd_Raman(int nat, int nst, int nmd, int *INIT_INDE
     const int sx = SIZE_LIST[idx];
     const int i0x = INIT_INDEX[idx];
     /* cycle over mode pairs */
-    //    for (int ix = i0x; ix < i0x + sx; ix++)
-    //    {
-    //        /* modes index */
-    //        int IL = MODES_LIST[2 * ix];
-    //        int ILP = MODES_LIST[2 * ix + 1];
-    //        /* states index (a,a' )*/
-    //        for (int a = 0; a < nst; a++)
-    //        {
-    //            for (int ap = 0; ap < nst; ap++)
-    //            {
-    //                size_t INDG = ILP + IL * nmd + ap * nmd * nmd + a * nst * nmd * nmd;
-    //                GQQP[INDG] = (0, 0);
-    //                for (int jax = 0; jax < 3 * nat; jax++)
-    //                {
-    //                    cmplx eq_1 = EQ[IL + jax * nmd];
-    //                    for (int jby = 0; jby < 3 * nat; jby++)
-    //                    {
-    //                        cmplx eq_2 = EQP[ILP + jby * nmd];
-    //                        for (int n1 = 0; n1 < nl; n1++)
-    //                        {
-    //                            for (int n2 = 0; n2 < nl; n2++)
-    //                            {
-    //                                cmplx F = (0, 0);
-    //                                /* compute force */
-    //                                for (int b = 0; b < nst; b++)
-    //                                {
-    //                                    int INX = jax + ap * 3 * nat + b * nst * 3 * nat;
-    //                                    int INXP = jby + b * 3 * nat + a * nst * 3 * nat;
-    //                                    F += FX[INXP] * FX[INX] * (1 / (-WQPL[ILP] - EIG[b] + EIG[a]) + 1 / (-WQL[IL] - EIG[b] + EIG[ap]));
-    //                                    INX = jax + b * 3 * nat + a * nst * 3 * nat;
-    //                                    INXP = jby + ap * 3 * nat + b * nst * 3 * nat;
-    //                                    F += FX[INX] * FX[INXP] * (1 / (WQL[IL] - EIG[b] + EIG[a]) + 1 / (WQPL[ILP] - EIG[b] + EIG[ap]));
-    //                                }
-    //                                int INXXP = jby + jax * 3 * nat + ap * 9 * nat * nat + a * nst * 9 * nat * nat;
-    //                                F += FXY[INXXP];
-    //                                GQQP[INDG] += 0.5 * AQL[IL] * eq_1 * EIQR[n1] * F * EIQPR[n2] * eq_2 * AQPL[ILP];
-    //                            }
-    //                        }
-    //                    }
-    //                }
-    //            }
-    //        }
-    //    }
+    for (int ix = i0x; ix < i0x + sx; ix++)
+    {
+        /* modes index */
+        int IL = MODES_LIST[2 * ix];
+        int ILP = MODES_LIST[2 * ix + 1];
+        /* states index (a,a' )*/
+        for (int a = 0; a < nst; a++)
+        {
+            for (int ap = 0; ap < nst; ap++)
+            {
+                size_t INDG = ILP + IL * nmd + ap * nmd * nmd + a * nst * nmd * nmd;
+                size_t INDG_M = 2 * INDG;
+                size_t INDG_P = 2 * INDG + 1;
+                for (int jax = 0; jax < 3 * nat; jax++)
+                {
+                    cuDoubleComplex eq_1 = EQ[IL + jax * nmd];
+                    for (int jby = 0; jby < 3 * nat; jby++)
+                    {
+                        cuDoubleComplex eq_2 = EQP[ILP + jby * nmd];
+                        size_t INDXXP = jby + jax * 3 * nat + ap * 9 * nat * nat + a * nst * 9 * nat * nat;
+                        /* Gqqp^- */
+                        cuDoubleComplex fact_1 = make_cuDoubleComplex(0.5 * AQL[IL] * AQPL[ILP], 0.0);
+                        cuDoubleComplex fact_2 = cuCmul(fact_1, eq_1);
+                        cuDoubleComplex fact_3 = cuCmul(fact_2, EIQR[jax]);
+                        cuDoubleComplex fact_4 = cuCmul(fact_3, FXY[INDXXP]);
+                        cuDoubleComplex fact_5 = cuCmul(fact_4, EIQPR[jby]);
+                        cuDoubleComplex fact_6 = cuCmul(fact_5, eq_2);
+                        GQQP[INDG_M] = cuCadd(
+                            GQQP[INDG_M],
+                            fact_6);
+                        /* Gqqp^+ -> c.c. */
+                        fact_2 = cuCmul(fact_1, cuConj(eq_1));
+                        fact_3 = cuCmul(fact_2, cuConj(EIQR[jax]));
+                        fact_4 = cuCmul(fact_3, cuConj(FXY[INDXXP]));
+                        fact_5 = cuCmul(fact_4, cuConj(EIQPR[jby]));
+                        fact_6 = cuCmul(fact_5, cuConj(eq_2));
+                        GQQP[INDG_P] = cuCadd(
+                            GQQP[INDG_P],
+                            fact_6);
+                    }
+                }
+            }
+        }
+    }
     if (idx == 0)
     {
         printf("%d   -> END\n", i0x);
