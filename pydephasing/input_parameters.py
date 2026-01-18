@@ -618,6 +618,8 @@ class real_time_elec_input(ABC):
         self.write_dir = ''
         # min freq
         self.min_freq = 0.0
+        # gamma point only
+        self.gamma_point = False
     def read_yml_data_dyn(self, data):
         if 'working_dir' in data:
             self.work_dir = data['working_dir']
@@ -650,6 +652,9 @@ class real_time_elec_input(ABC):
                 log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
                 log.info("\t " + self.sep)
                 log.info("\n")
+        # Gamma point only
+        if 'gamma_point' in data:
+            self.gamma_point = data['gamma_point']
     def check_consistency(self):
         # dyn. mode
         assert (len(self.dynamical_mode) == 3)
