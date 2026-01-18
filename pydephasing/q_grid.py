@@ -4,6 +4,7 @@ from collections import Counter
 import numpy as np
 import logging
 import cmath
+from pathlib import Path
 from itertools import product
 from abc import ABC
 from scipy.interpolate import interp1d
@@ -197,17 +198,6 @@ class phonopy_qgridClass(qgridClass):
         r = sum(self.wq)
         self.wq[:] = self.wq[:] / r
         print(self.wq.shape, sum(self.wq))
-    #
-    #  compute phase e^{iq R_k}
-    #  at q pt iq
-    def compute_phase_factor(self, iq, nat):
-        eiqR = np.zeros(3*nat, dtype=np.complex128)
-        qv = self.qpts[iq]
-        for jax in range(3*nat):
-            ia = atoms.index_to_ia_map[jax]
-            Ra = atoms.atoms_dict[ia]['coordinates']
-            eiqR[jax] = cmath.exp(1j*2.*np.pi*np.dot(qv,Ra))
-        return eiqR
 
 #
 #  jdftx q grid class
@@ -219,30 +209,27 @@ class jdftx_qgridClass(qgridClass):
         self.QPTS_FILE = None
         self.gamma_point_only = gamma_point_only
         if not self.gamma_point_only:
-            self.QPTS_FILE = gs_data_dir + '/bandstruct.kpoints'
-
+            GS_DATADIR = Path(gs_data_dir).resolve()
+            self.QPTS_FILE = GS_DATADIR / "bandstruct.kpoints"
     # set up q grid
     def set_qgrid(self, mesh_size=None):
         if mesh_size is not None:
-
             # number of points per axis
             nx, ny, nz = mesh_size
-
             # 3 points in each direction (you can change this range if you want)
             x = np.linspace(-0.5, 0.5, nx)
             y = np.linspace(-0.5, 0.5, ny)
             z = np.linspace(-0.5, 0.5, nz)
-
             # mesh grid (n x n x n)
             X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
-
             # stack into a list of 3D vectors: shape (n^3, 3)
             self.qpts = np.stack([X, Y, Z], axis=-1).reshape(-1, 3)
             self.nq = self.qpts.shape[0]
-
-        else:
+        elif self.QPTS_FILE is not None:
             self.qpts = np.loadtxt(self.QPTS_FILE, skiprows=2, usecols=(1,2,3))
-            self.nq = self.qpts.shape[0]
+        else:
+            log.error("no QPTS_FILE / no mesh grid")
+        self.nq = self.qpts.shape[0]
     # set grid for plot -> phonons
     def set_qgr_plot(self, n_interp=10):
         xIn = np.arange(self.nq)
