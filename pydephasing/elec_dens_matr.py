@@ -14,4 +14,3 @@ class elec_dmatr(object):
         # elec. temperature
         self.Te = Te
         # temperature must be in eV
-        print(self.smearing, self.Te)
