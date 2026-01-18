@@ -114,7 +114,7 @@ def compute_JDFTx_elec_dephas():
     He.set_energy_spectrum(elec_struct)
     He.plot_band_structure()
     He.set_H0_matr()
-
+    # q grid
     qgr = jdftx_qgridClass(p.work_dir,p.gamma_point)
     qgr.set_qgrid(mesh_size = p.qmesh_size)
     # if we need to compute e-ph interactions
@@ -123,17 +123,16 @@ def compute_JDFTx_elec_dephas():
         log.info("\t COLLECT PHONONS INFORMATION")
         log.info("\t " + p.sep)
         log.info("\n")
-    ph = JDFTxPhonons(p.work_dir, PREFIX=p.phonon_calc_prefix, gamma_point_only = p.gamma_point)
+    ph = JDFTxPhonons(p.work_dir, PREFIX=p.phonon_calc_prefix, gamma_point_only=p.gamma_point)
     ph.read_ph_hamilt(qgr=qgr)
-    ph.compute_phonon_DOS(qgr=qgr, n_bins = p.num_bins, sigma = p.sigma)
-
+    ph.compute_phonon_DOS(qgr=qgr, n_bins=p.num_bins, sigma=p.sigma)
     if mpi.rank == mpi.root:
         log.info("\t " + p.sep)
         log.info("\t START E-PH CALCULATION")
         log.info("\t" + p.sep)
         log.info("\t E-PH APPROXIMATION: " + p.EPH_APPROX)
         log.info("\t Reading dH from " + p.eph_matr_file)
-    
+    # e-ph calculation
     gradH = calc_elec_hamilt_gradient(p.eph_matr_file)
     eph = eph_initialization(p.EPH_APPROX, p.band_range_idx, ph.nmodes, elec_struct.nbnd)
     eph.compute_gql(gradH)
