@@ -112,7 +112,7 @@ def solve_elec_dyn_JDFTx_data():
         atoms.print_atoms_info()
         log.info("\t " + p.sep)
     # set electronic structure
-    elec_struct = build_jdftx_gs_elec_struct(p.work_dir)
+    elec_struct = build_jdftx_gs_elec_struct(p.work_dir, p.gamma_point)
     He = electronic_hamiltonian(Ewin_Ha=p.elec_win, wann=p.wannier_interp)
     He.set_energy_spectrum(elec_struct)
     He.plot_band_structure()
@@ -122,7 +122,7 @@ def solve_elec_dyn_JDFTx_data():
     if p.dynamical_mode[1] > 0:
         # read phonons data
         # set q grid
-        qgr = jdftx_qgridClass(p.work_dir)
+        qgr = jdftx_qgridClass(p.work_dir, p.gamma_point)
         qgr.set_qgrid()
         # if we need to compute e-ph interactions
         if mpi.rank == mpi.root:
