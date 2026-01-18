@@ -135,5 +135,7 @@ def solve_elec_dyn_JDFTx_data():
         ph.get_ph_supercell()
         ph.compute_eq_ph_angular_momentum_dispersion(qgr)
         ph.compute_full_ph_angular_momentum_matrix(qgr)
+        # define e-ph coupling
+        
     # clean up
     He.clean_up()
