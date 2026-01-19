@@ -117,6 +117,7 @@ def compute_JDFTx_elec_dephas():
     # q grid
     qgr = jdftx_qgridClass(p.work_dir,p.gamma_point)
     qgr.set_qgrid(mesh_size = p.qmesh_size)
+
     # if we need to compute e-ph interactions
     if mpi.rank == mpi.root:
         log.info("\t " + p.sep)
@@ -135,5 +136,5 @@ def compute_JDFTx_elec_dephas():
     # e-ph calculation
     gradH = calc_elec_hamilt_gradient(p.eph_matr_file)
     eph = eph_initialization(p.EPH_APPROX, p.band_range_idx, ph.nmodes, elec_struct.nbnd)
-    eph.compute_gql(gradH)
+    gql = eph.compute_gql(atoms, gradH, ph, qgr)
     exit()
