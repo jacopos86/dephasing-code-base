@@ -1852,15 +1852,13 @@ class gradient_elec_hamilt:
 				gradH[m, 4] = int(fields[4])
 				gradH[m, 5] = float(fields[5])
 				gradH[m, 6] = float(fields[6])
-		# data[:,0] is iMode, data[:,5]+1j*data[:,6] are the complex elements
-		cc = gradH[:,5] + 1j*gradH[:,6]
-		print(cc[0])
+		
 		return gradH, offsets
 	#
 	# read gradH from bin file
 	def read_gradH_from_binary(self, filename, band_range_idx, nModes, nBands):
 		bin_file = np.fromfile(filename, dtype=np.complex128).reshape((1,nModes,nBands,nBands))
-		b1 , b2 = band_range_idx 
+		b1 , b2 = band_range_idx
 		gradH = bin_file[0,:,b1:b2+1, b1:b2+1]
 		return gradH
 	# read data
