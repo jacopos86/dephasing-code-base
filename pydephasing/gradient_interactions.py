@@ -1861,9 +1861,7 @@ class gradient_elec_hamilt:
 	def read_gradH_from_binary(self, filename, band_range_idx, nModes, nBands):
 		bin_file = np.fromfile(filename, dtype=np.complex128).reshape((1,nModes,nBands,nBands))
 		b1 , b2 = band_range_idx 
-		gradH = bin_file[0,:,b1, b2]
-		print(gradH.shape)
-		print(gradH[0])
+		gradH = bin_file[0,:,b1:b2+1, b1:b2+1]
 		return gradH
 	# read data
 	# from saved file
