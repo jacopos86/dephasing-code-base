@@ -120,7 +120,8 @@ class ElectronPhononCentralCellApprox(ElectronPhononClass):
         super().__init__()
         self.band_range_idx = band_range_idx
         self.nModes = nModes
-        self.nBands = nBands
+        self.nBandsG = nBands # Global number of bands
+        self.nBandsL = band_range_idx[1] - band_range_idx[0] + 1 # Range of bands for computation of g_ql
     def compute_gql(self, atoms, gradH, ph, qgr):
         # --------------------------------------------------------
         #   Compute g_{mn}(q,λ)
@@ -128,14 +129,14 @@ class ElectronPhononCentralCellApprox(ElectronPhononClass):
 
         # Read atoms information
         nat = atoms.nat  # number of atoms in the unit cell
-        atom_idx_map = atoms.index_to_ia_map  # indices to map from atom idx to mode index
-        atom_masses = np.array([atoms.atoms_mass[atom_idx_map[i]] for i in range(self.nModes)])  # masses ordered by mode index
+        atom_ia_map = atoms.index_to_ia_map  # indices to map from atom idx to mode index
+        atom_masses = np.array([atoms.atoms_mass[atom_ia_map[jax]] for jax in range(self.nModes)])  # masses ordered by mode index
 
-        # Load hamiltonian He gradient
-        gradHe = gradH.read_grad_He_matrix(self.band_range_idx, self.nModes, self.nBands) 
+        # Load hamiltonian (He) gradient
+        gradHe = gradH.read_grad_He_matrix(self.band_range_idx, self.nModes, self.nBandsG)
         print("gradH dim: ", gradHe.shape)
 
-        # Set up q grid
+        # # Set up q grid
         nq, qpts = qgr.nq, qgr.qpts # q grid dim and points
         print("Num q points: ", nq)
         print("qpts shape: ", qpts.shape)
@@ -143,28 +144,43 @@ class ElectronPhononCentralCellApprox(ElectronPhononClass):
         # Compute phonon states on q grid
         omega_q, Wq = ph.compute_ph_state_q(qpts) # Compute phonon states at all q points. Eigenvalues and eigenvectors
         print("Phonon eigenvals: ", omega_q.shape)
-        print("Phonon eigenvals sample: ", omega_q[10])
+        # print("Phonon eigenvals sample: ", omega_q[10])
         print("Phonon eigenvectors: ", Wq.shape)
 
-        # Initialize g_ql matrix
-        num_bands = gradHe.shape[1] # number of electronic bands in gradHe
-        gql = np.zeros((nq, self.nModes, num_bands, num_bands), dtype=np.complex128)  # Initialize g_ql matrix
+        # Build ql list
+        ql_list = mpi.split_ph_modes(nq, self.nModes)
+        # # Initialize g_ql matrix
+        gql = np.zeros((self.nBandsL, self.nBandsL, len(ql_list)), dtype=np.complex128)  # Initialize g_ql matrix
+        # phonon amplitude
+        A_ql = ph.compute_ph_amplitude_q(ql_list)
         # Compute g_ql
-        for iq in range(nq):
-            # Iterate over q points
-            # Wq[iq] matrix with dimension Nmodes x (Nmodes)
-            phase_factor = qgr.compute_phase_factor(iq, nat)  # compute phase factor e^{iq R_k}
-            phonon_amplitude = 1/np.sqrt(2*omega_q[iq][:,None,None])  # phonon amplitude factor
-            sum = 0
-            for il in range(self.nModes):
+        iql = 0
+        for iq, il in ql_list:
+            # Iterate over q points and phonon modes
+            phase_factor = qgr.compute_phase_factor(iq, nat)
+            for jax in range(self.nModes):
                 # Iterate over phonon modes
-                # Wq[iq,il] eigenvector at q for mode il  -> Dim = Nmodes
-                term = Wq[iq,il][:,None,None] * gradHe * phase_factor[:,None,None] * 1/np.sqrt(atom_masses[il])
-                sum += term
-            gql[iq,:,:,:] = sum * phonon_amplitude # Final g_ql for q point iq
+                # Calculate g_ql contribution
+                gql[:,:,iql] += A_ql[iql] * phase_factor[jax] * Wq[iq][jax,il] * gradHe[:,:,jax] * 1/np.sqrt(atom_masses[jax])
+                # [eV/ang * ang/eV^1/2 *ps^-1 * eV^1/2 ps]
+                # = eV
+            iql += 1
         print("gql shape: ", gql.shape)
-        print("gql sample: ", gql[10,400,:,:])
         return gql
+
+        # for iq in range(nq):
+        #     # Iterate over q points
+        #     # Wq[iq] matrix with dimension Nmodes x (Nmodes)
+        #     phase_factor = qgr.compute_phase_factor(iq, nat)  # compute phase factor e^{iq R_k}
+        #     phonon_amplitude = 1/np.sqrt(2*omega_q[iq][:,None,None])  # phonon amplitude factor
+        #     sum = 0
+        #     for il in range(self.nModes):
+        #         # Iterate over phonon modes
+        #         # Wq[iq,il] eigenvector at q for mode il  -> Dim = Nmodes
+        #         term = Wq[iq,il][:,None,None] * gradHe * phase_factor[:,None,None] * 1/np.sqrt(atom_masses[il])
+        #         sum += term
+        #     gql[:,:,:,iq] = sum * phonon_amplitude # Final g_ql for q point iq
+        # return gql
 
 
 
