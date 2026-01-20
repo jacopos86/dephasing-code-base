@@ -140,19 +140,30 @@ class electronic_hamiltonian(AbstractElectronicHamiltonian):
             log.info("\t nspin: " + str(self.nspin))
             log.info("\t " + p.sep)
         # build PETSc matrices: H0[k][spin] = (nbnd_new x nbnd_new)
+        comm = PETSc.COMM_WORLD
         self.H0 = []
         for ik in range(self.nkpt):
             Hk_list = []
             for ispin in range(self.nspin):
                 # extract diagonal band energies inside window
-                diag_vals = d_enk[band_set[0]:band_set[-1]+1, ik, ispin]
-                # dense nbnd x nbnd matrix
-                Hks_np = np.diag(diag_vals)
-                # build PETSc matrix
-                Hmat = PETSc.Mat().createDense(
-                    size=(self.nbnd, self.nbnd),
-                    array=Hks_np
-                )
+                diag_vals = np.asarray(d_enk[band_set[0]:band_set[-1]+1, ik, ispin], dtype=float)
+
+                # Create distributed dense matrix (rows split across ranks)
+                Hmat = PETSc.Mat().createDense([self.nbnd, self.nbnd], comm=comm)
+                Hmat.setUp()
+
+                # Each rank owns a block of rows
+                rstart, rend = Hmat.getOwnershipRange()
+                for i in range(rstart, rend):
+                    Hmat.setValue(i, i, float(diag_vals[i]))
+
+                # # dense nbnd x nbnd matrix
+                # Hks_np = np.diag(diag_vals)
+                # # build PETSc matrix
+                # Hmat = PETSc.Mat().createDense(
+                #     size=(self.nbnd, self.nbnd),
+                #     array=Hks_np
+                # )
                 Hmat.assemble()
                 Hk_list.append(Hmat)
             self.H0.append(Hk_list)
