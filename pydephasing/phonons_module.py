@@ -37,6 +37,25 @@ class PhononsClass(ABC):
                 n = 1./(exp(E / (kb * T)) - 1.)
         return n
 
+    # phonons amplitudes
+    def compute_ph_amplitude_q(self, ql_list):
+        # A_lq = [hbar/(2*w_lq)]^1/2
+        # at a given q vector
+        # [eV^1/2 ps]
+        A_ql = np.zeros(len(ql_list))
+        # run over ph. modes
+        # run over local (q,l) list
+        iql = 0
+        for iq, il in ql_list:
+            # freq.
+            wuq = self.uql[iq]
+            # amplitude
+            if wuq[il] > p.min_freq:
+                A_ql[iql] = np.sqrt(hbar / (4.*np.pi*wuq[il]))
+                # eV^0.5*ps
+            iql += 1
+        return A_ql
+
 #
 #   phonopy phonons
 #
@@ -84,23 +103,23 @@ class PhonopyPhonons(PhononsClass):
             self.check_uq_data(qgr)
     #
     # phonons amplitudes
-    def compute_ph_amplitude_q(self, ql_list):
-        # A_lq = [hbar/(2*w_lq)]^1/2
-        # at a given q vector
-        # [eV^1/2 ps]
-        A_ql = np.zeros(len(ql_list))
-        # run over ph. modes
-        # run over local (q,l) list
-        iql = 0
-        for iq, il in ql_list:
-            # freq.
-            wuq = self.uql[iq]
-            # amplitude
-            if wuq[il] > p.min_freq:
-                A_ql[iql] = np.sqrt(hbar / (4.*np.pi*wuq[il]))
-                # eV^0.5*ps
-            iql += 1
-        return A_ql
+    # def compute_ph_amplitude_q(self, ql_list):
+    #     # A_lq = [hbar/(2*w_lq)]^1/2
+    #     # at a given q vector
+    #     # [eV^1/2 ps]
+    #     A_ql = np.zeros(len(ql_list))
+    #     # run over ph. modes
+    #     # run over local (q,l) list
+    #     iql = 0
+    #     for iq, il in ql_list:
+    #         # freq.
+    #         wuq = self.uql[iq]
+    #         # amplitude
+    #         if wuq[il] > p.min_freq:
+    #             A_ql[iql] = np.sqrt(hbar / (4.*np.pi*wuq[il]))
+    #             # eV^0.5*ps
+    #         iql += 1
+    #     return A_ql
     #
     # check eigenv data
     def check_eq_data(self, qgr):
@@ -249,6 +268,8 @@ class JDFTxPhonons(PhononsClass):
         omegaSq, Wq = np.linalg.eigh(D)
         omega = np.copysign(np.sqrt(np.abs(omegaSq)), omegaSq)
         omega_q = omega * hartree2ev / THz_to_ev        # THz
+        self.eql = Wq
+        self.uql = omega_q
         return omega_q, Wq
     def compute_eq_ph_angular_momentum_dispersion(self, qgr, n_interp=10):
         # set q grid
