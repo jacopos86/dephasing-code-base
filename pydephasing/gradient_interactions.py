@@ -1831,6 +1831,7 @@ class gradient_elec_hamilt:
 	#
 	# read gradH from text file
 	def read_gradH_from_dat(self, filename, band_range_idx, nModes, nBands, offsets=None):
+		''' Read gradH data from text file '''
 		b1, b2 = band_range_idx
 		if offsets is None:
 			offsets = build_line_offsets(filename)
@@ -1855,11 +1856,14 @@ class gradient_elec_hamilt:
 		
 		return gradH, offsets
 	#
-	# read gradH from bin file
+	# read gradH from binary file
+	#
 	def read_gradH_from_binary(self, filename, band_range_idx, nModes, nBands):
-		bin_file = np.fromfile(filename, dtype=np.complex128).reshape((1,nModes,nBands,nBands))
+		''' Read gradH data from binary file '''
+		gradH_total = np.fromfile(filename, dtype=np.complex128).reshape((1,nModes,nBands,nBands))
+		gradH_total = np.moveaxis(gradH_total, [0, 1, 2, 3], [0, 3, 1, 2])
 		b1 , b2 = band_range_idx
-		gradH = bin_file[0,:,b1:b2+1, b1:b2+1]
+		gradH = gradH_total[0, b1:b2+1, b1:b2+1, :] # Select a range of bands
 		return gradH
 	# read data
 	# from saved file
