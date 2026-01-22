@@ -2,6 +2,7 @@ from qiskit import QuantumCircuit
 from qiskit.providers.aer import AerSimulator
 from qiskit.quantum_info import SparsePauliOp
 from qiskit.circuit.library import TwoLocal
+from qiskit.circuit import Parameter
 from qiskit.algorithms.optimizers import SLSQP
 from qiskit.primitives import Estimator
 from qiskit.algorithms.minimum_eigensolvers import VQE
@@ -231,7 +232,65 @@ def test_Ising_model():
     assert exact_ener2 == pytest.approx(energy2, 1.e-4)
 
 def test_reduced_Hubbard_dimer():
-    pass
+    f2q_mode = "JW"
+    nq = 4
+    t = 1.
+    U = 2.
+    H = PauliPolynomial(f2q_mode)
+    # 4 qubits -> |1u,2d>, |1d,2u>, |1u,1d>, |2u,2d>
+    # spin dw
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 0) * fermion_minus_operator(f2q_mode, nq, 2)
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 2) * fermion_minus_operator(f2q_mode, nq, 0)
+    # spin up
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 0) * fermion_minus_operator(f2q_mode, nq, 3)
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 3) * fermion_minus_operator(f2q_mode, nq, 0)
+    # spin up
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 1) * fermion_minus_operator(f2q_mode, nq, 2)
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 2) * fermion_minus_operator(f2q_mode, nq, 1)
+    # spin dw
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 1) * fermion_minus_operator(f2q_mode, nq, 3)
+    H += (-t) * fermion_plus_operator(f2q_mode, nq, 3) * fermion_minus_operator(f2q_mode, nq, 1)
+    Hpol = H.return_polynomial()
+    pauli_list = []
+    for it in range(len(Hpol)):
+        pt = Hpol[it].pw2sparsePauliOp()
+        pauli_list.append(pt)
+    hamiltonian = SparsePauliOp.from_list(pauli_list)
+    # exact solution
+    exact_ener = -2*t
+    # -----------------------
+    # Ansatz
+    # -----------------------
+    # Hartree-Fock prep: |1u 1d> -> qubits 0 and 1
+    hf_circ = QuantumCircuit(nq)
+    hf_circ.x(0)  # 1u
+    hf_circ.x(1)  # 1d
+    # Excitation-preserving ansatz
+    from qiskit.circuit.library import ExcitationPreserving
+    ansatz = ExcitationPreserving(
+        num_qubits=nq,
+        mode="iswap",       # or 'fsim'
+        entanglement="full",
+        reps=1
+    )
+    # Prepend HF state
+    ansatz = hf_circ.compose(ansatz)
+    # -----------------------
+    # Optimizer
+    # -----------------------
+    optimizer = SLSQP(maxiter=200)
+    # -----------------------
+    # VQE
+    # -----------------------
+    estimator = Estimator()
+    vqe = VQE(
+        estimator=estimator,
+        ansatz=ansatz,
+        optimizer=optimizer
+    )
+    result = vqe.compute_minimum_eigenvalue(hamiltonian)
+    energy = result.eigenvalue.real
+    assert exact_ener == pytest.approx(energy, 1.e-4)
 
 def test_Hubbard_dimer():
     f2q_mode = "JW"
@@ -249,35 +308,26 @@ def test_Hubbard_dimer():
     for it in range(len(Hpol)):
         pt = Hpol[it].pw2sparsePauliOp()
         pauli_list.append(pt)
-    Hop = SparsePauliOp.from_list(pauli_list)
-    # add penalty term to impose half filling
-    lmbd = 10.0
+    # set hamiltonian
+    hamiltonian = SparsePauliOp.from_list(pauli_list)
+    # Number operator
     N = PauliPolynomial(f2q_mode)
     N += fermion_plus_operator(f2q_mode, nq, 0) * fermion_minus_operator(f2q_mode, nq, 0)
     N += fermion_plus_operator(f2q_mode, nq, 1) * fermion_minus_operator(f2q_mode, nq, 1)
     N += fermion_plus_operator(f2q_mode, nq, 2) * fermion_minus_operator(f2q_mode, nq, 2)
     N += fermion_plus_operator(f2q_mode, nq, 3) * fermion_minus_operator(f2q_mode, nq, 3)
-    H += lmbd * (N - 2.0) ** 2
-    Sz = PauliPolynomial(f2q_mode)
-    Sz += 0.5 * fermion_plus_operator(f2q_mode, nq, 0) * fermion_minus_operator(f2q_mode, nq, 0)
-    Sz -= 0.5 * fermion_plus_operator(f2q_mode, nq, 1) * fermion_minus_operator(f2q_mode, nq, 1)
-    Sz += 0.5 * fermion_plus_operator(f2q_mode, nq, 2) * fermion_minus_operator(f2q_mode, nq, 2)
-    Sz -= 0.5 * fermion_plus_operator(f2q_mode, nq, 3) * fermion_minus_operator(f2q_mode, nq, 3)
-    H += lmbd * Sz ** 2
-    # pauli list
-    Hpol = H.return_polynomial()
-    pauli_list = []
-    for it in range(len(Hpol)):
-        pt = Hpol[it].pw2sparsePauliOp()
-        pauli_list.append(pt)
-    # set hamiltonian
-    hamiltonian = SparsePauliOp.from_list(pauli_list)
     Npol = N.return_polynomial()
     pauli_list = []
     for it in range(len(Npol)):
         pt = Npol[it].pw2sparsePauliOp()
         pauli_list.append(pt)
     Nop = SparsePauliOp.from_list(pauli_list)
+    # Spin operator
+    Sz = PauliPolynomial(f2q_mode)
+    Sz += 0.5 * fermion_plus_operator(f2q_mode, nq, 0) * fermion_minus_operator(f2q_mode, nq, 0)
+    Sz -= 0.5 * fermion_plus_operator(f2q_mode, nq, 1) * fermion_minus_operator(f2q_mode, nq, 1)
+    Sz += 0.5 * fermion_plus_operator(f2q_mode, nq, 2) * fermion_minus_operator(f2q_mode, nq, 2)
+    Sz -= 0.5 * fermion_plus_operator(f2q_mode, nq, 3) * fermion_minus_operator(f2q_mode, nq, 3)
     Spol = Sz.return_polynomial()
     pauli_list = []
     for it in range(len(Spol)):
@@ -289,13 +339,20 @@ def test_Hubbard_dimer():
     # -----------------------
     # Ansatz
     # -----------------------
-    ansatz = TwoLocal(
+    hf_circ = QuantumCircuit(nq)
+    hf_circ.x(0)  # 1↑ occupied
+    hf_circ.x(1)  # 1↓ occupied
+    # Apply UCC excitation
+    from qiskit.circuit.library import ExcitationPreserving
+    # Step 2: Excitation-preserving ansatz
+    exc_circ = ExcitationPreserving(
         num_qubits=nq,
-        rotation_blocks="ry",
-        entanglement_blocks="cx",
+        mode="iswap",
         entanglement="full",
         reps=1
     )
+    # Step 3: Combine HF + excitation
+    ansatz = hf_circ.compose(exc_circ)
     # -----------------------
     # Optimizer
     # -----------------------
@@ -307,47 +364,25 @@ def test_Hubbard_dimer():
     vqe = VQE(
         estimator=estimator,
         ansatz=ansatz,
-        optimizer=optimizer
+        optimizer=optimizer,
+        initial_point=[0.01] * ansatz.num_parameters
     )
     result = vqe.compute_minimum_eigenvalue(hamiltonian)
     energy = result.eigenvalue.real
-    print(energy, exact_ener)
+    assert exact_ener == pytest.approx(energy, 1.e-4)
+    # <N>
+    exact_N = 2.0
     N_expect = estimator.run(
         circuits=[result.optimal_circuit],
         observables=[Nop],
         parameter_values=[list(result.optimal_parameters.values())],
     ).result().values[0]
-    print("⟨N⟩ =", N_expect)
+    assert exact_N == pytest.approx(N_expect, 1.e-4)
+    # <S>
+    exact_S = 0.0
     S_expect = estimator.run(
         circuits=[result.optimal_circuit],
         observables=[Sop],
         parameter_values=[list(result.optimal_parameters.values())],
     ).result().values[0]
-    print("⟨Sz⟩ =", S_expect)
-    H_expect = estimator.run(
-        circuits=[result.optimal_circuit],
-        observables=[Hop],
-        parameter_values=[list(result.optimal_parameters.values())],
-    ).result().values[0]
-    print("⟨H⟩ =", H_expect)
-    H = PauliPolynomial(f2q_mode)
-    # 4 qubits |1u>, |1d>, |2u>, |2d>
-    H += (-t) * fermion_plus_operator(f2q_mode, nq, 0) * fermion_minus_operator(f2q_mode, nq, 2)
-    H += (-t) * fermion_plus_operator(f2q_mode, nq, 2) * fermion_minus_operator(f2q_mode, nq, 0)
-    H += (-t) * fermion_plus_operator(f2q_mode, nq, 1) * fermion_minus_operator(f2q_mode, nq, 3)
-    H += (-t) * fermion_plus_operator(f2q_mode, nq, 3) * fermion_minus_operator(f2q_mode, nq, 1)
-    Hpol = H.return_polynomial()
-    for it in range(len(Hpol)):
-        pt = Hpol[it].pw2sparsePauliOp()
-        print(pt)
-    Hmat = Hop.to_matrix()
-    basis = [
-        0b1010,  # |1↑ 2↓>
-        0b0101,  # |1↓ 2↑>
-        0b1100,  # |1↑1↓>
-        0b0011,  # |2↑2↓>
-    ]
-    Hred = Hmat[np.ix_(basis, basis)]
-    eigvals = np.linalg.eigvalsh(Hred)
-    print(eigvals)
-    #assert exact_ener == pytest.approx(energy, 1.e-4)
+    assert abs(S_expect - exact_S) < 1.e-4
