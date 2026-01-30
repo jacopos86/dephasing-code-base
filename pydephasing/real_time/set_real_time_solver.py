@@ -2,7 +2,7 @@ from pydephasing.utilities.input_parser import parser
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
-from pydephasing.real_time.Liouville_solver import LiouvilleSolverSpin, LiouvilleSolverHFI
+from pydephasing.real_time.Liouville_solver import LiouvilleSolverSpin, LiouvilleSolverHFI, LiouvilleSolverElectronic
 from pydephasing.real_time.oneph_kernel import OnephSolver
 
 # ================================================================
@@ -44,3 +44,21 @@ def set_spin_model_real_time_solver(HFI_CALC):
             log.info("\t " + p.sep)
             log.info("\n")
         return OnephSolver(p.dynamical_mode[0])
+
+# =====================================================================
+#
+#   This module set the real time solver (electronic Hamiltonian ONLY)
+#
+# =====================================================================
+
+def set_real_time_electronic_solver():
+    calc_type1 = parser.parse_args().ct1[0]
+    # assert calc_type1 is set to RT
+    assert calc_type1 == "RT"
+    if mpi.rank == mpi.root:
+        log.info("\n")
+        log.info("\t " + p.sep)
+        log.info("\t SETTING UP REAL TIME SOLVER")
+        log.info("\t " + p.sep)
+        log.info("\n")
+    return LiouvilleSolverElectronic(p.evol_params)
