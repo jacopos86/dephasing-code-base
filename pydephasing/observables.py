@@ -92,3 +92,17 @@ class ObservablesElectronicSystem(Observables):
         pass
     def compute_occup_prob(self, dm_obj):
         pass
+
+class ObservablesElectronicModel(Observables):
+    def __init__(self, basis_set):
+        super().__init__(basis_set)
+    #
+    #   define spin operators
+    def set_Spin_operators(self, nbnd, nkpt):
+        pass
+    def compute_spin_mag(self, dm_obj):
+        pass
+    #
+    #   occup. probabilities
+    def compute_occup_prob(self, dm_obj):
+        pass
