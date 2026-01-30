@@ -9,6 +9,7 @@ from pydephasing.common.phys_constants import eps, kb, hbar
 from pydephasing.set_param_object import p
 from pydephasing.utilities.log import log
 from pydephasing.common.phys_constants import hartree2ev, THz_to_ev
+from pydephasing.common.print_objects import print_1D_array
 from pydephasing.utilities.plot_functions import plot_ph_band_struct, plot_lph_struct, plot_ph_dos, plot_Mph_heatmap
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.phonopy_interface import setup_phonopy_from_forcesets
@@ -362,7 +363,73 @@ class JDFTxPhonons(PhononsClass):
 #
 
 class PhononsStructModel(PhononsClass):
-    def __init__(self):
+    def __init__(self, sound_velocity):
         super().__init__()
         # model -> ONLY acoustic ph branch
         self.nmodes = 1
+        self.vs = sound_velocity
+        # A / fs
+    def compute_energy_dispersion(self, qp):
+        if mpi.rank == mpi.root:
+            log.info("\t COMPUTE PHONON DISPERSION")
+            log.info("\t " + p.sep)
+        omegaSq, normalModes = self.compute_ph_state_q(qp)
+        if mpi.rank == mpi.root:
+            log.info("\t shape wq^2: " + str(omega.shape))
+            log.info("\t " + p.sep)
+            plot_ph_band_struct(omega * hartree2ev * 1.E3, n)  # energies in meV
+        mpi.comm.Barrier()
+    def compute_ph_state_q(self, qp):
+        nq = len(qp)
+        # Frequencies ω(q) = v_s * |q| -> A / ps * A^-1
+        # -> THz
+        omegaSq = np.zeros((nq, self.nmodes))
+        omegaSq[:,0] = (self.vs * np.abs(qp[:])) ** 2
+        # Longitudinal polarization
+        Wq = np.zeros((nq, self.nmodes, 3))
+        Wq[:,0,0] = 1.0
+        return omegaSq, Wq
+    #  plot phonon DOS
+    def compute_phonon_DOS(self, qp, plot_params):
+        # set plot parameters
+        required_keys = ('bins', 'smearing')
+        missing = [k for k in required_keys if k not in plot_params]
+        if missing:
+            raise KeyError(
+                f"Required key(s) {missing} not found in dictionary: plot_params"
+            )
+        n_bins = plot_params['bins']
+        smear = plot_params['smearing']
+        nq = len(qp)
+        # compute phonons freq. eigenv.
+        omegaSq, Wq = self.compute_ph_state_q(qp)
+        omega_q = np.sqrt(omegaSq[:,0])
+        # THz
+        # plot ph. DOS
+        omega_max = omega_q.max()
+        edges = np.linspace(0, omega_max, n_bins+1)
+        omega_centers = 0.5 * (edges[:-1] + edges[1:])
+        counts, _ = np.histogram(omega_q, bins=edges)
+        dos = counts.astype(float)
+        dw = omega_centers[1] - omega_centers[0]
+        dos = dos / (nq * dw)
+        # Gaussian broadening
+        dos = gaussian_broaden_hist(omega_centers, dos, smear)
+        plot_ph_dos(omega_centers, dos)
+    #  plot ph bands
+    def compute_energy_dispersion(self, qp):
+        nq = len(qp)
+        # compute phonons freq. eigenv.
+        omegaSq, Wq = self.compute_ph_state_q(qp)
+        omega_q = np.sqrt(omegaSq) * THz_to_ev * 1.e3
+        # meV units
+        # plot ph BS -> meV
+        plot_ph_band_struct(omega_q, len(qp))
+    def summary(self):
+        """
+        Print basic info about the phonon branch
+        """
+        if mpi.rank == mpi.root:
+            log.info("\t Single Acoustic Branch Phonon Model")
+            log.info(f"\t Number modes: {self.nmodes}")
+            log.info(f"\t sound velocity: {self.vs} (A / ps)")
