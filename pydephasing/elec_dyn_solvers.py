@@ -1,6 +1,7 @@
 # This is the main subroutine
 # for non Markovian calculation of electronic systems
 #
+import numpy as np
 from pydephasing.set_param_object import p
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
@@ -11,6 +12,10 @@ from pydephasing.q_grid import jdftx_qgridClass
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.electronic_hamiltonian import electronic_hamiltonian, model_electronic_hamiltonian
 from pydephasing.elec_dens_matr import elec_dmatr
+from pydephasing.elec_ph_inter import DeformationPotentialElectronPhonon
+from pydephasing.observables import ObservablesElectronicModel
+from pydephasing.elec_light_inter import ElectronLightCouplModel
+from pydephasing.real_time.set_real_time_solver import set_real_time_electronic_solver
 
 #
 def solve_elec_model_dyn():
@@ -29,54 +34,64 @@ def solve_elec_model_dyn():
         nkpt=p.nkpt,
         eff_mass=p.elec_eff_mass,                    # list
         band_offset=p.elec_band_offset,              # list
-        chem_pot=p.chem_pot,
-        Ewin_Ha=p.elec_win
+        Ewin_Ha=p.elec_win,
+        sys_size=p.L
     )
     He.set_energy_spectrum()
-    He.plot_band_structure()
     He.set_H0_matr()
     if mpi.rank == mpi.root:
         log.info("\t MODEL ELECTRONIC HAMILTONIAN initialized")
         log.info("\t " + p.sep)
         log.info("\n")
     # set MODEL density matrix
-    rho_e = elec_dmatr(p.smearing, p.Te)
+    rho_e = elec_dmatr(p.smearing, p.Te, p.Nel)
+    rho_e.initialize_dmatr(He)
+    rho_e.summary()
+    # plot band structure
+    He.plot_band_structure()
+    # phonons section
+    if p.dynamical_mode[1] > 0:
+        # ============================================================
+        # 2. Q grid && Model phonons (acoustic branch)
+        # ============================================================
+        qgr = np.copy(He.kgr)
+        if mpi.rank == mpi.root:
+            log.info("\t " + p.sep)
+            log.info(f"\t q grid shape: {qgr.shape}")
+            log.info("\t " + p.sep)
+        ph = PhononsStructModel(p.sound_velocity)
+        ph.compute_phonon_DOS(qgr, p.ph_DOS_plot)
+        ph.compute_energy_dispersion(qgr)
+        ph.summary()
+        # ============================================================
+        # 3. Deformation potential electron–phonon coupling
+        # ============================================================
+        eph = DeformationPotentialElectronPhonon(
+            eph_params=p.eph_params,
+            nBands=p.elec_bands,
+            sys_size=p.L
+        )
+        eph.summary()
+        if mpi.rank == mpi.root:
+            log.info("\t Deformation potential coupling computed")
     # ============================================================
-    # 2. Q grid && Model phonons (acoustic branch)
+    # 4. Spin operators + SO interaction
     # ============================================================
-    ph = PhononsStructModel()
-    print(ph.nmodes)
-    exit()
-    nq = p.model_nq
-    qvals = np.linspace(-p.qmax, p.qmax, nq)
-    q_vectors = np.zeros((nq, 3))
-    q_vectors[:, 0] = qvals
-    phonon_freqs = np.zeros((nq, 1))
-    phonon_freqs[:, 0] = p.model_sound_velocity * np.abs(qvals)
-    phonon_polarizations = np.zeros((nq, 1, 3))
-    phonon_polarizations[:, 0, 0] = 1.0  # longitudinal
+    Observ = ObservablesElectronicModel(basis_set=None)
+    Observ.set_Spin_operators(p.elec_bands, p.nkpt)
     # ============================================================
-    # 3. Deformation potential electron–phonon coupling
+    # 5. Electric dipole
     # ============================================================
-    ep = DeformationPotentialElectronPhonon(
-        deformation_potentials=p.model_deformation_potential,
-        density=p.model_density,
-        volume=p.model_volume
+    elc = ElectronLightCouplModel(
+        dipole_strengths=p.dipole_coeff
     )
-    g_ql = ep.compute_gql(
-        q_vectors=q_vectors,
-        phonon_freqs=phonon_freqs,
-        phonon_polarizations=phonon_polarizations
-    )
-    if mpi.rank == mpi.root:
-        log.info("\t Deformation potential coupling computed")
     # ============================================================
-    # 4. Ready for non-Markovian propagation
+    # 6. Ready for non-Markovian propagation
     # ============================================================
-
-    # TODO:
-    # dynamics_solver(He, g_ql)
-
+    RT_solver = set_real_time_electronic_solver()
+    RT_solver.summary()
+    rho_e = RT_solver.propagate(He, rho_e)
+    print(rho_e.traces[50,0,:])
     He.clean_up()
 
 # ====================================================
