@@ -13,6 +13,7 @@ pydephasing.egg-info
 # === logs and temporary files === #
 *.log
 *.png
+*.yml
 
 # === TESTS and old versions === #
 TESTS
