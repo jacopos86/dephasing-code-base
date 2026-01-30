@@ -3,9 +3,9 @@
 # ===================
 
 ROOT := $(shell pwd)
-VENV := $(ROOT)/pydeph
-
-PYTHON_VERSION := python3
+CONDA := conda
+CONDA_ENV_NAME := pydeph
+CONDA_ENV_FILE := $(ROOT)/conda-environment.yml
 
 # ===================
 # Build mode
@@ -21,6 +21,15 @@ INSTALL_PYCUDA ?= 0
 GPU_ACTIVE ?= 0
 GRID_SIZE ?=
 BLOCK_SIZE ?=
+
+# ===================
+# MPI launcher
+# ===================
+
+MPI_LAUNCHER ?= mpirun
+ifeq ($(BUILD_MODE),nersc)
+	MPI_LAUNCHER := srun
+endif
 
 # ===================
 #  unit tests
