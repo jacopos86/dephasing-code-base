@@ -1,10 +1,11 @@
+import numpy as np
+from petsc4py import PETSc
 from pydephasing.real_time.real_time_solver_base import RealTimeSolver
 from pydephasing.utilities.log import log
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.common.phys_constants import hbar
 from pydephasing.common.matrix_operations import commute
-import numpy as np
 
 #
 #      TODO rewrite -> implement Liouvile solver from base class in real_time_solver
@@ -115,3 +116,149 @@ class LiouvilleSolverHFI(RealTimeSolver):
             log.info("\t T (ps): " + str(T))
             log.info("\t " + p.sep)
         rh = np.zeros((n, n, nt), dtype=np.complex128)
+
+class LiouvilleSolverElectronic:
+    """
+    Minimal Liouville-von Neumann solver for density matrix dynamics:
+        drho/dt = -i/hbar [H, rho]
+    Can be extended later for electron-phonon coupling or other dissipators.
+    """
+    def __init__(self, evol_params):
+        # Evolution parameters
+        self.TITLE = "LIOUVILE COHERENT DYNAMICS"
+        self.dt = evol_params.get('time_step')               # ps
+        self.nsteps = evol_params.get('num_steps')
+        self.solver_type = evol_params.get('solver_type', 'RK4').upper()
+        # PETSc TS object
+        self.ts = PETSc.TS().create()
+        self._configure_ts()
+        # Lindbladian
+        self.L = None
+        # monitoring
+        self.save_every = evol_params.get('save_every')
+        # internal variables
+        self._nbnd = None
+        self._rho_e = None
+        self._ik = None
+        self._isp = None
+    def _configure_ts(self):
+        """ Configure PETSc TS based on solver type """
+        if self.solver_type == 'RK4':
+            self.ts.setType(PETSc.TS.Type.RK)
+            self.ts.setRKType(PETSc.TS.RKType.RK4)
+        elif self.solver_type == 'RK45':
+            self.ts.setType(PETSc.TS.Type.RK)
+            self.ts.setRKType(PETSc.TS.RKType.RK45)
+        elif self.solver_type == 'CN':  # Crank-Nicholson
+            self.ts.setType(PETSc.TS.Type.BEULER)   # backward Euler
+            self.ts.setExactFinalTime(PETSc.TS.ExactFinalTime.MATCHSTEP)
+            # We'll implement the CN RHS function as f(t,y) = -i/ħ [H, rho]
+            # and PETSc will solve the implicit step using the TS solver
+        elif self.solver_type == 'EULER':
+            self.ts.setType(PETSc.TS.Type.EULER)
+        else:
+            log.error(f"Unknown solver type: {self.solver_type}")
+    # ---------------------------------------------
+    # PETSc monitor
+    # ---------------------------------------------
+    def monitor(self, ts, step, t, y):
+        if step % self.save_every == 0:
+            # reshape vector back to density matrix
+            rho_np = y.getArray().reshape(self._nbnd, self._nbnd, order="F")
+            # store into rho_e object
+            self._rho_e.store_rho_time(self._ik, self._isp, step // self.save_every, rho_np)
+            # compute trace for diagnostics
+            tr = np.trace(rho_np).real
+            self._rho_e.store_traces(self._ik, self._isp, step // self.save_every, tr)
+    # --------------------------------------------------
+    # Liouville action: ydot = -i/hbar (H*rho - rho*H)
+    # --------------------------------------------------
+    def Liouvillian(self, Hk):
+        dim = np.prod(Hk.shape)
+        I = np.eye(Hk.shape[0], dtype=complex)
+        # Liouvillian in column-stacked (Fortran) order: 
+        #       L*rho = -i/hbar (H*rho - rho*H)
+        L_np = -1j / hbar * (np.kron(Hk, I) - np.kron(I, Hk.T))
+        L = PETSc.Mat().createDense(
+            size=(dim,dim), 
+            array=L_np.astype(np.complex128),
+            comm=PETSc.COMM_SELF
+        )
+        L.assemble()
+        return L
+    # --------------------------------------------------
+    # RHS callback (explicit solvers)
+    # --------------------------------------------------
+    def _rhs_linear(self, ts, t, y, ydot):
+        self.L.mult(y, ydot)
+    # --------------------------------------------------
+    # Attach linear ODE to TS
+    # --------------------------------------------------
+    def _initialize_linear_ODE_solver(self, y):
+        # reset solver first
+        self._reset_ts()
+        self.ts.setProblemType(PETSc.TS.ProblemType.LINEAR)
+        self.ts.setTimeStep(self.dt)
+        self.ts.setMaxSteps(self.nsteps)
+        self.ts.setSolution(y)    # set initial solution
+        if self.solver_type in ("RK4", "RK45", "EULER"):
+            self.ts.setRHSFunction(self._rhs_linear)
+        elif self.solver_type == "CN":
+            self.ts.setRHSJacobian(self.L, self.L)
+    def _reset_ts(self):
+        """ Reset the PETSc TS object to start a new propagation."""
+        self.ts.reset()           # clear previous solver state
+        self.ts.setTime(0.0)      # reset time
+        self.ts.setStepNumber(0)  # step number
+    # ---------------------------------------------
+    # Perform time evolution
+    # ---------------------------------------------
+    def propagate(self, He, rho_e):
+        # set objects
+        self._nbnd = He.nbnd
+        self._rho_e = rho_e
+        nkpt = He.nkpt
+        nspin= He.nspin
+        assert self._rho_e.nbnd == self._nbnd
+        assert self._rho_e.nkpt == nkpt
+        assert self._rho_e.nspin == nspin
+        # set time dependent object
+        self._rho_e.init_td_arrays(self.nsteps, self.save_every)
+        # iterate over k / spin
+        for ik in range(nkpt):
+            self._ik = ik
+            for isp in range(nspin):
+                self._isp = isp
+                # get Hamiltonian H(k) / DM rho(k)
+                Hk = He.get_PETSc_Hk(ik, isp)
+                rho_k = self._rho_e.get_PETSc_rhok(ik, isp)
+                # 1. Build Liouvillian operator (implicit for CN)
+                # Liouville action: ydot = -i/hbar (H*rho - rho*H)
+                self.L = self.Liouvillian(Hk.getDenseArray())
+                # create PETSc arrays
+                # Flatten rho into a vector for PETSc TS
+                rho_np = rho_k.getDenseArray()
+                y0 = rho_np.flatten(order="F")
+                # y vector
+                y = PETSc.Vec().createSeq(len(y0), comm=PETSc.COMM_SELF)
+                y.setValues(range(len(y0)), y0)
+                y.assemble()
+                # set propagator
+                self._initialize_linear_ODE_solver(y)
+                # attach monitor for storing rho and trace
+                self.ts.setMonitor(self.monitor)
+                #  solve dynamics
+                self.ts.solve(y)
+                #print('\t ' + str(ik) + ' -> END')
+        return self._rho_e
+    # summary mode
+    def summary(self):
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t " + self.TITLE)
+            log.info(f"\t TIME STEP: {self.dt} ps")
+            log.info(f"\t NUMBER OF STEPS: {self.nsteps}")
+            log.info("\t REAL TIME SOLVER: " + self.solver_type.upper())
+            log.info("\t " + p.sep)
+            log.info("\n")
