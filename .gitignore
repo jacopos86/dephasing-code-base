@@ -33,3 +33,4 @@ utils/__pycache__/
 *.pyc
 pydeph
 petsc
+.python-version
