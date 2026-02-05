@@ -143,12 +143,19 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
     # ---------------------------------------------
     def monitor(self, ts, step, t, y):
         if step % self.save_every == 0:
+
             # reshape vector back to density matrix
             rho_np = y.getArray().reshape(self._nbnd, self._nbnd, order="F")
             # store into rho_e object
             self._rho_e.store_rho_time(self._ik, self._isp, step // self.save_every, rho_np)
             # compute trace for diagnostics
             tr = np.trace(rho_np).real
+
+            ### Use PETSc to get trace
+            #tr = 0
+            #rstart, rend = y.getOwnershipRange()
+            #for row in range(rstart, rend):
+            #    tr += y.getValues(row)
             self._rho_e.store_traces(self._ik, self._isp, step // self.save_every, tr)
     # --------------------------------------------------
     # Liouville action: ydot = -i/hbar (H*rho - rho*H)
@@ -166,29 +173,52 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         )
         L.assemble()
         return L
+
     def PETScLiouvillian(self, Hk):
+
         n, m = Hk.size
-        nn = n * m
+        nn = n * m 
+        
+        # 1. Gather the distributed Hk into a sequential matrix on every rank
+        # This allows every rank to call getValue() for any (i, j)
+        is_row = PETSc.IS().createStride(n, 0, 1, comm=PETSc.COMM_SELF)
+        is_col = PETSc.IS().createStride(m, 0, 1, comm=PETSc.COMM_SELF)
+        
+        # getSubMatrices returns a list; we take the first element
+        Hk_seq = Hk.createSubMatrices(is_row, is_col)[0] 
         
         L = PETSc.Mat()
         L.create(comm=PETSc.COMM_WORLD)
         L.setSizes((nn, nn))
-
+        L.setFromOptions()
+        L.setUp()
+        
         rstart, rend = L.getOwnershipRange()
         
+        # Pre-factor the constant
+        coeff = -1j / hbar
+        
         for row in range(rstart, rend):
-            i = row % n       # row index in rho
-            j = row // n      # column index in rho
+            i = row % n       # row index in density matrix
+            j = row // n      # column index in density matrix
         
-            # H * rho term
+            # H * rho term: L_row,col = H_ik * delta_jl
+            # This corresponds to indices where 'j' remains constant
             for k in range(n):
-                col = k + j * n
-                L.setValue(row, col, -1j / hbar * Hk[i, k])
+                col = k + j * n 
+                val = coeff * Hk_seq.getValue(i, k)
+                if val != 0:
+                    L.setValue(row, col, val, addv=PETSc.InsertMode.ADD_VALUES)
         
-            # rho * H term
+            # -rho * H term: L_row,col = -delta_ik * H_kj
+            # This corresponds to indices where 'i' remains constant
             for k in range(n):
-                col = i + k * n
-                L.setValue(row, col, +1j / hbar * Hk[k, j])
+                col = i + k * n 
+                # Note: the commutator is [H, rho] = H*rho - rho*H
+                # We use -coeff here for the second term
+                val = -coeff * Hk_seq.getValue(k, j)
+                if val != 0:
+                    L.setValue(row, col, val, addv=PETSc.InsertMode.ADD_VALUES)
         
         L.assemblyBegin()
         L.assemblyEnd()
