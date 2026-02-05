@@ -36,7 +36,45 @@ class elec_dmatr(object):
         Te = self.Te
         beta = np.inf if Te == 0.0 else 1.0 / Te
         # define density matrix
-        self.rho = []
+        #self.rho = []
+
+        # define density matrix as block diagonal PETSc MAT obj.
+        block_size = self.nbnd * self.nbnd
+        global_size = self.nkpt * self.nspin * block_size
+        self.rho = PETSc.Mat().create(comm=PETSc.COMM_WORLD)
+        self.rho.setSizes((global_size, global_size))
+        self.rho.setType(PETSc.Mat.Type.BAIJ) # uses BAIJ for block sparse matix
+        self.rho.setBlockSize(block_size) # uses BAIJ for block sparse matix
+        self.rho.setPreallocationNNZ(1) # 1 for 1 block in each row
+        
+        # Get blocks on this rank        
+        rstart, rend = self.rho.getOwnershipRange()
+        first_rho = rstart // block_size
+        last_rho = rend // block_size
+        
+        for i in range(first_rho, last_rho):
+
+            ik = i // self.nspin
+            isp = i % self.nspin
+            block_offset = i * block_size
+
+            for ib in range(self.nbnd):
+                Ek = He.enk[ib,ik,isp]
+                eps = Ek - mu
+                focc = 0
+                if self.smearing == 'FD':
+                    if Te == 0.0:
+                        focc = 1.0 if eps < 0.0 else 0.0
+                    else:
+                        focc = 1.0 / (np.exp(beta * eps) + 1.0)
+                # Map local block diagonal to flat indicies
+                local_idx = ib * self.nbnd + ib
+                # get global index as block offset + local block index
+                global_idx = block_offset + local_idx
+                self.rho.setValue(global_idx, global_idx, focc, addv=PETSc.InsertMode.INSERT_VALUES)        
+        self.rho.assemblyBegin()
+        self.rho.assemblyEnd()
+        """
         for ik in range(self.nkpt):
             for isp in range(self.nspin):
                 # diagonal occupations
@@ -49,25 +87,14 @@ class elec_dmatr(object):
                             focc[ib] = 1.0 if eps < 0.0 else 0.0
                         else:
                             focc[ib] = 1.0 / (np.exp(beta * eps) + 1.0)
+                            #focc[ib] = (1.0 / (np.exp(beta * eps) + 1.0)) + (He.kgr[ik])Tilt Occ.
+                            if He.kgr[ik] == 0.0:
+                                print(ik)
+                #rho_np = np.diag(focc*2/1.2080088443076273) Tilt Occ.
                 rho_np = np.diag(focc)
-                #rho_mat = PETSc.Mat().createDense(
-                #    size=(self.nbnd, self.nbnd),
-                #    array=rho_np
-                #)
-                #rho_mat.assemble()
-    
-                #rho_mat = PETSc.Mat()
-                #rho_mat.create(PETSc.COMM_WORLD)
-                #rho_mat.setSizes((self.nbnd, self.nbnd))
-                ### NOTE For later, add preallocate if we know the number of non-zero entries 
-                #rstart, rend = rho_mat.getOwnershipRange()
-                #for row in range(rstart, rend):
-                #    rho_mat[row,:] = rho_np[row]
-                #
-                #rho_mat.assemblyBegin()
-                #rho_mat.assemblyEnd()
                 rho_mat = MatWrap(rho_np, n=self.nbnd)
                 self.rho.append(rho_mat)
+        """
         # check electron number
         Nel = self.total_electrons_from_rho(He)
         assert abs(Nel - self.nel) < nel_tol
@@ -114,17 +141,20 @@ class elec_dmatr(object):
         return N
     def total_electrons_from_rho(self, He):
         """Compute total number of electrons from the density matrix."""
-        if len(self.rho) == 0:
+        #if len(self.rho) == 0:
+        if np.sum(self.rho.getSize()) == 0:
             log.error("Density matrix not initialized")
-        # num. elec.
-        iksp = 0
-        N = 0.0
-        for ik in range(self.nkpt):
-            for isp in range(self.nspin):
-                # rho[ik] is a PETSc Mat
-                N += He.wk[ik] * self.rho[iksp].getDiagonal().sum()
-                iksp += 1
+        ## num. elec.
+        #iksp = 0
+        #N = 0.0
+        #for ik in range(self.nkpt):
+        #    for isp in range(self.nspin):
+        #        # rho[ik] is a PETSc Mat
+        #        N += wk[ik] * self.rho[iksp].getDiagonal().sum()
+        #        iksp += 1
+        N = PETScTrace(self.rho) * He.wk[0] ## AG TODO need to rewrite PETScTrace to incorporate weights per kpoint
         return N
+
     def get_PETSc_rhok(self, ik, isp):
         """ Return PETSc.Mat rho(k) for a given k-point and spin """
         if self.rho is None:

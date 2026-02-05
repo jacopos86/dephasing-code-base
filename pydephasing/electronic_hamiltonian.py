@@ -276,6 +276,19 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
         )
         Hmat.assemble()
         return Hmat
+    def get_PETSc_Hk_np(self, ik, isp):
+        """ Return Numpy Array from PETSc.Mat Hamiltonian for a given k-point and spin """
+        if self.H0 is None:
+            self.set_H0_matr()
+        if ik < 0 or ik >= self.nkpt:
+            log.error(f"k-point index {ik} out of bounds [0,{self.nkpt-1}]")
+        if isp < 0 or isp >= self.nspin:
+            log.error(f"spin index {isp} out of bounds [0,{self.nspin-1}]")
+        iksp = ik * self.nspin + isp
+        _PETSc_Hk = self.H0[iksp].convert('dense')
+        Hk_np = _PETSc_Hk.getDenseArray().copy()
+        _PETSc_Hk.destroy()
+        return Hk_np
     # clean PETSc objects
     def clean_up(self):
         """ Robust PETSc cleanup (safe for repeated calls). """
