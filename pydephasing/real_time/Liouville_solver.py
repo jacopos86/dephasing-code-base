@@ -1,6 +1,6 @@
 import numpy as np
-from petsc4py import PETSc
-from pydephasing.real_time.real_time_solver_base import RealTimeSolver, ElecPhDynamicSolverBase
+from pydephasing.parallelization.petsc import *
+from pydephasing.real_time.real_time_solver_base import RealTimeSolver
 from pydephasing.utilities.log import log
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
@@ -166,6 +166,34 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         )
         L.assemble()
         return L
+    def PETScLiouvillian(self, Hk):
+        n, m = Hk.size
+        nn = n * m
+        
+        L = PETSc.Mat()
+        L.create(comm=PETSc.COMM_WORLD)
+        L.setSizes((nn, nn))
+
+        rstart, rend = L.getOwnershipRange()
+        
+        for row in range(rstart, rend):
+            i = row % n       # row index in rho
+            j = row // n      # column index in rho
+        
+            # H * rho term
+            for k in range(n):
+                col = k + j * n
+                L.setValue(row, col, -1j / hbar * Hk[i, k])
+        
+            # rho * H term
+            for k in range(n):
+                col = i + k * n
+                L.setValue(row, col, +1j / hbar * Hk[k, j])
+        
+        L.assemblyBegin()
+        L.assemblyEnd()
+
+        return L
     # --------------------------------------------------
     # RHS callback (explicit solvers)
     # --------------------------------------------------
@@ -221,13 +249,38 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
                 Hk = He.get_PETSc_Hk(ik, isp)
                 # 1. Build Liouvillian operator (implicit for CN)
                 # Liouville action: ydot = -i/hbar (H*rho - rho*H)
-                self.L = self.Liouvillian(Hk.getDenseArray())
-                # initial vector
-                y = self._set_initial_state()
+                #self.L = self.Liouvillian(Hk.getDenseArray())
+                self.L = self.PETScLiouvillian(Hk)
+                # create PETSc arrays
+                # Flatten rho into a vector for PETSc TS
+
+                #rho_np = rho_k.getDenseArray()
+                #y0 = rho_np.flatten(order="F")
+                ## y vector
+                #y = PETSc.Vec().createSeq(len(y0), comm=PETSc.COMM_SELF)
+                #y.setValues(range(len(y0)), y0)
+                #y.assemble()
+                ### GET PETSc Vec from Mat
+                y = PETScVec_from_Mat(rho_k)
                 # set propagator
                 self._initialize_linear_ODE_solver(y)
                 # attach monitor for storing rho and trace
                 self.ts.setMonitor(self.monitor)
                 #  solve dynamics
                 self.ts.solve(y)
-        return [self._rho_e]
+                #print('\t ' + str(ik) + ' -> END')
+        return self._rho_e
+    # summary mode
+    def summary(self):
+        if mpi.rank == mpi.root:
+            log.info("\n")
+            log.info("\t " + p.sep)
+            log.info("\t " + self.TITLE)
+            log.info(f"\t TIME STEP: {self.dt} ps")
+            log.info(f"\t NUMBER OF STEPS: {self.nsteps}")
+            log.info("\t REAL TIME SOLVER: " + self.solver_type.upper())
+            log.info("\t " + p.sep)
+            #log.info("Shape of Rho Property " + f"{self._rho_e.shape}")
+            #for _i in dir(self.monitor):
+            #    log.info(f"\t{_i}")
+            log.info("\n")

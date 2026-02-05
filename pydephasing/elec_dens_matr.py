@@ -1,5 +1,5 @@
 import numpy as np
-from petsc4py import PETSc
+from pydephasing.parallelization.petsc import *
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
 
@@ -50,11 +50,23 @@ class elec_dmatr(object):
                         else:
                             focc[ib] = 1.0 / (np.exp(beta * eps) + 1.0)
                 rho_np = np.diag(focc)
-                rho_mat = PETSc.Mat().createDense(
-                    size=(self.nbnd, self.nbnd),
-                    array=rho_np
-                )
-                rho_mat.assemble()
+                #rho_mat = PETSc.Mat().createDense(
+                #    size=(self.nbnd, self.nbnd),
+                #    array=rho_np
+                #)
+                #rho_mat.assemble()
+    
+                #rho_mat = PETSc.Mat()
+                #rho_mat.create(PETSc.COMM_WORLD)
+                #rho_mat.setSizes((self.nbnd, self.nbnd))
+                ### NOTE For later, add preallocate if we know the number of non-zero entries 
+                #rstart, rend = rho_mat.getOwnershipRange()
+                #for row in range(rstart, rend):
+                #    rho_mat[row,:] = rho_np[row]
+                #
+                #rho_mat.assemblyBegin()
+                #rho_mat.assemblyEnd()
+                rho_mat = MatWrap(rho_np, n=self.nbnd)
                 self.rho.append(rho_mat)
         # check electron number
         Nel = self.total_electrons_from_rho(He)

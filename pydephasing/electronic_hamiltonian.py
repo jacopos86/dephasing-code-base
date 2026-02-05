@@ -1,7 +1,11 @@
 import numpy as np
 import gc
 from abc import ABC, abstractmethod
-from petsc4py import PETSc
+import sys
+#import petsc4py
+#petsc4py.init(sys.argv)
+#from petsc4py import PETSc
+from pydephasing.parallelization.petsc import PETSc, MatWrap
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
@@ -137,11 +141,18 @@ class electronic_hamiltonian(AbstractElectronicHamiltonian):
                 # dense nbnd x nbnd matrix
                 Hks_np = np.diag(diag_vals)
                 # build PETSc matrix
-                Hmat = PETSc.Mat().createDense(
-                    size=(self.nbnd, self.nbnd),
-                    array=Hks_np
-                )
-                Hmat.assemble()
+                #Hmat = PETSc.Mat()
+                #Hmat.create(PETSc.COMM_WORLD)
+                #Hmat.setSizes((self.nbnd, self.nbnd))
+                ### NOTE For later, add preallocate if we know the number of non-zero entries 
+                #rstart, rend = Hmat.getOwnershipRange()
+                #for row in range(rstart, rend):
+                #    Hmat[row,:] = Hks_np[row]
+                #
+                #Hmat.assemblyBegin()
+                #Hmat.assemblyEnd()
+                #Hmat.assemble()
+                Hmat = MatWrap(Hks_np, n=self.nbnd)
                 Hk_list.append(Hmat)
             self.H0.append(Hk_list)
     # electric dipole
@@ -200,15 +211,15 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
     def set_H0_matr(self):
         """ Construct analytical H0(k) matrices."""
         self.H0 = []
+        ## AG Tempeorerry to check parallel info
+        print("*"*20)
+        print(f" Rank {PETSc.COMM_WORLD.getRank()}")
+        print(f" Size {PETSc.COMM_WORLD.getSize()}")
         for ik in range(self.nkpt):
             for isp in range(self.nspin):
                 # diagonal Hamiltonian
                 H_np = np.diag(self.enk[:, ik, isp])
-                Hmat = PETSc.Mat().createDense(
-                    size=(self.nbnd, self.nbnd),
-                    array=H_np
-                )
-                Hmat.assemble()
+                Hmat = MatWrap(H_np, n=self.nbnd)
                 self.H0.append(Hmat)
     # --------------------------------------------------------
     #   compute polaron Hamiltonian

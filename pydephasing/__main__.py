@@ -1,7 +1,7 @@
-from petsc4py import PETSc
 from pydephasing.set_param_object import p
 from pydephasing.create_displ_struct_files import gen_poscars, gen_2ndorder_poscar
 from pydephasing.parallelization.mpi import mpi
+from pydephasing.parallelization.petsc import PETSc
 from pydephasing.utilities.log import log
 from pydephasing.utilities.timer import timer
 from pydephasing.utilities.input_parser import parser
