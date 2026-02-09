@@ -1,5 +1,5 @@
 from pydephasing.parallelization.mpi import mpi
-from pydephasing.parallelization.petsc import PETSc ## AG
+from pydephasing.parallelization.petsc import PETSc
 from pydephasing.utilities.log import log
 from pydephasing.utilities.input_parser import parser
 from pydephasing.set_param_object import p

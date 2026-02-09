@@ -142,31 +142,6 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
     # ---------------------------------------------
     # PETSc monitor
     # ---------------------------------------------
-    def monitor_old_PETSc(self, ts, step, t, y):
-        """ Monitor to handle parallel execution """
-
-        if step % self.save_every == 0:
-
-            # Get target vector (_v_full) and scatter context (_scatter_ctx) to reduce rho
-            if not hasattr(self, '_scatter_ctx'):
-                self._scatter_ctx, self._v_full = PETSc.Scatter.toZero(y)
-        
-            # Gather rho via PETSc scatter (seems PETSc doesnt have reduce?)
-            self._scatter_ctx.begin(y, self._v_full, PETSc.InsertMode.INSERT, PETSc.ScatterMode.FORWARD)
-            self._scatter_ctx.end(y, self._v_full, PETSc.InsertMode.INSERT, PETSc.ScatterMode.FORWARD)
-        
-            if mpi.rank == mpi.root:
-                # Get the full array from the gathered vector and reshape
-                v_full_np = self._v_full.getArray(readonly=True)
-                rho_full = v_full_np.reshape(self._nbnd, self._nbnd, order="F")
-                
-                # Store full _rho_e obj
-                self._rho_e.store_rho_time(self._ik, self._isp, step // self.save_every, rho_full)
-                
-                # Store full trace
-                tr_total = np.trace(rho_full).real
-                self._rho_e.store_traces(self._ik, self._isp, step // self.save_every, tr_total)    
-
     def monitor(self, ts, step, t, y):
         if step % self.save_every != 0:
             return
@@ -197,9 +172,6 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
                     self._rho_e.store_rho_time(ik, isp, step // self.save_every, rho_block)
                     self._rho_e.store_traces(ik, isp, step // self.save_every, np.trace(rho_block).real)
 
-
-
-
     # --------------------------------------------------
     # Liouville action: ydot = -i/hbar (H*rho - rho*H)
     # --------------------------------------------------
@@ -219,6 +191,8 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
 
     def PETScLiouvillian(self, He):
 
+        local_H = He.H0.getDiagonalBlock()
+
         n_size = He.nkpt * He.nspin
         nbnd = self._nbnd
         block_size = nbnd * nbnd  # (nBand x nBand flattened)
@@ -233,26 +207,28 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         L.setPreallocationNNZ(1) 
 
         rstart, rend = L.getOwnershipRange()
+        block_size_L = L.getBlockSize()
+        block_size_H = He.H0.getBlockSize()
         
-        # Iterate only over the systems assigned to THIS rank
-        # Note: rstart/rend are in scalar indices
-        first = rstart // block_size
-        last = rend // block_size
+        h_start, _ = He.H0.getOwnershipRange()
+        # Iterate only over the systems assigned to this rank
+        first = rstart // block_size_L
+        last = rend // block_size_L
 
         I = np.eye(nbnd, dtype=complex)
         for i in range(first, last):
             ik = i // He.nspin
             isp = i % He.nspin
             
-            # Get Hamiltonian as numpy array
-            Hk = He.get_PETSc_Hk_np(ik, isp)
+            # Get Hamiltonian on this rank from global index
+            h_i_global = np.arange(i * block_size_H, (i + 1) * block_size_H, dtype=np.int32)
+            h_i_local = h_i_global - h_start
+            Hk = local_H.getValues(h_i_local, h_i_local).reshape(block_size_H, block_size_H)
             # Compute the Liouvillian 
             # L*rho = -i/hbar (H*rho - rho*H)
             L_np = -1j / hbar * (np.kron(Hk, I) - np.kron(I, Hk.T))
             
             # Insert the block into the global matrix
-            #rows = np.arange(i * block_size, (i + 1) * block_size, dtype=np.int32)
-            #L.setValues(rows, rows, L_np.flatten(), addv=PETSc.InsertMode.INSERT_VALUES)
             L.setValuesBlocked([i], [i], L_np.flatten(), addv=PETSc.InsertMode.INSERT_VALUES)
 
 
@@ -260,58 +236,6 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         L.assemblyEnd()
         return L
 
-    """
-    def PETScLiouvillian(self, Hk):
-
-        n, m = Hk.size
-        nn = n * m 
-        
-        # 1. Gather the distributed Hk into a sequential matrix on every rank
-        # This allows every rank to call getValue() for any (i, j)
-        is_row = PETSc.IS().createStride(n, 0, 1, comm=PETSc.COMM_SELF)
-        is_col = PETSc.IS().createStride(m, 0, 1, comm=PETSc.COMM_SELF)
-        
-        # getSubMatrices returns a list; we take the first element
-        Hk_seq = Hk.createSubMatrices(is_row, is_col)[0] 
-        
-        L = PETSc.Mat()
-        L.create(comm=PETSc.COMM_WORLD)
-        L.setSizes((nn, nn))
-        L.setFromOptions()
-        L.setUp()
-        
-        rstart, rend = L.getOwnershipRange()
-        
-        # Pre-factor the constant
-        coeff = -1j / hbar
-        
-        for row in range(rstart, rend):
-            i = row % n       # row index in density matrix
-            j = row // n      # column index in density matrix
-        
-            # H * rho term: L_row,col = H_ik * delta_jl
-            # This corresponds to indices where 'j' remains constant
-            for k in range(n):
-                col = k + j * n 
-                val = coeff * Hk_seq.getValue(i, k)
-                if val != 0:
-                    L.setValue(row, col, val, addv=PETSc.InsertMode.ADD_VALUES)
-        
-            # -rho * H term: L_row,col = -delta_ik * H_kj
-            # This corresponds to indices where 'i' remains constant
-            for k in range(n):
-                col = i + k * n 
-                # Note: the commutator is [H, rho] = H*rho - rho*H
-                # We use -coeff here for the second term
-                val = -coeff * Hk_seq.getValue(k, j)
-                if val != 0:
-                    L.setValue(row, col, val, addv=PETSc.InsertMode.ADD_VALUES)
-        
-        L.assemblyBegin()
-        L.assemblyEnd()
-
-        return L
-    """
     # --------------------------------------------------
     # RHS callback (explicit solvers)
     # --------------------------------------------------
@@ -360,53 +284,14 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         self._rho_e.init_td_arrays(self.nsteps, self.save_every)
         # iterate over k / spin
         self.L = self.PETScLiouvillian(He)
-        #y = PETScVec_from_Mat(self._rho_e.rho)
-        #y = PETSc_StateVec(self._rho_e.rho)
-        #y = self._rho_e.rho.createVecRight()
         y = self.L.createVecRight()
         self._rho_e.rho.getDiagonal(y)
-
-        #print(f"DEBUG: Liouvillian size: {self.L.getSize()}")
-        #print(f"DEBUG: Initial rho size: {rho_e.rho.getSize()}")
-        #print(f"DEBUG: Initial Vector size: {y.getSize()}")
-        #print(f"DEBUG: Expected blocks: {nkpt * self._rho_e.nspin}")
-
         # set propagator
         self._initialize_linear_ODE_solver(y)
         # attach monitor for storing rho and trace
         self.ts.setMonitor(self.monitor)
         #  solve dynamics
         self.ts.solve(y)
-        """
-        for ik in range(nkpt):
-            self._ik = ik
-            for isp in range(nspin):
-                self._isp = isp
-                # get Hamiltonian H(k)
-                Hk = He.get_PETSc_Hk(ik, isp)
-                # 1. Build Liouvillian operator (implicit for CN)
-                # Liouville action: ydot = -i/hbar (H*rho - rho*H)
-                #self.L = self.Liouvillian(Hk.getDenseArray())
-                self.L = self.PETScLiouvillian(Hk)
-                # create PETSc arrays
-                # Flatten rho into a vector for PETSc TS
-
-                #rho_np = rho_k.getDenseArray()
-                #y0 = rho_np.flatten(order="F")
-                ## y vector
-                #y = PETSc.Vec().createSeq(len(y0), comm=PETSc.COMM_SELF)
-                #y.setValues(range(len(y0)), y0)
-                #y.assemble()
-                ### GET PETSc Vec from Mat
-                y = PETScVec_from_Mat(rho_k)
-                # set propagator
-                self._initialize_linear_ODE_solver(y)
-                # attach monitor for storing rho and trace
-                self.ts.setMonitor(self.monitor)
-                #  solve dynamics
-                self.ts.solve(y)
-                #print('\t ' + str(ik) + ' -> END')
-        """
         return self._rho_e
     # summary mode
     def summary(self):

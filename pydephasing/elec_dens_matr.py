@@ -35,9 +35,6 @@ class elec_dmatr(object):
         # beta_e = 1/Te
         Te = self.Te
         beta = np.inf if Te == 0.0 else 1.0 / Te
-        # define density matrix
-        #self.rho = []
-
         # define density matrix as block diagonal PETSc MAT obj.
         block_size = self.nbnd * self.nbnd
         global_size = self.nkpt * self.nspin * block_size
@@ -74,27 +71,6 @@ class elec_dmatr(object):
                 self.rho.setValue(global_idx, global_idx, focc, addv=PETSc.InsertMode.INSERT_VALUES)        
         self.rho.assemblyBegin()
         self.rho.assemblyEnd()
-        """
-        for ik in range(self.nkpt):
-            for isp in range(self.nspin):
-                # diagonal occupations
-                focc = np.zeros(self.nbnd)
-                for ib in range(self.nbnd):
-                    Ek = He.enk[ib,ik,isp]
-                    eps = Ek - mu
-                    if self.smearing == 'FD':
-                        if Te == 0.0:
-                            focc[ib] = 1.0 if eps < 0.0 else 0.0
-                        else:
-                            focc[ib] = 1.0 / (np.exp(beta * eps) + 1.0)
-                            #focc[ib] = (1.0 / (np.exp(beta * eps) + 1.0)) + (He.kgr[ik])Tilt Occ.
-                            if He.kgr[ik] == 0.0:
-                                print(ik)
-                #rho_np = np.diag(focc*2/1.2080088443076273) Tilt Occ.
-                rho_np = np.diag(focc)
-                rho_mat = MatWrap(rho_np, n=self.nbnd)
-                self.rho.append(rho_mat)
-        """
         # check electron number
         Nel = self.total_electrons_from_rho(He)
         assert abs(Nel - self.nel) < nel_tol

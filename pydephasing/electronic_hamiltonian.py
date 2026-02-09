@@ -140,18 +140,6 @@ class electronic_hamiltonian(AbstractElectronicHamiltonian):
                 diag_vals = d_enk[band_set[0]:band_set[-1]+1, ik, ispin]
                 # dense nbnd x nbnd matrix
                 Hks_np = np.diag(diag_vals)
-                # build PETSc matrix
-                #Hmat = PETSc.Mat()
-                #Hmat.create(PETSc.COMM_WORLD)
-                #Hmat.setSizes((self.nbnd, self.nbnd))
-                ### NOTE For later, add preallocate if we know the number of non-zero entries 
-                #rstart, rend = Hmat.getOwnershipRange()
-                #for row in range(rstart, rend):
-                #    Hmat[row,:] = Hks_np[row]
-                #
-                #Hmat.assemblyBegin()
-                #Hmat.assemblyEnd()
-                #Hmat.assemble()
                 Hmat = MatWrap(Hks_np, n=self.nbnd)
                 Hk_list.append(Hmat)
             self.H0.append(Hk_list)
@@ -209,18 +197,31 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
     #   Build H0(k)
     # --------------------------------------------------------
     def set_H0_matr(self):
-        """ Construct analytical H0(k) matrices."""
-        self.H0 = []
-        ## AG Tempeorerry to check parallel info
-        print("*"*20)
-        print(f" Rank {PETSc.COMM_WORLD.getRank()}")
-        print(f" Size {PETSc.COMM_WORLD.getSize()}")
-        for ik in range(self.nkpt):
-            for isp in range(self.nspin):
-                # diagonal Hamiltonian
-                H_np = np.diag(self.enk[:, ik, isp])
-                Hmat = MatWrap(H_np, n=self.nbnd)
-                self.H0.append(Hmat)
+        """ Construct PETSc Block Diagonal analytical H0(k) matrices."""
+        block_size = self.nbnd 
+        global_size = self.nkpt * self.nspin * block_size
+        self.H0 = PETSc.Mat().create(comm=PETSc.COMM_WORLD)
+        self.H0.setSizes((global_size, global_size))
+        self.H0.setType(PETSc.Mat.Type.BAIJ) # uses BAIJ for block sparse matix
+        self.H0.setBlockSize(block_size) # uses BAIJ for block sparse matix
+        self.H0.setPreallocationNNZ(1) # 1 for 1 block in each row
+        rstart, rend = self.H0.getOwnershipRange()
+        first = rstart // block_size
+        last = rend // block_size
+        for i in range(first, last):
+
+            ik = i // self.nspin
+            isp = i % self.nspin
+            block_offset = i * block_size
+
+            #for ib in range(self.nbnd):
+            # diagonal Hamiltonian
+            H_np = np.diag(self.enk[:, ik, isp])
+            self.H0.setValuesBlocked([i], [i], H_np)
+
+        self.H0.assemblyBegin()
+        self.H0.assemblyEnd()
+
     # --------------------------------------------------------
     #   compute polaron Hamiltonian
     # --------------------------------------------------------
@@ -293,9 +294,12 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
     def clean_up(self):
         """ Robust PETSc cleanup (safe for repeated calls). """
         if self.H0 is not None:
-            for mat in self.H0:
-                if isinstance(mat, PETSc.Mat):
-                    mat.destroy()
+            if isinstance(self.H0, PETSc.Mat):
+                self.H0.destroy()
+            else:
+                for mat in self.H0:
+                    if isinstance(mat, PETSc.Mat):
+                        mat.destroy()
             self.H0 = None
         gc.collect()
     # set chemical potential

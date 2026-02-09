@@ -34,3 +34,6 @@ utils/__pycache__/
 pydeph
 petsc
 .python-version
+
+# === cscope files === #
+cscope.*

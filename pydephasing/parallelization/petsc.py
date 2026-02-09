@@ -50,8 +50,7 @@ def MatWrap(mat_in, n=None, PETSc=PETSc):
     return A
 
 def PETSc_StateVec(rho):
-
-    ## Create Vec from mat, handles communicator set up as well
+    """ Create Vec from mat, handles communicator set up as well """
     y = rho.createVecRight()
     
     bs = rho.getBlockSize()
@@ -71,7 +70,7 @@ def PETSc_StateVec(rho):
     return y
 
 def PETScMat_flatten(A):
-
+    """ Equivelant to np.flatten() for PETSc.MAT objects """
     V = PETSc.Vec()
     V.create(PETSc.COMM_WORLD)
     n, m = A.size
@@ -91,30 +90,10 @@ def PETScMat_flatten(A):
     return V
 
 def PETScTrace(A):
-    # 1. Create a vector to hold the diagonal
+    """ Get trace of a PETSc.MAT (handles MPI reduce)"""
     diag_vec = A.createVecLeft()
-    
-    # 2. Extract the diagonal entries
     A.getDiagonal(diag_vec)
-    
-    # 3. Sum the entries (this automatically performs an MPI reduction)
+    # Sum the entries (this automatically performs an MPI reduction)
     return diag_vec.sum()
 
-
-    #"""Computes the trace of a BAIJ matrix by summing diagonal entries."""
-    ## Get local ownership range (works for both Seq and MPI)
-    #rstart, rend = A.getOwnershipRange()
-    #bs = A.getBlockSize()
-    #
-    #local_trace = 0.0
-    #
-    ## Iterate through each global row index owned by this process
-    #for i in range(rstart, rend):
-    #    # Extract the scalar diagonal element at (i, i)
-    #    # getValues returns a nested array/buffer
-    #    diag_val = A.getValues([i], [i])[0, 0]
-    #    local_trace += diag_val
-    #    
-    ## If in parallel, sum traces from all MPI processes
-    #return A.getComm().allreduce(local_trace, op=PETSc.ScalarType.SUM)
 
