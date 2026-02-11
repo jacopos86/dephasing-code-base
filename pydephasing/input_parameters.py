@@ -660,6 +660,8 @@ class real_time_elec_input(ABC):
         # Time variables
         if 'evolution_params' in data:
             self.evol_params = data['evolution_params']
+        if 'external_ph_drive' in data:
+            self.ph_drive = data['external_ph_drive']
     def check_consistency(self):
         # dyn. mode
         assert (len(self.dynamical_mode) == 3)
