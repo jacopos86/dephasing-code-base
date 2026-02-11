@@ -13,7 +13,7 @@ from pydephasing.atomic_list_struct import atoms
 from pydephasing.build_interact_grad import calc_interaction_grad
 from pydephasing.build_unpert_struct import build_gs_spin_struct
 from pydephasing.spin_dens_matr import spin_dmatr
-from pydephasing.q_grid import qgridClass
+from pydephasing.q_grid import phonopy_qgridClass
 from pydephasing.nuclear_spin_config import nuclear_spins_config
 from pydephasing.spin_model.spin_hamiltonian import set_spin_hamiltonian
 from pydephasing.real_time.set_real_time_solver import set_spin_model_real_time_solver

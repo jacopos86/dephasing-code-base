@@ -1,16 +1,26 @@
 # This is the main subroutine
 # for non Markovian calculation of electronic systems
 #
+import numpy as np
 from pydephasing.set_param_object import p
 from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
 from pydephasing.build_unpert_struct import build_jdftx_gs_elec_struct
 from pydephasing.wannier_interface.wannier import Wannier
 from pydephasing.phonons_module import JDFTxPhonons, PhononsStructModel
-from pydephasing.q_grid import jdftx_qgridClass
+from pydephasing.q_grid import jdftx_qgridClass, QGrid_1D
+from pydephasing.k_grid import KGrid_1D
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.electronic_hamiltonian import electronic_hamiltonian, model_electronic_hamiltonian
 from pydephasing.elec_dens_matr import elec_dmatr
+from pydephasing.elec_ph_inter import DeformationPotentialElectronPhonon
+from pydephasing.observables import ObservablesElectronicModel
+from pydephasing.elec_light_inter import ElectronLightCouplModel
+from pydephasing.Ehrenfest_field import ehr_field
+from pydephasing.real_time.set_real_time_solver import set_real_time_electronic_solver
+from pydephasing.common.phys_constants import THz_to_ev
+from pydephasing.utilities.plot_functions import plot_td_Bq, plot_td_trace, plot_td_occup, plot_total_energy
+from pydephasing.real_time.external_ph_fields import set_up_phonon_drive
 
 #
 def solve_elec_model_dyn():
@@ -21,62 +31,122 @@ def solve_elec_model_dyn():
         log.info("\t MODEL SYSTEM WITH DEFORMATION POTENTIAL")
         log.info("\n")
         log.info("\t " + p.sep)
+    # first set the k grid
+    kgr = KGrid_1D(p.nkpt)
+    kgr.set_kgrid(p.L)
+    kgr.set_wk()
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info(f"\t k grid shape: {kgr.kpts.shape}")
+        kgr.show_kgr()
+        log.info("\t k grid weights: ")
+        kgr.show_kw()
+        log.info("\t " + p.sep)
     # ============================================================
     # 1. Build MODEL electronic Hamiltonian
     # ============================================================
     He = model_electronic_hamiltonian(
         elec_bands=p.elec_bands,                     # 1 or 2
-        nkpt=p.nkpt,
+        kgr=kgr,
         eff_mass=p.elec_eff_mass,                    # list
         band_offset=p.elec_band_offset,              # list
-        chem_pot=p.chem_pot,
-        Ewin_Ha=p.elec_win
+        Ewin_Ha=p.elec_win,
     )
     He.set_energy_spectrum()
-    He.plot_band_structure()
     He.set_H0_matr()
     if mpi.rank == mpi.root:
         log.info("\t MODEL ELECTRONIC HAMILTONIAN initialized")
         log.info("\t " + p.sep)
         log.info("\n")
     # set MODEL density matrix
-    rho_e = elec_dmatr(p.smearing, p.Te)
+    rho_e = elec_dmatr(p.smearing, p.Te, p.Nel)
+    rho_e.initialize_dmatr(He)
+    rho_e.summary()
+    # plot band structure
+    He.plot_band_structure()
+    # phonons section
+    if p.dynamical_mode[1] > 0:
+        # ============================================================
+        # 2. Q grid && Model phonons (acoustic branch)
+        # ============================================================
+        qgr = QGrid_1D(kgr)
+        if mpi.rank == mpi.root:
+            log.info("\t " + p.sep)
+            log.info(f"\t q grid size: {qgr.qpts.shape}")
+            qgr.show_qgr()
+            log.info("\t q grid weights: ")
+            qgr.show_qw()
+            log.info("\t " + p.sep)
+        ph = PhononsStructModel(p.sound_velocity)
+        ph.compute_phonon_DOS(qgr, p.ph_DOS_plot)
+        ph.compute_energy_dispersion(qgr)
+        ph.set_ph_energies(qgr)
+        ph.summary()
+        # ============================================================
+        # 3A. Deformation potential electron–phonon coupling
+        # ============================================================
+        eph = DeformationPotentialElectronPhonon(
+            eph_params=p.eph_params,
+            nBands=p.elec_bands,
+            sys_size=p.L
+        )
+        eph.summary()
+        if mpi.rank == mpi.root:
+            log.info("\t Deformation potential coupling computed")
+        gql = eph.compute_gql(qgr, kgr, ph)
+        exit()
+        # ============================================================
+        # 3B. Ehrenfest / phonon DM initialization
+        # ============================================================
+        ehr = ehr_field()
+        ehr.initialize_Bfield(p.nkpt, ph.nmodes)
+        ehr.set_map_qtomq(qgr)
+        # ============================================================
+        # 3C. PH drive object
+        # ============================================================
+        phdr = set_up_phonon_drive(p.ph_drive, ph, qgr)
+    else:
+        gql = None
+        ehr = None
+        omega_q = None
     # ============================================================
-    # 2. Q grid && Model phonons (acoustic branch)
+    # 4. Spin operators + SO interaction
     # ============================================================
-    ph = PhononsStructModel()
-    print(ph.nmodes)
-    exit()
-    nq = p.model_nq
-    qvals = np.linspace(-p.qmax, p.qmax, nq)
-    q_vectors = np.zeros((nq, 3))
-    q_vectors[:, 0] = qvals
-    phonon_freqs = np.zeros((nq, 1))
-    phonon_freqs[:, 0] = p.model_sound_velocity * np.abs(qvals)
-    phonon_polarizations = np.zeros((nq, 1, 3))
-    phonon_polarizations[:, 0, 0] = 1.0  # longitudinal
+    Observ = ObservablesElectronicModel(basis_set=None)
+    Observ.set_Spin_operators(p.elec_bands, p.nkpt)
     # ============================================================
-    # 3. Deformation potential electron–phonon coupling
+    # 5. Electric dipole
     # ============================================================
-    ep = DeformationPotentialElectronPhonon(
-        deformation_potentials=p.model_deformation_potential,
-        density=p.model_density,
-        volume=p.model_volume
+    elc = ElectronLightCouplModel(
+        dipole_strengths=p.dipole_coeff
     )
-    g_ql = ep.compute_gql(
-        q_vectors=q_vectors,
-        phonon_freqs=phonon_freqs,
-        phonon_polarizations=phonon_polarizations
+    # ============================================================
+    # 6. Ready for non-Markovian propagation
+    # ============================================================
+    RT_solver = set_real_time_electronic_solver()
+    RT_solver.summary()
+    out = RT_solver.propagate(
+        He=He,
+        rho_e=rho_e,
+        ehr_field=ehr,
+        gql=gql,
+        omega_q = omega_q,
+        ph_drive = phdr
     )
+    # ============================================================
+    # 7. print output + plot observables
+    # ============================================================
+    rho_e = out[0]
+    ehr = out[1]
+    print(rho_e.traces[1,0,:], rho_e.traces[0,0,:])
+    print(ehr.sum_Bqt[:])
+    # compute energy
+    Eph_t, Ee_t, Eeph_t = Observ.compute_system_energies(p.evol_params, rho_e, ehr, He, omega_q, gql)
     if mpi.rank == mpi.root:
-        log.info("\t Deformation potential coupling computed")
-    # ============================================================
-    # 4. Ready for non-Markovian propagation
-    # ============================================================
-
-    # TODO:
-    # dynamics_solver(He, g_ql)
-
+        plot_td_Bq(p.evol_params, ehr.Bq_t)
+        plot_td_trace(p.evol_params, rho_e.traces)
+        plot_td_occup(p.evol_params, rho_e.rho_t)
+        plot_total_energy(p.evol_params, Eph_t, Ee_t, Eeph_t)
     He.clean_up()
 
 # ====================================================
@@ -135,5 +205,7 @@ def solve_elec_dyn_JDFTx_data():
         ph.get_ph_supercell()
         ph.compute_eq_ph_angular_momentum_dispersion(qgr)
         ph.compute_full_ph_angular_momentum_matrix(qgr)
+        # define e-ph coupling
+        
     # clean up
     He.clean_up()

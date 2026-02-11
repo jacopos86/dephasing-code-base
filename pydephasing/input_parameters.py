@@ -454,7 +454,7 @@ class linear_resp_input(dynamical_data_input):
         self.elec_win = None
         # e-ph input data
         self.eph_matr_file = None
-        # Central cell approximation
+        # EPH approximation
         self.EPH_APPROX = None
         # Range of bands
         self.band_range_idx = None
@@ -475,7 +475,7 @@ class linear_resp_input(dynamical_data_input):
             self.eph_matr_file = self.work_dir + '/' + data['eph_matr_file']
         if "eph_approx" in data:
             self.EPH_APPROX = data["eph_approx"]
-            if self.EPH_APPROX not in {"CCA", "KS", "WANNIER"}:
+            if self.EPH_APPROX not in {"CCA", "DEFPOT", "WANNIER"}:
                 log.error("EPH APPROX input is wrong")
         else:
             log.error("Missing eph_approx input")
@@ -620,6 +620,8 @@ class real_time_elec_input(ABC):
         self.min_freq = 0.0
         # gamma point only
         self.gamma_point = False
+        # time variables
+        self.evol_params = None
     def read_yml_data_dyn(self, data):
         if 'working_dir' in data:
             self.work_dir = data['working_dir']
@@ -655,6 +657,11 @@ class real_time_elec_input(ABC):
         # Gamma point only
         if 'gamma_point' in data:
             self.gamma_point = data['gamma_point']
+        # Time variables
+        if 'evolution_params' in data:
+            self.evol_params = data['evolution_params']
+        if 'external_ph_drive' in data:
+            self.ph_drive = data['external_ph_drive']
     def check_consistency(self):
         # dyn. mode
         assert (len(self.dynamical_mode) == 3)
@@ -666,6 +673,8 @@ class real_time_JDFTx_input(real_time_elec_input):
         self.wannier_interp = False
         self.TR_SYM = True
         self.elec_win = None
+        # EPH approximation
+        self.EPH_APPROX = None
     def read_yml_data(self, input_file):
         try:
             f = open(input_file)
@@ -682,6 +691,10 @@ class real_time_JDFTx_input(real_time_elec_input):
             self.elec_win = data['elec_ener_window']
         if 'TR_SYM' in data:
             self.TR_SYM = data['TR_SYM']
+        if "eph_approx" in data:
+            self.EPH_APPROX = data["eph_approx"]
+            if self.EPH_APPROX not in {"CCA", "DEFPOT", "WANNIER"}:
+                log.error("EPH APPROX input is wrong")
 
 class real_time_VASP_input(real_time_elec_input):
     def __init__(self):
@@ -705,8 +718,16 @@ class real_time_MODEL_input(real_time_elec_input):
         self.nkpt = None
         self.elec_eff_mass = None
         self.elec_band_offset = None
-        self.chem_pot = None
+        self.Nel = None
+        self.SOCc = None
         self.elec_win = None
+        self.sound_velocity = 50.
+        # A / ps units
+        # EPH approximation
+        self.eph_params = None
+        self.ph_DOS_plot = None
+        # dipole coeff
+        self.dipole_coeff = None
     def read_yml_data(self, input_file):
         try:
             f = open(input_file)
@@ -725,14 +746,27 @@ class real_time_MODEL_input(real_time_elec_input):
             self.elec_eff_mass = data['eff_mass']
         if 'elec_band_offset' in data:
             self.elec_band_offset = data['elec_band_offset']
-        if 'chem_pot' in data:
-            self.chem_pot = data['chem_pot']
+        if 'num_elec' in data:
+            self.Nel = data['num_elec']
+        if 'SOC_coeff' in data:
+            self.SOCc = data['SOC_coeff']
         if 'elec_ener_window' in data:
             self.elec_win = data['elec_ener_window']
         if 'smearing' in data:
             self.smearing = data['smearing']
         if 'Te' in data:
             self.Te = data['Te']
+        if 'system_size' in data:
+            self.L = data['system_size']
+            # in Ang
+        if 'sound_velocity' in data:
+            self.sound_velocity = data['sound_velocity']
+        if 'ph_DOS_plot' in data:
+            self.ph_DOS_plot = data['ph_DOS_plot']
+        if 'eph_parameters' in data:
+            self.eph_params = data['eph_parameters']
+        if 'dipole_coeff' in data:
+            self.dipole_coeff = data['dipole_coeff']
 
 class Q_real_time_input(dynamical_data_input):
     # initialization

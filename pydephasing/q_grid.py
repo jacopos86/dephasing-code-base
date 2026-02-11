@@ -12,11 +12,64 @@ from pydephasing.parallelization.mpi import mpi
 from pydephasing.set_param_object import p
 from pydephasing.utilities.log import log
 from pydephasing.common.phys_constants import eps
+from pydephasing.common.print_objects import print_1D_array
 from pydephasing.atomic_list_struct import atoms
+
 #
-#   q grid class
+#   1D Q grid -> USED in MODEL
 #
-class qgridClass(ABC):
+
+class QGrid_1D:
+    def __init__(self, kgr):
+        self.qpts = np.asarray(kgr.get_kpts())
+        self.nq = len(self.qpts)
+        self.wq = kgr.get_k_weights()
+        self.map_q_to_mq = self.set_map_qtomq()
+    # map q -> -q
+    def set_map_qtomq(self, tol=1.e-12):
+        """
+        Build mapping q -> -q for a given q-grid.
+        ----------
+        Parameters
+        qgr : np.ndarray, shape (Nq,)
+            List of q-vectors in the Brillouin zone.
+        ----
+        self.map_q_to_mq : np.ndarray, shape (Nq,)
+            map_q_to_mq[i] = index j such that qgr[j] == -qgr[i]
+        """
+        self.map_q_to_mq = np.zeros(self.nq, dtype=int)
+        # set map
+        for i, q in enumerate(self.qpts):
+            target = -q
+            diff = self.qpts - target
+            # vector norm
+            norm = np.abs(diff)
+            matches = np.where(norm < tol)[0]
+            # check 1 vector in grid is found 
+            if len(matches) == 0:
+                log.error(
+                    f"[QGrid] No -q found for q = {q}. "
+                    "q-grid must be inversion symmetric."
+                )
+            if len(matches) > 1:
+                log.error(
+                    f"[QGrid] Multiple matches for -q of q = {q}. "
+                    "Grid is ambiguous."
+                )
+            self.map_q_to_mq[i] = matches[0]
+    def get_qpts(self):
+        return self.qpts
+    # show q grid
+    def show_qgr(self):
+        print_1D_array(self.qpts)
+    def show_qw(self):
+        print_1D_array(self.wq)
+
+#
+#   3D Q grid classes
+#
+
+class QGrid_3D(ABC):
     def __init__(self):
         # grid size
         self.grid_size = None
@@ -127,7 +180,7 @@ class qgridClass(ABC):
 #  phonopy q grid
 #
 
-class phonopy_qgridClass(qgridClass):
+class phonopy_qgridClass(QGrid_3D):
     def __init__(self, ph_obj=None, grid_size=None):
         super().__init__()
         # keys dictionary
@@ -203,7 +256,7 @@ class phonopy_qgridClass(qgridClass):
 #  jdftx q grid class
 #
 
-class jdftx_qgridClass(qgridClass):
+class jdftx_qgridClass(QGrid_3D):
     def __init__(self, gs_data_dir, gamma_point_only):
         super().__init__()
         self.QPTS_FILE = None

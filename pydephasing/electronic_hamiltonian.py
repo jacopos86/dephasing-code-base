@@ -66,18 +66,6 @@ class AbstractElectronicHamiltonian(ABC):
         if mpi.rank == mpi.root:
             plot_elec_struct(self.enk, self.mu, Ylim=Ew)
         mpi.comm.Barrier()
-    # clean PETSc objects
-    def clean_up(self):
-        """
-        Robust PETSc cleanup (safe for repeated calls).
-        """
-        if self.H0 is not None:
-            for k_list in self.H0:
-                for mat in k_list:
-                    if isinstance(mat, PETSc.Mat):
-                        mat.destroy()
-            self.H0 = None
-        gc.collect()
     # ==========================================================
     #   DEBUG / INFO
     # ==========================================================
@@ -171,20 +159,19 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
     Analytical electronic Hamiltonian for model calculations.
     Supports 1-band or 2-band effective mass models.
     """
-    def __init__(self, elec_bands, nkpt, eff_mass, band_offset, chem_pot, Ewin_Ha):
+    def __init__(self, elec_bands, kgr, eff_mass, band_offset, Ewin_Ha):
         """
         En(k)=En0-hbar/2mn^2|k|^2
         Parameters
         ----------
         elec_bands: number of bands (1,2)
-        nkpt : number k points
+        kgr : k points grid
         eff_mass : array-like
             Effective masses (in units of m_e)
             length = nbnd
         band_offset : array-like
             Band edge energies [eV]
             length = nbnd (1 or 2)
-        chem_pot : chemical potential [eV]
         Ewin_Ha : elec. energy window (Ha)
         """
         super().__init__(Ewin_Ha)
@@ -195,15 +182,15 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
             log.error("Length of eff_mass and band_offset must match number of bands")
         # set parameters
         self.nbnd = elec_bands
-        self.nkpt = nkpt
-        self.nspin = 1     # spinless model for now
-        self.L = 1.        # box size (Ang)
+        self.nkpt = kgr.nk
+        self.nspin = 1        # spinless model for now
         # eff. masses in units hbar^2/(2*me) -> eV ps^2 / ang^2
         self.effective_masses = np.array(eff_mass, dtype=float)
         self.band_offset = np.array(band_offset, dtype=float)
-        self.kgr = np.linspace(0.5, -0.5, nkpt) * 2.*np.pi / self.L
+        self.kp = kgr.get_kpts()
+        self.wk = kgr.get_k_weights()
         self.enk = np.zeros((self.nbnd, self.nkpt, self.nspin))
-        self.mu = chem_pot
+        self.mu = None
         self.H0 = None
         # print info
         self.print_info(title="MODEL ELECTRONIC HAMILTONIAN")
@@ -211,36 +198,82 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
     #   Build H0(k)
     # --------------------------------------------------------
     def set_H0_matr(self):
-        """
-        Construct analytical H0(k) matrices.
-        """
-        d_enk = self.enk - self.mu
+        """ Construct analytical H0(k) matrices."""
         self.H0 = []
         for ik in range(self.nkpt):
-            Hk_list = []
-            for ispin in range(self.nspin):
+            for isp in range(self.nspin):
                 # diagonal Hamiltonian
-                H_np = np.diag(d_enk[:, ik, ispin])
+                H_np = np.diag(self.enk[:, ik, isp])
                 Hmat = PETSc.Mat().createDense(
                     size=(self.nbnd, self.nbnd),
                     array=H_np
                 )
                 Hmat.assemble()
-                Hk_list.append(Hmat)
-            self.H0.append(Hk_list)
+                self.H0.append(Hmat)
+    # --------------------------------------------------------
+    #   compute polaron Hamiltonian
+    # --------------------------------------------------------
+    def compute_Hp_k(self, ik, isp, Bq, gql, map_qtomq):
+        '''compute Hp(k) = H0(k) + sum_q g(q)(Bq + B-q*)'''
+        # set H0(k)
+        H0_k = np.diag(self.enk[:, ik, isp]).astype(np.complex128)
+        Hp_k = H0_k.copy()
+        # q pts weight
+        nqpt, nmd = Bq.shape
+        wq = np.ones(nqpt) / nqpt
+        # polaron correction
+        iql = 0
+        for iq in range(nqpt):
+            jq = map_qtomq[iq]
+            for im in range(nmd):
+                Hp_k[:,:] += wq[iq] * gql[:,:,iql] * (Bq[iq,im] + Bq[jq,im].conj())
+                iql += 1
+        return Hp_k
     # --------------------------------------------------------
     #   spin unpolarized model
     # --------------------------------------------------------
     def set_energy_spectrum(self):
-        """
-        band energies enk[n, k, s]
-        """
+        """ band energies enk[n, k, s] """
         # ħ² / 2mₑ in eV·Å²
         hbar2_2m = hbar ** 2 / (2*me)
         for ik in range(self.nkpt):
-            k2 = np.dot(self.kgr[ik], self.kgr[ik])
+            k2 = np.dot(self.kp[ik], self.kp[ik])
             for ib in range(self.nbnd):
                 self.enk[ib, ik, :] = (
                     self.band_offset[ib]
                     + hbar2_2m * k2 / self.effective_masses[ib]
                 )
+    # --------------------------------------------------------
+    # PETSc interface
+    # --------------------------------------------------------
+    def get_PETSc_Hk(self, ik, isp):
+        """ Return PETSc.Mat Hamiltonian for a given k-point and spin """
+        if self.H0 is None:
+            self.set_H0_matr()
+        if ik < 0 or ik >= self.nkpt:
+            log.error(f"k-point index {ik} out of bounds [0,{self.nkpt-1}]")
+        if isp < 0 or isp >= self.nspin:
+            log.error(f"spin index {isp} out of bounds [0,{self.nspin-1}]")
+        iksp = ik * self.nspin + isp
+        return self.H0[iksp]
+    def get_PETSc_TilHk(self, ik, isp, Bq, gql, map_qtomq):
+        # compute polaron Hamilt
+        Hp_k = self.compute_Hp_k(ik, isp, Bq, gql, map_qtomq)
+        Hmat = PETSc.Mat().createDense(
+            size=Hp_k.shape,
+            array=Hp_k
+        )
+        Hmat.assemble()
+        return Hmat
+    # clean PETSc objects
+    def clean_up(self):
+        """ Robust PETSc cleanup (safe for repeated calls). """
+        if self.H0 is not None:
+            for mat in self.H0:
+                if isinstance(mat, PETSc.Mat):
+                    mat.destroy()
+            self.H0 = None
+        gc.collect()
+    # set chemical potential
+    def set_chem_pot(self, mu):
+        self.mu = mu

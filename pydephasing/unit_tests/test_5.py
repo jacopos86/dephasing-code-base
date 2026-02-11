@@ -21,6 +21,9 @@ def test_petsc_installation():
     # Use pytest's assert to compare the result with the expected values
     np.testing.assert_allclose(x, x_exp, atol=1e-8)
 
+def test_cmplx_numbers():
+    assert PETSc.ScalarType == np.complex128
+
 def rhs(ts, t, y, f):
     A = ts.getRHSJacobian()[0]
     A.mult(y, f)

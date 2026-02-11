@@ -128,3 +128,131 @@ def plot_Mph_heatmap(Mph):
     #plt.tight_layout()# tight_layout moves colorbar in the middle of axs[2]
     plt.savefig(f"{p.write_dir}/Mph_heatmap.png",dpi=300,bbox_inches="tight" )
     plt.show()
+
+def plot_td_Bq(evol_params, Bq_t):
+    # input parameters
+    dt = evol_params.get("time_step")                # ps
+    save_every = evol_params.get("save_every")
+    # dimensions
+    nq, nmd, nt_save = Bq_t.shape
+    # --- correct physical time axis ---
+    time = dt * save_every * np.arange(nt_save)
+    # subplots
+    fig, ax = plt.subplots()
+    # q pts.
+    q_indices = range(nq)
+    for iq in q_indices:
+        ax.plot(time, Bq_t[iq, nmd-1, :], label=f"q={iq}")
+    ax.set_xlabel("time (ps)")
+    ax.set_ylabel(r"$|B_q|$")
+    ax.legend()
+    plt.savefig(f"{p.write_dir}/Bq_t.png",dpi=300,bbox_inches="tight" )
+    plt.show()
+    # --- save data ---
+    np.savez(
+        f"{p.write_dir}/Bq_t.npz",
+        time=time,
+        Bq=Bq_t
+    )
+
+def plot_td_trace(evol_params, tr_t, ylim=[-2, 2]):
+    # input parameters
+    dt = evol_params.get("time_step")                # ps
+    save_every = evol_params.get("save_every")
+    # dimensions
+    nk, nsp, nt_save = tr_t.shape
+    # --- correct physical time axis ---
+    time = dt * save_every * np.arange(nt_save)
+    wk = np.ones(nk) / nk
+    Nel = np.zeros(nt_save)
+    for ik in range(nk):
+        for isp in range(nsp):
+            Nel[:] += wk[ik] * tr_t[ik, isp, :]
+    # subplots
+    fig, ax = plt.subplots()
+    ax.plot(time, Nel)
+    ax.set_xlabel("time (ps)")
+    ax.set_ylabel(r"$N_e$")
+    ax.set_ylim(ylim)
+    ax.legend()
+    plt.savefig(f"{p.write_dir}/Ne_t.png",dpi=300,bbox_inches="tight" )
+    plt.show()
+
+def plot_td_occup(evol_params, rho_t):
+    # input parameters
+    dt = evol_params.get("time_step")                # ps
+    save_every = evol_params.get("save_every")
+    # dimensions
+    nk, nsp, nt_save, nb, nb = rho_t.shape
+    # --- correct physical time axis ---
+    time = dt * save_every * np.arange(nt_save)
+    wk = np.ones(nk) / nk
+    rh = np.zeros((nb,nb,nt_save))
+    for ib1 in range(nb):
+        for ib2 in range(nb):
+            for ik in range(nk):
+                for isp in range(nsp):
+                    rh[ib1,ib2,:] += wk[ik] * rho_t[ik, isp, :, ib1, ib2].real
+    # subplots
+    fig, ax = plt.subplots()
+    for ib1 in range(nb):
+        for ib2 in range(ib1, nb):
+            ax.plot(time, rh[ib1,ib2,:]-rh[ib1,ib2,0], label=fr"$\rho{ib1}{ib2}")
+    ax.set_xlabel("time (ps)")
+    ax.set_ylabel(r"$\rho$")
+    ax.legend()
+    plt.savefig(f"{p.write_dir}/rho_t.png",dpi=300,bbox_inches="tight" )
+    plt.show()
+    # --- save data ---
+    np.savez(
+        f"{p.write_dir}/rho_t.npz",
+        time=time,
+        rho=rh
+    )
+
+def plot_ph_pulse(tgr, Fq):
+    nq = Fq.shape[0]
+    fig, ax = plt.subplots()
+    for iq in range(nq):
+        ax.plot(tgr, Fq[iq,0,:], label=f"pulse{iq}")
+    ax.set_xlabel("time (ps)")
+    ax.set_ylabel("F_q(t)")
+    ax.legend()
+    plt.savefig(f"{p.write_dir}/Fq_t.png",dpi=300,bbox_inches="tight")
+    plt.show()
+    # --- save data ---
+    np.savez(
+        f"{p.write_dir}/Fq_t.npz",
+        time=tgr,
+        Fq=Fq
+    )
+
+def plot_total_energy(evol_params, Eph_t, Ee_t, Eeph_t):
+    # input parameters
+    dt = evol_params.get("time_step")                # ps
+    save_every = evol_params.get("save_every")
+    nt_save = Eph_t.shape[0]
+    # --- correct physical time axis ---
+    time = dt * save_every * np.arange(nt_save)
+    # subplots
+    fig, ax = plt.subplots()
+    Etot_t0 = Eph_t[0]+Ee_t[0]+Eeph_t[0]
+    Etot_t = Eph_t + Ee_t + Eeph_t
+    ax.plot(time, Eph_t-Eph_t[0], label=r"ph. energy")
+    ax.plot(time, Ee_t-Ee_t[0], label=r"electronic energy")
+    ax.plot(time, Eeph_t-Eph_t[0], label=r"e-ph energy")
+    ax.plot(time, Etot_t-Etot_t0, label=r"total energy")
+    ax.set_xlabel("time (ps)")
+    ax.set_ylabel(r"Energy-Energy(0) (eV)")
+    ax.legend()
+    plt.savefig(f"{p.write_dir}/Energy_t.png",dpi=300,bbox_inches="tight" )
+    plt.show()
+    # --- save data ---
+    np.savez(
+        f"{p.write_dir}/energy_t.npz",
+        time=time,
+        Eph=Eph_t,
+        Ee=Ee_t,
+        Eeph=Eeph_t,
+        Etot=Eph_t + Ee_t + Eeph_t
+    )
