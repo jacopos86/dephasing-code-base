@@ -57,8 +57,8 @@ class DeformationPotentialElectronPhonon(ElectronPhononClass):
             D_n for each band [eV]
         density : float
             Mass density (eV*fs^2/Å^5)
-        volume : float
-            Simulation cell volume (Å^3)
+        form_factor:
+            f(k)
         """
         super().__init__()
         # n. bands
@@ -66,6 +66,9 @@ class DeformationPotentialElectronPhonon(ElectronPhononClass):
         # deformation pot.
         self.D = np.asarray(eph_params['deformation_pot'], dtype=float)
         self.check_D_dimensions()
+        # define form factors
+        self.ff_data = eph_params['form_factor']
+        print(self.ff_data)
         # density / volume
         self.rho = eph_params['rho']
         # [rho] -> eV fs^2 / Ang^5
@@ -88,19 +91,37 @@ class DeformationPotentialElectronPhonon(ElectronPhononClass):
         else:
             log.error("deformation_pot must be 2D array")
     # --------------------------------------------------------
+    #   form factors calculations
+    # --------------------------------------------------------
+    def set_form_factors(self, kp, qp):
+        kabs = np.abs(kp)
+        print(self.ff_data["type"], self.ff_data["k0"])
+        ftype = self.ff_data["type"].lower()
+        if ftype == "constant":
+            return np.ones_like(kabs)
+        k0 = self.ff_data["k0"]
+        if ftype == "gaussian":
+            return np.exp(-kabs**2 / (2 * k0**2))
+        if ftype == "lorentzian":
+            return 1.0 / (1.0 + (kabs / k0)**2)
+        log.error(f"Unknown form factor: {ftype}")
+    # --------------------------------------------------------
     #   Compute g_{mn}(q,λ)
     # --------------------------------------------------------
-    def compute_gql(self, qp, ph):
-        """
-        Returns
-        -------
-        g_ql : ndarray (nbnd, nbnd, nq*nmode)
-        """
-        nq = len(qp)
+    def compute_gql(self, qgr, kgr, ph):
+        """ g_ql : ndarray (nbnd, nbnd, nk, nq*nmode) """
+        nq = qgr.nq
+        nk = kgr.nk
+        # q / k vec.
+        qp = qgr.get_qpts()
+        kp = kgr.get_kpts()
         g_ql = np.zeros(
-            (self.nbnd, self.nbnd, nq*ph.nmodes), 
+            (self.nbnd, self.nbnd, nk, nq*ph.nmodes), 
             dtype=np.complex128
         )
+        # set up form factors
+        f_kq = self.set_form_factors(kp, qp)
+        exit()
         # ħ in eV·ps
         omegaSq, Wq = ph.compute_ph_state_q(qp)
         omega_q = np.sqrt(omegaSq)
