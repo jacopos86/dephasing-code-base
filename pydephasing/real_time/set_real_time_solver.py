@@ -3,7 +3,7 @@ from pydephasing.parallelization.mpi import mpi
 from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.real_time.Liouville_solver import LiouvilleSolverSpin, LiouvilleSolverHFI, LiouvilleSolverElectronic
-from pydephasing.real_time.oneph_kernel import OnephSolver
+from pydephasing.real_time.oneph_kernel import OnephSolver, ElecPhCouplSolver
 
 # ================================================================
 #
@@ -61,4 +61,7 @@ def set_real_time_electronic_solver():
         log.info("\t SETTING UP REAL TIME SOLVER")
         log.info("\t " + p.sep)
         log.info("\n")
-    return LiouvilleSolverElectronic(p.evol_params)
+    if p.dynamical_mode[0] == 1 and p.dynamical_mode[1] == 0 and p.dynamical_mode[2] == 0:
+        return LiouvilleSolverElectronic(p.evol_params)
+    elif p.dynamical_mode[0] == 1 and p.dynamical_mode[1] == 1 and p.dynamical_mode[2] == 0:
+        return ElecPhCouplSolver(p.evol_params)
