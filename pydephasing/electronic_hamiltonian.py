@@ -159,20 +159,19 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
     Analytical electronic Hamiltonian for model calculations.
     Supports 1-band or 2-band effective mass models.
     """
-    def __init__(self, elec_bands, nkpt, eff_mass, band_offset, Ewin_Ha, sys_size):
+    def __init__(self, elec_bands, kgr, eff_mass, band_offset, Ewin_Ha):
         """
         En(k)=En0-hbar/2mn^2|k|^2
         Parameters
         ----------
         elec_bands: number of bands (1,2)
-        nkpt : number k points
+        kgr : k points grid
         eff_mass : array-like
             Effective masses (in units of m_e)
             length = nbnd
         band_offset : array-like
             Band edge energies [eV]
             length = nbnd (1 or 2)
-        chem_pot : chemical potential [eV]
         Ewin_Ha : elec. energy window (Ha)
         """
         super().__init__(Ewin_Ha)
@@ -183,13 +182,13 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
             log.error("Length of eff_mass and band_offset must match number of bands")
         # set parameters
         self.nbnd = elec_bands
-        self.nkpt = nkpt
+        self.nkpt = kgr.nk
         self.nspin = 1        # spinless model for now
-        self.L = sys_size     # box size (Ang)
         # eff. masses in units hbar^2/(2*me) -> eV ps^2 / ang^2
         self.effective_masses = np.array(eff_mass, dtype=float)
         self.band_offset = np.array(band_offset, dtype=float)
-        self.kgr = np.linspace(0.5, -0.5, nkpt) * 2.*np.pi / self.L
+        self.kp = kgr.get_kpts()
+        self.wk = kgr.get_k_weights()
         self.enk = np.zeros((self.nbnd, self.nkpt, self.nspin))
         self.mu = None
         self.H0 = None
@@ -212,6 +211,25 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
                 Hmat.assemble()
                 self.H0.append(Hmat)
     # --------------------------------------------------------
+    #   compute polaron Hamiltonian
+    # --------------------------------------------------------
+    def compute_Hp_k(self, ik, isp, Bq, gql, map_qtomq):
+        '''compute Hp(k) = H0(k) + sum_q g(q)(Bq + B-q*)'''
+        # set H0(k)
+        H0_k = np.diag(self.enk[:, ik, isp]).astype(np.complex128)
+        Hp_k = H0_k.copy()
+        # q pts weight
+        nqpt, nmd = Bq.shape
+        wq = np.ones(nqpt) / nqpt
+        # polaron correction
+        iql = 0
+        for iq in range(nqpt):
+            jq = map_qtomq[iq]
+            for im in range(nmd):
+                Hp_k[:,:] += wq[iq] * gql[:,:,iql] * (Bq[iq,im] + Bq[jq,im].conj())
+                iql += 1
+        return Hp_k
+    # --------------------------------------------------------
     #   spin unpolarized model
     # --------------------------------------------------------
     def set_energy_spectrum(self):
@@ -219,7 +237,7 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
         # ħ² / 2mₑ in eV·Å²
         hbar2_2m = hbar ** 2 / (2*me)
         for ik in range(self.nkpt):
-            k2 = np.dot(self.kgr[ik], self.kgr[ik])
+            k2 = np.dot(self.kp[ik], self.kp[ik])
             for ib in range(self.nbnd):
                 self.enk[ib, ik, :] = (
                     self.band_offset[ib]
@@ -238,6 +256,15 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
             log.error(f"spin index {isp} out of bounds [0,{self.nspin-1}]")
         iksp = ik * self.nspin + isp
         return self.H0[iksp]
+    def get_PETSc_TilHk(self, ik, isp, Bq, gql, map_qtomq):
+        # compute polaron Hamilt
+        Hp_k = self.compute_Hp_k(ik, isp, Bq, gql, map_qtomq)
+        Hmat = PETSc.Mat().createDense(
+            size=Hp_k.shape,
+            array=Hp_k
+        )
+        Hmat.assemble()
+        return Hmat
     # clean PETSc objects
     def clean_up(self):
         """ Robust PETSc cleanup (safe for repeated calls). """
