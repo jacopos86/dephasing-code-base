@@ -369,18 +369,11 @@ class PhononsStructModel(PhononsClass):
         self.nmodes = 1
         self.vs = sound_velocity
         # A / fs
-    def compute_energy_dispersion(self, qp):
-        if mpi.rank == mpi.root:
-            log.info("\t COMPUTE PHONON DISPERSION")
-            log.info("\t " + p.sep)
-        omegaSq, normalModes = self.compute_ph_state_q(qp)
-        if mpi.rank == mpi.root:
-            log.info("\t shape wq^2: " + str(omega.shape))
-            log.info("\t " + p.sep)
-            plot_ph_band_struct(omega * hartree2ev * 1.E3, n)  # energies in meV
-        mpi.comm.Barrier()
-    def compute_ph_state_q(self, qp):
-        nq = len(qp)
+        self.omega_q = None
+        self.Wq = None
+    def compute_ph_state_q(self, qgr):
+        nq = qgr.nq
+        qp = qgr.get_qpts()
         # Frequencies ω(q) = v_s * |q| -> A / ps * A^-1
         # -> THz
         omegaSq = np.zeros((nq, self.nmodes))
@@ -390,7 +383,8 @@ class PhononsStructModel(PhononsClass):
         Wq[:,0,0] = 1.0
         return omegaSq, Wq
     #  plot phonon DOS
-    def compute_phonon_DOS(self, qp, plot_params):
+    def compute_phonon_DOS(self, qgr, plot_params):
+        nq = qgr.nq
         # set plot parameters
         required_keys = ('bins', 'smearing')
         missing = [k for k in required_keys if k not in plot_params]
@@ -400,9 +394,8 @@ class PhononsStructModel(PhononsClass):
             )
         n_bins = plot_params['bins']
         smear = plot_params['smearing']
-        nq = len(qp)
         # compute phonons freq. eigenv.
-        omegaSq, Wq = self.compute_ph_state_q(qp)
+        omegaSq, Wq = self.compute_ph_state_q(qgr)
         omega_q = np.sqrt(omegaSq[:,0])
         # THz
         # plot ph. DOS
@@ -417,14 +410,21 @@ class PhononsStructModel(PhononsClass):
         dos = gaussian_broaden_hist(omega_centers, dos, smear)
         plot_ph_dos(omega_centers, dos)
     #  plot ph bands
-    def compute_energy_dispersion(self, qp):
-        nq = len(qp)
+    def compute_energy_dispersion(self, qgr):
+        nq = qgr.nq
         # compute phonons freq. eigenv.
-        omegaSq, Wq = self.compute_ph_state_q(qp)
+        omegaSq, Wq = self.compute_ph_state_q(qgr)
         omega_q = np.sqrt(omegaSq) * THz_to_ev * 1.e3
         # meV units
         # plot ph BS -> meV
-        plot_ph_band_struct(omega_q, len(qp))
+        plot_ph_band_struct(omega_q, nq)
+    # set ph. energies
+    def set_ph_energies(self, qgr):
+        # compute ph freq.
+        omegaSq, Wq = self.compute_ph_state_q(qgr)
+        # set energies in eV
+        self.omega_q = np.sqrt(omegaSq) * THz_to_ev
+        self.Wq = Wq
     def summary(self):
         """
         Print basic info about the phonon branch
