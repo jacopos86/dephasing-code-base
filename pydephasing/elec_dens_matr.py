@@ -57,18 +57,16 @@ class elec_dmatr(object):
                 rho_mat.assemble()
                 self.rho.append(rho_mat)
         # check electron number
-        Nel = self.total_electrons_from_rho()
+        Nel = self.total_electrons_from_rho(He)
         assert abs(Nel - self.nel) < nel_tol
         if mpi.rank == mpi.root:
             log.info("\t Electronic density matrix initialized")
-            log.info(f"\t Total electrons: {Nel:.6f}")
+            log.info(f"\t Total electrons: {Nel.real:.6f}")
     def update_chem_pot(self, He, tol=1e-10, maxiter=200):
         """ Find chemical potential such that
         sum_k w_k sum_alpha f(E_{alpha k} - mu) = Nel """
         Te = self.Te
         beta = np.inf if Te == 0.0 else 1.0 / Te
-        # k-point weights (uniform grid)
-        wk = np.ones(self.nkpt) / self.nkpt
         # bounds for chem. pot.
         emin = He.enk.min()
         emax = He.enk.max()
@@ -77,7 +75,7 @@ class elec_dmatr(object):
         # converge on chem. pot.
         for _ in range(maxiter):
             mu = 0.5 * (mu_1 + mu_2)
-            Ntmp = self.total_electrons(He, mu, wk)
+            Ntmp = self.total_electrons(He, mu)
             if abs(Ntmp - self.nel) < tol:
                 return mu
             # update chem pot
@@ -86,10 +84,8 @@ class elec_dmatr(object):
             else:
                 mu_1 = mu
         log.error("Chemical potential did not converge")
-    def total_electrons(self, He, mu, wk):
-        """
-        Compute N = sum_k w_k Tr[rho(k)]
-        """
+    def total_electrons(self, He, mu):
+        """ Compute N = sum_k w_k Tr[rho(k)] """
         Te = self.Te
         beta = np.inf if Te == 0.0 else 1.0 / Te
         # compute N elec.
@@ -102,21 +98,19 @@ class elec_dmatr(object):
                         f = 1.0 if eps < 0.0 else 0.0
                     else:
                         f = 1.0 / (np.exp(beta * eps) + 1.0)
-                    N += wk[ik] * f
+                    N += He.wk[ik] * f
         return N
-    def total_electrons_from_rho(self):
+    def total_electrons_from_rho(self, He):
         """Compute total number of electrons from the density matrix."""
         if len(self.rho) == 0:
             log.error("Density matrix not initialized")
-        # k-point weights (uniform grid)
-        wk = np.ones(self.nkpt) / self.nkpt
         # num. elec.
         iksp = 0
         N = 0.0
         for ik in range(self.nkpt):
             for isp in range(self.nspin):
                 # rho[ik] is a PETSc Mat
-                N += wk[ik] * self.rho[iksp].getDiagonal().sum()
+                N += He.wk[ik] * self.rho[iksp].getDiagonal().sum()
                 iksp += 1
         return N
     def get_PETSc_rhok(self, ik, isp):
@@ -152,4 +146,4 @@ class elec_dmatr(object):
             log.info(f"\t Number bands: {self.nbnd}")
             log.info(f"\t Number k pts: {self.nkpt}")
             log.info(f"\t Number of spins: {self.nspin}")
-            log.info(f"\t Number of electrons: {self.nel}")
+            log.info(f"\t Number of electrons: {self.nel.real}")
