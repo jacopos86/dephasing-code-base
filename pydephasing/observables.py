@@ -106,3 +106,49 @@ class ObservablesElectronicModel(Observables):
     #   occup. probabilities
     def compute_occup_prob(self, dm_obj):
         pass
+    #
+    #   compute energies
+    #
+    def compute_system_energies(self, evol_params, rho_e, ehr, He, omega_q, g_ql):
+        # time
+        dt = evol_params.get("time_step")                # ps
+        save_every = evol_params.get("save_every")
+        # Bq
+        Bq_t = ehr.Bq_t
+        nq, nm, nt = Bq_t.shape
+        wq = np.ones(nq) / nq
+        # --- correct physical time axis ---
+        time = dt * save_every * np.arange(nt)
+        Fq = ehr._ph_drive.set_force(time)
+        # elec. DM
+        nk = He.nkpt
+        nsp = He.nspin
+        wk = np.ones(nk) / nk
+        rho_t = rho_e.rho_t
+        # ph. energy
+        Eph_t = np.zeros(nt)
+        for iq in range(nq):
+            for im in range(nm):
+                Eph_t[:] += wq[iq] * omega_q[iq,im] * np.abs(Bq_t[iq,im,:]) ** 2
+                Eph_t[:] += wq[iq] * 2*(Fq[iq,im,:] * Bq_t[iq,im,:]).real
+        # elec. energy
+        Ee_t = np.zeros(nt)
+        for ik in range(nk):
+            for isp in range(nsp):
+                rh = rho_t[ik,isp,:,:,:]
+                h = np.diag(He.enk[:,ik,isp])
+                Ee_t += wk[ik] * np.einsum("iab,ab->i", rh, h).real
+        # e-ph energy
+        Eeph_t = np.zeros(nt)
+        iql = 0
+        for iq in range(nq):
+            for im in range(nm):
+                g = g_ql[:,:,iql]
+                grh = 0.
+                for ik in range(nk):
+                    for isp in range(nsp):
+                        rh = rho_t[ik,isp,:,:,:]
+                        grh += wk[ik] * np.einsum("ab,iab->i", g, rh)
+                Eeph_t[:] += wq[iq] * 2*(grh[:] * Bq_t[iq,im,:]).real
+                iql += 1
+        return Eph_t, Ee_t, Eeph_t
