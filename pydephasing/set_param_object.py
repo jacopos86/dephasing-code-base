@@ -11,7 +11,8 @@ from pydephasing.input_parameters import (
     Q_real_time_input,
     real_time_JDFTx_input,
     real_time_VASP_input,
-    real_time_MODEL_input
+    real_time_MODEL_input,
+    real_time_PSI4_input
 )
 
 # parameters proxy class
@@ -58,6 +59,8 @@ class param_proxy:
                     self._real_p = real_time_JDFTx_input()
                 elif ct2 == "vasp":
                     self._real_p = real_time_VASP_input()
+                elif ct2 == "psi4":
+                    self._real_p = real_time_PSI4_input()
                 elif ct2 == "MODEL":
                     self._real_p = real_time_MODEL_input()
                 else:
