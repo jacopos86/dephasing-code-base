@@ -6,7 +6,7 @@ from pydephasing.compute_LR_spin_decoher import compute_spin_dephas
 from pydephasing.compute_hfi_dephas_stat import compute_hfi_stat_dephas
 from pydephasing.real_time_spin_dephas_solver import compute_RT_spin_dephas
 from pydephasing.quantum.compute_QA_spin_decoher import compute_dephas_QA
-from pydephasing.elec_dyn_solvers import solve_elec_dyn_VASP_data, solve_elec_dyn_JDFTx_data, solve_elec_model_dyn
+from pydephasing.elec_dyn_solvers import solve_elec_dyn_VASP_data, solve_elec_dyn_JDFTx_data, solve_elec_model_dyn, solve_elec_dyn_PSI4_data
 from pydephasing.compute_LR_elec_decoher import compute_VASP_elec_dephas, compute_JDFTx_elec_dephas
 
 #
@@ -332,6 +332,21 @@ def elec_system_driver(yml_file):
             #  START NON MARKOVIAN CALCULATION
             #
             T2_calc_handler = solve_elec_dyn_JDFTx_data()
+        elif calc_type2 == "psi4":
+            # --------------------------------------------------------------
+            # 
+            #    RUN PSI4 driver
+            #
+            # --------------------------------------------------------------
+            if mpi.rank == mpi.root:
+                log.info("\t " + p.sep)
+                log.info("\n")
+                log.info("\t USING PSI4 CALCULATION DATA")
+                log.info("\n")
+            #
+            #  START NON MARKOVIAN CALCULATION
+            #
+            T2_calc_handler = solve_elec_dyn_PSI4_data()
         else:
             if mpi.rank == mpi.root:
                 log.warning("\t REAL TIME DYNAMICS -> calc_type2 : vasp/jdftx")
