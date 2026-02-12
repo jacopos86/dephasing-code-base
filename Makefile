@@ -25,8 +25,16 @@ export LOG_FILE
 
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
+PSI4_ENV_YAML := $(ROOT)/dependencies/environment-psi4.yml
 
 configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requirements_GPU.txt $(ROOT)/dependencies/requirements-HPC.txt $(ROOT)/dependencies/requirements-HPC-Delta.txt $(ROOT)/dependencies/requirements-HPC_GPU.txt
+ifeq ($(INSTALL_PSI4),1)
+	@echo "=== Creating Psi4 Conda environment ==="
+	# Create or update the environment
+	conda env create -f $(PSI4_ENV_YAML) || echo "Psi4 environment already exists"
+	@echo "Psi4 environment ready. Activate with: conda activate $(PSI4_ENV_NAME)"
+else
+	@echo "Installing normal pip venv..."
 	$(PYTHON_VERSION) -m venv $(VENV)
 	echo 'export PYTHONPATH="$(ROOT):$$PYTHONPATH"' >> $(VENV)/bin/activate
 	. $(VENV)/bin/activate && \
@@ -55,6 +63,7 @@ configure : $(ROOT)/dependencies/requirements.txt $(ROOT)/dependencies/requireme
 			$(PIP) install -r $(ROOT)/dependencies/requirements.txt; \
 		fi; \
 	fi;
+endif
 build :
 	. $(VENV)/bin/activate && \
 	mkdir -p "$(TESTS_DIR)" && \
@@ -104,7 +113,12 @@ clean :
 	if [ -f $(ROOT)/config.yml ] ; \
 	then \
 		rm $(ROOT)/config.yml ; \
-	fi ;
+	fi ; \
+	# remove Psi4 Conda environment if it exists
+	if conda env list | grep -q $(PSI4_ENV_NAME) ; then \
+		echo "Removing Psi4 Conda environment $(PSI4_ENV_NAME)..."; \
+		conda env remove -n $(PSI4_ENV_NAME); \
+	fi
 test :
 	. $(VENV)/bin/activate && \
 	set -e && \
