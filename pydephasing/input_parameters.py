@@ -697,6 +697,70 @@ class real_time_VASP_input(real_time_elec_input):
         f.close()
         self.read_yml_data_dyn(data)
 
+class real_time_PSI4_input(real_time_elec_input):
+    def __init__(self):
+        super().__init__()
+        #  local input variables
+        self.scf_mode = 'direct'
+        #  calculation type
+        self.scf_calc = None
+        #  max iterations
+        self.max_iter = 1000
+        #  orbital init.
+        self.orbital_init = 'SAD'
+        # d / e convergence
+        self.d_converg = 1.e-6
+        self.e_converg = None
+        # basis set file
+        self.basis_set_file = None
+        self.basis_set = None
+        # multiplicity
+        self.multiplicity = None
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # coordinates files
+        if 'coordinate_file' in data:
+            self.coordinate_file = data['coordinate_file']
+            self.coordinate_file = self.work_dir + '/' + self.coordinate_file
+        if 'optimized_coordinate_file' in data:
+            self.optimized_coordinate_file = data['optimized_coordinate_file']
+            self.optimized_coordinate_file = self.work_dir + '/' + self.optimized_coordinate_file
+        # basis set file
+        if 'basis_set_file' in data:
+            self.basis_set_file = data['basis_set_file']
+            self.basis_set_file = self.work_dir + '/' + self.basis_set_file
+        if 'basis_set' in data:
+            self.basis_set = data['basis_set']
+        # SCF mode calculations
+        if 'scf_mode' in data:
+            self.scf_mode = data['scf_mode']
+        # SCF calc. type
+        if 'scf_calc' in data:
+            self.scf_calc = data['scf_calc']
+        if 'max_iter' in data:
+            self.max_iter = data['max_iter']
+        # orbital init.
+        if 'orbital_init' in data:
+            self.orbital_init = data['orbital_init']
+        # convergence criteria
+        if 'd_convergence' in data:
+            self.d_converg = data['d_convergence']
+        if 'e_convergence' in data:
+            self.e_converg = data['e_convergence']
+        # multiplicity
+        if 'multiplicity' in data:
+            self.multiplicity = data['multiplicity']
+        # charge
+        if 'charge' in data:
+            self.charge = data['charge']
+
 class real_time_MODEL_input(real_time_elec_input):
     def __init__(self):
         super().__init__()
