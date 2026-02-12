@@ -11,6 +11,8 @@ from pydephasing.q_grid import jdftx_qgridClass
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.electronic_hamiltonian import electronic_hamiltonian, model_electronic_hamiltonian
 from pydephasing.elec_dens_matr import elec_dmatr
+from pydephasing.backends.psi4.BasisSet_module import setup_basis_set
+from pydephasing.backends.psi4.run import Psi4Driver
 
 #
 def solve_elec_model_dyn():
@@ -137,3 +139,28 @@ def solve_elec_dyn_JDFTx_data():
         ph.compute_full_ph_angular_momentum_matrix(qgr)
     # clean up
     He.clean_up()
+
+# ====================================================
+#
+#     PSI4 dynamic solver
+#
+# ====================================================
+
+def solve_elec_dyn_PSI4_data():
+    '''
+    use PSI4 data to perform RT dynamics
+    '''
+    if mpi.rank == mpi.root:
+        log.info("\t " + p.sep)
+        log.info("\n")
+        log.info("\t START PSI4 CALCULATION")
+        log.info("\n")
+        log.info("\t " + p.sep)
+    # prepare/write basis set
+    setup_basis_set(p.coordinate_file, p.basis_set_file)
+    # set up psi4 driver
+    psi4_obj = Psi4Driver()
+    # set up system object
+    # ystem.init_atomic_structure()
+    # optimize system geometry
+    E_SCF, wfn = psi4_obj.psi4_geometry_driver()
