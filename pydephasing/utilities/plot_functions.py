@@ -227,6 +227,21 @@ def plot_ph_pulse(tgr, Fq):
         Fq=Fq
     )
 
+def plot_A_pulse(tgr, A_t):
+    fig, ax = plt.subplots()
+    ax.plot(tgr, A_t, label="pulse")
+    ax.set_xlabel("time (ps)")
+    ax.set_ylabel("A(t)")
+    ax.legend()
+    plt.savefig(f"{p.write_dir}/A_t.png",dpi=300,bbox_inches="tight")
+    plt.show()
+    # --- save data ---
+    np.savez(
+        f"{p.write_dir}/A_t.npz",
+        time=tgr,
+        A_t=A_t
+    )
+
 def plot_total_energy(evol_params, Eph_t, Ee_t, Eeph_t):
     # input parameters
     dt = evol_params.get("time_step")                # ps
