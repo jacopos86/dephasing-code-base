@@ -1,12 +1,35 @@
-input_files
+# === Project configuration === #
 config.yml
-TESTS
-./clean_vers_files/TESTS
-./dist
-./pydephasing.egg-info
-./build
-./OLD_VERS
-*.log
-./examples
+
+# === Scripts === #
 scr.sh
-./pydephasing/__pycache__
+run*.sh
+
+# === Build & distribution === #
+build
+dist
+pydephasing.egg-info
+
+# === logs and temporary files === #
+*.log
+*.png
+*.yml
+
+# === TESTS and old versions === #
+TESTS
+clean_vers_files/TESTS
+OLD_VERS
+input_files
+
+# === Examples === #
+examples
+EXAMPLES.tar.gz
+TESTS_3.tar.gz
+EXAMPLES
+
+# === python cache & compiled files === #
+__pycache__
+utils/__pycache__/
+*.pyc
+pydeph
+petsc

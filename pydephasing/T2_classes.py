@@ -1,12 +1,15 @@
 import numpy as np
-from pydephasing.mpi import mpi
-from pydephasing.phys_constants import hbar
-from pydephasing.extract_ph_data import extract_ph_data
-from pydephasing.input_parameters import p
-from pydephasing.log import log
-from pydephasing.input_parser import parser
 import yaml
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.common.phys_constants import hbar
+from pydephasing.set_param_object import p
+from pydephasing.utilities.log import log
+from pydephasing.utilities.input_parser import parser
+
+#
 # T2 inverse class
+#
+
 class T2i_class(object):
     # T2i is in ps^-1
     def __init__(self):

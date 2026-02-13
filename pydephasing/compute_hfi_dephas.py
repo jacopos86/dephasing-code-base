@@ -3,18 +3,17 @@
 # of the dephasing time
 # it computes the relative autocorrelation function
 # and returns it for further processing
-from pydephasing.input_parameters import p
+import logging
+from pydephasing.set_param_object import p
 from pydephasing.set_structs import DisplacedStructs, DisplacedStructures2ndOrder
-from pydephasing.spin_hamiltonian import spin_hamiltonian
+from pydephasing.spin_model.spin_hamiltonian import spin_triplet_hamiltonian
 from pydephasing.atomic_list_struct import atoms
 from pydephasing.gradient_interactions import gradient_HFI, gradient_2nd_HFI
 from pydephasing.nuclear_spin_config import nuclear_spins_config
-from pydephasing.spin_ph_inter import SpinPhononClass
+from pydephasing.spin_model.spin_ph_inter import SpinPhononClass
 from pydephasing.auto_correl_inhom_driver import acf_sp_ph_inhom
-from pydephasing.extract_ph_data import extract_ph_data
-from pydephasing.log import log
-from pydephasing.mpi import mpi
-import logging
+from pydephasing.utilities.log import log
+from pydephasing.parallelization.mpi import mpi
 #
 def compute_hfi_dephas():
     # driving code for the calculation of

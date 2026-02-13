@@ -7,10 +7,12 @@ import os
 import numpy as np
 import yaml
 from abc import ABC
-from pydephasing.log import log
-from pydephasing.mpi import mpi
-from pydephasing.phys_constants import THz_to_ev
-from pydephasing.input_parser import parser
+from pydephasing.utilities.log import log
+from pydephasing.parallelization.mpi import mpi
+from pydephasing.common.phys_constants import THz_to_ev
+from pydephasing.common.matrix_operations import norm_cmplxv
+from pydephasing.utilities.input_parser import parser
+from pydephasing.common.grids import set_temperatures
 #
 class data_input(ABC):
     # initialization
@@ -23,19 +25,20 @@ class data_input(ABC):
         self.write_dir = ''
         # unperturbed directory
         self.unpert_dirs = []
+        # general GS directory - no for grads
+        self.gs_data_dir = ''
         # grad info file
         self.grad_info = ''
-        # relax. type calculation
-        self.relax = False
-        # dephasing type calculation
-        self.deph = False
         # dynamical decoupling F by default
         self.dyndec = False
+        # sep.
+        self.sep = ''
         #######################################
         # physical common parameters
         # time
-        self.T  = 0.0
-        self.dt = 0.0
+        self.T  = None
+        self.dt = None
+        self.nt = None
         ######################################
         # hyperfine parameters
         # n. spins list
@@ -46,7 +49,7 @@ class data_input(ABC):
         self.fc_core = True
         # nuclear spin random
         # orientation
-        self.rnd_orientation = True
+        self.rnd_orientation = False
         ######################################
         # auto-correlation fitting parameters
         # nlags
@@ -55,6 +58,9 @@ class data_input(ABC):
         self.N_df= 100000
         self.T_df= 0.05
         self.maxiter = 80000
+        ######################################
+        # initial wave function
+        self.psi0 = None
     #
     # read yaml data
     def read_yml_common_data(self, data):
@@ -64,7 +70,6 @@ class data_input(ABC):
             self.work_dir = data['working_dir']
         if 'output_dir' in data:
             self.write_dir = data['output_dir']
-            self.write_dir = self.work_dir + '/' + self.write_dir
             # create output directory
             if mpi.rank == mpi.root:
                 isExist = os.path.isdir(self.write_dir)
@@ -72,6 +77,8 @@ class data_input(ABC):
                     # create new dir.
                     os.makedirs(self.write_dir)
             mpi.comm.Barrier()
+        if 'unpert_dir' in data:
+            self.gs_data_dir = self.work_dir + '/' + data['unpert_dir']
         # grad info file
         if 'grad_info_file' in data:
             self.grad_info = self.work_dir + '/' + data['grad_info_file']
@@ -87,6 +94,23 @@ class data_input(ABC):
         if 'dt' in data:
             self.dt = float(data['dt'])
             # ps units
+        if 'nt' in data:
+            self.nt = int(data['nt'])
+        # applied static magnetic field
+        # magnitude -> aligned along spin quant. axis
+        if 'B0' in data:
+            self.B0 = np.array(data['B0'])
+        else:
+            self.B0 = np.array([0., 0., 0.])
+        # time dependent field
+        if 'Bt' in data:
+            self.Bt = data['Bt']
+        # units : Tesla
+        # psi0 wfc
+        if 'psi0' in data:
+            self.psi0 = np.array(data['psi0'], dtype=np.complex128)
+            nrm = norm_cmplxv(self.psi0)
+            self.psi0 = self.psi0 / nrm
         # ---------------------------------------
         #    HFI calculation parameters
         # ---------------------------------------
@@ -118,7 +142,7 @@ class data_input(ABC):
         # orientation
         if 'random_orientation' in data:
             self.rnd_orientation = data['random_orientation']
-            
+
 class dynamical_data_input(data_input):
     # initialization
     def __init__(self):
@@ -148,64 +172,30 @@ class dynamical_data_input(data_input):
         self.nwbn = 0
         self.phm_list = []
         #
-        # time resolved calculation
-        self.time_resolved = False
-        # freq. resolved
-        self.w_resolved = False
-        # integral / fit type calculation
-        self.ACF_INTEG = False
-        self.ACF_FIT = False
-        # fit model (default) ExpSin / Exp
-        self.FIT_MODEL = "ExS"
-        #
         # zfs/hfi 2nd order correction grad.
         self.order_2_correct = False
-        self.raman_correct = False
+        self.hessian = False
         # fraction of atoms preserved
         # in gradient calculation
         self.frac_kept_atoms = 1.
         ####################################
-        # physical parameters : deph - relax
-        self.index_qs0 = None
-        self.index_qs1 = None
-        # index of states |0> and |1> in the 
-        # spin eigenvectors matrix
+        # physical parameters
         # n. temperatures
+        self.temperatures = None
         self.ntmp = 0
-        # time ph / at resolved
-        self.T2 = 0.0
         # eta decay parameter (time resolved calc.)
         self.eta = 1e-5
         # in eV units
         # min. allowed phonon freq.
         self.min_freq = 0.0
         # THz units
-        #
-        # freq. resolved calculation inputs
-        self.w_grid = None
-        # freq. w grid
-        self.nwg = 0
-        self.w_max = 0.
-        # eV units
-        self.lorentz_thres = 0.
-        # lorentzian treshold
     #
     # read yml data file
-    def read_yml_data(self, input_file):
-        try:
-            f = open(input_file)
-        except:
-            msg = "\t COULD NOT FIND : " + input_file
-            log.error(msg)
-        data = yaml.load(f, Loader=yaml.Loader)
-        f.close()
+    def read_yml_data_dyn(self, data):
         #
         # reaad common shared data
         #
         self.read_yml_common_data(data)
-        # only T or nwg in data -> either time or freq. resolved
-        if 'T' in data and 'nwg' in data:
-            log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
         # displ. positions directory
         if 'displ_poscar_dir' in data:
             for d in data['displ_poscar_dir']:
@@ -233,9 +223,9 @@ class dynamical_data_input(data_input):
             self.at_resolved = data['atom_res']
             if self.at_resolved and mpi.rank == mpi.root:
                 log.info("\n")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.info("\t ATOM RESOLVED CALCULATION")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.info("\n")
         #
         #  phonon resolved
@@ -243,9 +233,9 @@ class dynamical_data_input(data_input):
             self.ph_resolved = data['phonon_res']
             if self.ph_resolved and mpi.rank == mpi.root:
                 log.info("\n")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.info("\t PHONON RESOLVED CALCULATION")
-                log.info("\t " + p.sep)
+                log.info("\t " + self.sep)
                 log.info("\n")
             if 'ph_list' in data:
                 stph = data['ph_list'][0]
@@ -257,8 +247,8 @@ class dynamical_data_input(data_input):
         # 2nd order ZFS / HFI corrections
         if '2nd_order_correct' in data:
             self.order_2_correct = data['2nd_order_correct']
-            if 'raman' in data:
-                self.raman_correct = data['raman']
+            if 'hessian' in data:
+                self.hessian = data['hessian']
         # fraction atoms to be used in the gradient calculation
         # starting from the farthest away from defect
         if 'frac_kept_atoms' in data:
@@ -266,11 +256,24 @@ class dynamical_data_input(data_input):
         # temperature (K)
         if 'temperature' in data:
             Tlist = data['temperature']
-            self.set_temperatures(Tlist)
-        # applied static magnetic field
-        if 'B0' in data:
-            self.B0 = np.array(data['B0'])
-            # Gauss units
+            self.temperatures = set_temperatures(Tlist)
+            self.ntmp = len(self.temperatures)
+        # eta decay parameter
+        if 'eta' in data:
+            self.eta = float(data['eta'])
+            # eV units
+        # min. frequency
+        # THz
+        if 'min_freq' in data:
+            self.min_freq = data['min_freq']
+        if mpi.rank == mpi.root:
+            log.info("\t min. freq. (THz): " + str(self.min_freq))
+            if np.abs(self.min_freq) < 1.E-7:
+                log.info("\n")
+                log.info("\t " + self.sep)
+                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
+                log.info("\t " + self.sep)
+                log.info("\n")
         # --------------------------------------------------------------
         #
         #    time variables
@@ -293,28 +296,15 @@ class dynamical_data_input(data_input):
                     self.ACF_INTEG = True
                 else:
                     log.error("\t T2 EXTRACTION METHOD ONLY : [ fit / integ ]")
-            else:
-                log.error("\t T2 EXTRACTION METHOD : [ fit / integ ] MUST BE GIVEN IN INPUT")
-            # fitting model -> (1) Exp ; (2) ExpSin
-            # ExpSin -> more accurate dynamical calculations
-            if self.ACF_FIT and 'fit_model' in data:
-                if data['fit_model'] == "Exp":
-                    self.FIT_MODEL = 'Ex'
-                elif data['fit_model'] == "ExpSin":
-                    self.FIT_MODEL = 'ExS'
-                else:
-                    log.error("\t fit model ONLY : [ Exp / ExpSin ]")
-            # min. frequency
-            # THz
-            if 'min_freq' in data:
-                self.min_freq = data['min_freq']
-            self.min_freq = max(1./self.T, self.min_freq)
-            if mpi.rank == mpi.root:
-                log.info("\t min. freq. (THz): " + str(self.min_freq))
-        # eta decay parameter
-        if 'eta' in data:
-            self.eta = float(data['eta'])
-            # eV units
+                # fitting model -> (1) Exp ; (2) ExpSin
+                # ExpSin -> more accurate dynamical calculations
+                if self.ACF_FIT and 'fit_model' in data:
+                    if data['fit_model'] == "Exp":
+                        self.FIT_MODEL = 'Ex'
+                    elif data['fit_model'] == "ExpSin":
+                        self.FIT_MODEL = 'ExS'
+                    else:
+                        log.error("\t fit model ONLY : [ Exp / ExpSin ]")
         # --------------------------------------------------------------
         #
         #    frequency variables
@@ -324,40 +314,11 @@ class dynamical_data_input(data_input):
             self.w_resolved = True
             # n. w grid points
             self.nwg = data['nwg']
-            # min. freq (THz)
-            if 'min_freq' in data:
-                self.min_freq = data['min_freq']
-            # lorentz. threshold
-            if 'lorentz_thres' in data:
-                self.lorentz_thres = data['lorentz_thres']
-        if mpi.rank == mpi.root:
-            if np.abs(self.min_freq) < 1.E-7:
-                log.info("\n")
-                log.info("\t " + p.sep)
-                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
-                log.info("\t " + p.sep)
-                log.info("\n")
+            # max. freq. (THz)
+            self.w_max = data['w_max']
         #
         # read displ. atoms data
         self.read_atoms_displ()
-    #
-    # time arrays
-    def set_time_arrays(self):
-        self.nt = int(self.T / self.dt)
-        self.time = np.linspace(0., self.T, self.nt)
-        # ph / at resolved time array
-        if self.at_resolved or self.ph_resolved:
-            self.nt2 = int(self.T2 / self.dt)
-            self.time2 = np.linspace(0., self.T2, self.nt2)
-    # set w_grid
-    def set_w_grid(self, wu):
-        self.w_max = np.max(wu) * THz_to_ev * 10.
-        # eV
-        dw = self.w_max / (self.nwg - 1)
-        self.w_grid = np.zeros(self.nwg)
-        # compute w grid
-        for iw in range(self.nwg):
-            self.w_grid[iw] = iw * dw
     #
     # set wql grid -> ph. res.
     #
@@ -387,10 +348,6 @@ class dynamical_data_input(data_input):
                     self.wql_grid_index[iq,iph] = ii
                     # wql freq.
                     self.wql_freq[ii] += 1
-    # set temperatures
-    def set_temperatures(self, Tlist):
-        self.ntmp = len(Tlist)
-        self.temperatures = np.array(Tlist)
     # read atomic displacements
     def read_atoms_displ(self):
         for i in range(len(self.displ_poscar_dir)):
@@ -415,6 +372,426 @@ class dynamical_data_input(data_input):
                 data = yaml.load(f, Loader=yaml.Loader)
                 self.atoms_2nd_displ.append(np.array(data['displ_ang']))
                 f.close()
+
+class linear_resp_SQ(dynamical_data_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        # time resolved calculation
+        self.time_resolved = False
+        # freq. resolved
+        self.w_resolved = False
+        ####################################
+        # freq. resolved calculation inputs
+        self.w_grid = None
+        # freq. w grid
+        self.nwg = 0
+        self.w_max = 0.
+        # lorentzian treshold in eV units
+        self.lorentz_thres = 0.
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        # Import read yml data from dynamical data input
+        self.read_yml_data_dyn(data)
+        # only T or nwg in data -> either time or freq. resolved
+        if 'T' in data and 'nwg' in data:
+            log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
+        # --------------------------------------------------------------
+        #
+        #    frequency variables
+        #
+        # --------------------------------------------------------------
+        if 'nwg' in data:
+            self.w_resolved = True
+            # n. w grid points
+            self.nwg = data['nwg']
+            # min. freq (THz)
+            if 'min_freq' in data:
+                self.min_freq = data['min_freq']
+            # lorentz. threshold
+            if 'lorentz_thres' in data:
+                self.lorentz_thres = data['lorentz_thres']
+        if mpi.rank == mpi.root:
+            if np.abs(self.min_freq) < 1.E-7:
+                log.info("\n")
+                log.info("\t " + self.sep)
+                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
+                log.info("\t " + self.sep)
+                log.info("\n")
+    # set w_grid
+    def set_w_grid(self, wu):
+        self.w_max = np.max(wu) * THz_to_ev * 10.
+        # eV
+        dw = self.w_max / (self.nwg - 1)
+        self.w_grid = np.zeros(self.nwg)
+        # compute w grid
+        for iw in range(self.nwg):
+            self.w_grid[iw] = iw * dw
+
+class linear_resp_input(dynamical_data_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        # time resolved calculation
+        self.time_resolved = False
+        # freq. resolved
+        self.w_resolved = False
+        ####################################
+        # freq. resolved calculation inputs
+        self.w_grid = None
+        # freq. w grid
+        self.nwg = 0
+        self.w_max = 0.
+        # lorentzian treshold in eV units
+        self.lorentz_thres = 0.
+        # electronic energy window
+        self.elec_win = None
+        # e-ph input data
+        self.eph_matr_file = None
+        # EPH approximation
+        self.EPH_APPROX = None
+        # Range of bands
+        self.band_range_idx = None
+    def read_yml_data_lr(self, data):
+        # Import read yml data from dynamical data input
+        self.read_yml_data_dyn(data)
+        # only T or nwg in data -> either time or freq. resolved
+        if 'T' in data and 'nwg' in data:
+            log.error("\t ONLY T / nwg CAN BE IN INPUT DATA -> EITHER TIME OR FREQ. RESOLVED")
+        # energy window
+        if 'elec_ener_window' in data:
+            self.elec_win = data['elec_ener_window']
+        # q grid mesh
+        if 'qgrid_mesh' in data:
+            self.qgr_mesh = data['qgrid_mesh']
+        # if eph file
+        if 'eph_matr_file' in data:
+            self.eph_matr_file = self.work_dir + '/' + data['eph_matr_file']
+        if "eph_approx" in data:
+            self.EPH_APPROX = data["eph_approx"]
+            if self.EPH_APPROX not in {"CCA", "DEFPOT", "WANNIER"}:
+                log.error("EPH APPROX input is wrong")
+        else:
+            log.error("Missing eph_approx input")
+        if "band_range_idx" in data:
+            self.band_range_idx = data["band_range_idx"]
+        # --------------------------------------------------------------
+        #
+        #    frequency variables
+        #
+        # --------------------------------------------------------------
+        if 'nwg' in data:
+            self.w_resolved = True
+            # n. w grid points
+            self.nwg = data['nwg']
+            # min. freq (THz)
+            if 'min_freq' in data:
+                self.min_freq = data['min_freq']
+            # lorentz. threshold
+            if 'lorentz_thres' in data:
+                self.lorentz_thres = data['lorentz_thres']
+        if mpi.rank == mpi.root:
+            if np.abs(self.min_freq) < 1.E-7:
+                log.info("\n")
+                log.info("\t " + self.sep)
+                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
+                log.info("\t " + self.sep)
+                log.info("\n")
+    # set w_grid
+    def set_w_grid(self, wu):
+        self.w_max = np.max(wu) * THz_to_ev * 10.
+        # eV
+        dw = self.w_max / (self.nwg - 1)
+        self.w_grid = np.zeros(self.nwg)
+        # compute w grid
+        for iw in range(self.nwg):
+            self.w_grid[iw] = iw * dw
+
+class linear_resp_JDFTx_input(linear_resp_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        # k-point grid
+        self.gamma_point = False
+        # wannier interpolation
+        self.wannier_interp = False
+        # Mesh grid
+        self.qmesh_size = None
+        # Phonon calculation prefix
+        self.phonon_calc_prefix = "totalE"
+        # ph. DOS parameters
+        self.num_bins = None
+        self.sigma = None
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        # read common data
+        self.read_yml_data_lr(data)
+        if 'gamma_point' in data:
+            self.gamma_point = data['gamma_point']
+        if "qmesh_size" in data:
+            self.qmesh_size = data['qmesh_size']
+        if "phonon_calc_prefix" in data:
+            self.phonon_calc_prefix = data['phonon_calc_prefix']
+        if "num_bins" in data:
+            self.num_bins = data["num_bins"]
+        if "sigma" in data:
+            self.sigma = data["sigma"]
+
+class linear_resp_VASP_input(linear_resp_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        # force sets file
+        self.force_sets_file = None
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        # read common data
+        self.read_yml_data_lr(data)
+        # force sets
+        if 'force_sets_file' in data:
+            self.force_sets_file = self.work_dir + '/' + data['force_sets_file']
+
+class real_time_SQ_input(dynamical_data_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        #####################################
+        # real time parameters
+        self.dynamical_mode = []
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # ---------------------------------------------------------------
+        #
+        #   real time
+        #
+        # ---------------------------------------------------------------
+        if 'dynamics' in data:
+            for i in data['dynamics']:
+                self.dynamical_mode.append(i)
+    #
+    # check parameters consistency
+    def check_consistency(self):
+        # dynamical mode
+        assert(len(self.dynamical_mode) == 2)
+        if self.order_2_correct:
+            if self.dynamical_mode[1] == 0:
+                log.warning("\t inconsistent choice of dynamical_mode and order_2_correct: \n")
+                log.warning("\t set order_2_correct to False for consistency")
+                self.order_2_correct = False
+        if self.dynamical_mode[1] > 0:
+            if self.order_2_correct == False:
+                log.warning("\t inconsistent choice of dynamical_mode and order_2_correct: \n")
+                log.warning("\t set order_2_correct to True for consistency")
+                self.order_2_correct = True
+
+class real_time_elec_input(ABC):
+    def __init__(self):
+        self.dynamical_mode = []
+        # working directory
+        self.work_dir = ''
+        # write directory
+        self.write_dir = ''
+        # min freq
+        self.min_freq = 0.0
+        # gamma point only
+        self.gamma_point = False
+        # time variables
+        self.evol_params = None
+    def read_yml_data_dyn(self, data):
+        if 'working_dir' in data:
+            self.work_dir = data['working_dir']
+        if 'output_dir' in data:
+            self.write_dir = data['output_dir']
+            # create output directory
+            if mpi.rank == mpi.root:
+                isExist = os.path.isdir(self.write_dir)
+                if not isExist:
+                    # create new dir.
+                    os.makedirs(self.write_dir)
+            mpi.comm.Barrier()
+        # dynamical mode is organized as follows :
+        # len(dynamical_mode) -> 3 : (ee, eph, erad)
+        # 0 -> do not include interaction
+        # 1 -> do Markovian / Lindblad dyn
+        # 2 -> full non Markovian dyn
+        if 'dynamics' in data:
+            for i in data['dynamics']:
+                self.dynamical_mode.append(i)
+        # min. frequency
+        # THz
+        if 'min_freq' in data:
+            self.min_freq = data['min_freq']
+        if mpi.rank == mpi.root:
+            log.info("\t min. freq. (THz): " + str(self.min_freq))
+            if np.abs(self.min_freq) < 1.E-7:
+                log.info("\n")
+                log.info("\t " + self.sep)
+                log.warning("\t CHECK -> min_freq = " + str(self.min_freq) + " THz")
+                log.info("\t " + self.sep)
+                log.info("\n")
+        # Gamma point only
+        if 'gamma_point' in data:
+            self.gamma_point = data['gamma_point']
+        # Time variables
+        if 'evolution_params' in data:
+            self.evol_params = data['evolution_params']
+        if 'external_ph_drive' in data:
+            self.ph_drive = data['external_ph_drive']
+        if 'external_vec_pot' in data:
+            self.ext_Apot_params = data['external_vec_pot']
+    def check_consistency(self):
+        # dyn. mode
+        assert (len(self.dynamical_mode) == 3)
+        assert (all(0 <= x <= 2 for x in self.dynamical_mode))
+
+class real_time_JDFTx_input(real_time_elec_input):
+    def __init__(self):
+        super().__init__()
+        self.wannier_interp = False
+        self.TR_SYM = True
+        self.elec_win = None
+        # EPH approximation
+        self.EPH_APPROX = None
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # read specific jdftx files
+        if 'wannier_interp' in data:
+            self.wannier_interp = data['wannier_interp']
+        if 'elec_ener_window' in data:
+            self.elec_win = data['elec_ener_window']
+        if 'TR_SYM' in data:
+            self.TR_SYM = data['TR_SYM']
+        if "eph_approx" in data:
+            self.EPH_APPROX = data["eph_approx"]
+            if self.EPH_APPROX not in {"CCA", "DEFPOT", "WANNIER"}:
+                log.error("EPH APPROX input is wrong")
+
+class real_time_VASP_input(real_time_elec_input):
+    def __init__(self):
+        super().__init__()
+        #  local input variables
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+
+class real_time_MODEL_input(real_time_elec_input):
+    def __init__(self):
+        super().__init__()
+        #  local input variables
+        self.elec_bands = None
+        self.nkpt = None
+        self.elec_eff_mass = None
+        self.elec_band_offset = None
+        self.Nel = None
+        self.SOCc = None
+        self.elec_win = None
+        self.sound_velocity = 50.
+        # A / ps units
+        # EPH approximation
+        self.eph_params = None
+        self.ph_DOS_plot = None
+        # dipole coeff
+        self.dipole_coeff = None
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # read specific model inputs
+        if 'elec_bands' in data:
+            self.elec_bands = data['elec_bands']
+        if 'k_points' in data:
+            self.nkpt = data['k_points']
+        if 'eff_mass' in data:
+            self.elec_eff_mass = data['eff_mass']
+        if 'elec_band_offset' in data:
+            self.elec_band_offset = data['elec_band_offset']
+        if 'num_elec' in data:
+            self.Nel = data['num_elec']
+        if 'SOC_coeff' in data:
+            self.SOCc = data['SOC_coeff']
+        if 'elec_ener_window' in data:
+            self.elec_win = data['elec_ener_window']
+        if 'smearing' in data:
+            self.smearing = data['smearing']
+        if 'Te' in data:
+            self.Te = data['Te']
+        if 'system_size' in data:
+            self.L = data['system_size']
+            # in Ang
+        if 'sound_velocity' in data:
+            self.sound_velocity = data['sound_velocity']
+        if 'ph_DOS_plot' in data:
+            self.ph_DOS_plot = data['ph_DOS_plot']
+        if 'eph_parameters' in data:
+            self.eph_params = data['eph_parameters']
+        if 'elec_momentum_params' in data:
+            self.elec_lm_params = data['elec_momentum_params']
+
+class Q_real_time_input(dynamical_data_input):
+    # initialization
+    def __init__(self):
+        super().__init__()
+        # qubutization mode
+        self.fermion2qubit = None
+        self.qubit_ph = False
+    def read_yml_data(self, input_file):
+        try:
+            f = open(input_file)
+        except:
+            msg = "\t COULD NOT FIND : " + input_file
+            log.error(msg)
+        data = yaml.load(f, Loader=yaml.Loader)
+        f.close()
+        self.read_yml_data_dyn(data)
+        # quantum phonons
+        if 'QUANTUM_PHONONS' in data:
+            self.qubit_ph = data['QUANTUM_PHONONS']
+        # qubitization mode
+        if 'fermion2qubit' in data:
+            self.fermion2qubit = data['fermion2qubit']
                 
 class static_data_input(data_input):
     # initialization
@@ -430,8 +807,6 @@ class static_data_input(data_input):
         self.n_pulses = 0
         # order taylor exp.
         self.order_exp = 7
-        # initial triplet wfc (spin 1 along z)
-        self.psi0 = np.array([1.+0*1j,0.+0*1j,0.+0*1j])
     #
     # read yml data file
     def read_yml_data(self, input_file):
@@ -446,31 +821,20 @@ class static_data_input(data_input):
         # reaad common shared data
         #
         self.read_yml_common_data(data)
-        # 
+        #
         # read nuclear spin dynamics
         # variables
         if 'T_nuc' in data:
             self.T_mus = float(data['T_nuc'])
         if 'dt_nuc' in data:
             self.dt_mus = float(data['dt_nuc'])
-        # static magnetic field
-        # magnitude -> aligned along spin quant. axis
-        if 'B0' in data:
-            self.B0 = data['B0']
-            # Gauss units
         # taylor exp. order
         if 'order_taylor_exp' in data:
             self.order_exp = data['order_taylor_exp']
-        # psi0 triplet wfc
-        if 'psi0' in data:
-            self.psi0 = np.array(data['psi0'], dtype=np.complex128)
-        nrm = 0.
-        nrm = np.sqrt(sum(self.psi0[:] * np.conjugate(self.psi0[:])))
-        self.psi0 = self.psi0 / nrm
         # dynamical decoupling -> number of pulses
         if 'npulses' in data:
             self.n_pulses = data['npulses']
-        
+
 class preproc_data_input():
     # initialization
     def __init__(self):
@@ -508,10 +872,7 @@ class preproc_data_input():
             self.work_dir = data['working_dir']
         # unpert. data directory
         if 'unpert_dir' in data:
-            if len(data['unpert_dir']) == 1:
-                self.unpert_dir = self.work_dir + '/' + data['unpert_dir'][0]
-            else:
-                log.error("\t ONLY ONE UNPERTURBED DIRECTORY")
+            self.unpert_dir = self.work_dir + '/' + data['unpert_dir']
         # displ. POSCAR dir.
         if 'displ_poscar_dir' in data:
             for d in data['displ_poscar_dir']:
@@ -535,16 +896,3 @@ class preproc_data_input():
         # index defect
         if 'defect_index' in data:
             self.defect_index = data['defect_index']
-
-# input parameters object
-calc_type1 = parser.parse_args().ct1[0]
-if calc_type1 == "init":
-    p = preproc_data_input()
-else:
-    deph_type = parser.parse_args().typ
-    if deph_type == "stat" or deph_type == "statdd":
-        p = static_data_input()
-    elif deph_type == "relax" or deph_type == "deph":
-        p = dynamical_data_input()
-
-p.sep = "*"*94
