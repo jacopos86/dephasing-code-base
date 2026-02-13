@@ -14,7 +14,8 @@ class KGrid_1D:
         self.kpts = np.linspace(0.5, -0.5, self.nk) * 2.*np.pi / L
     def set_wk(self):
         self.wk = np.ones(self.nk) / self.nk
-        assert np.sum(self.wk) == 1.0
+        assert np.isclose(np.sum(self.wk), 1.0)
+
     def map_kmq(self, ik, q):
         """
         return index ik' such that k[ik'] = k[ik] - q (mod G)
