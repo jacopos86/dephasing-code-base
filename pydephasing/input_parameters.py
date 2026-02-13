@@ -662,6 +662,8 @@ class real_time_elec_input(ABC):
             self.evol_params = data['evolution_params']
         if 'external_ph_drive' in data:
             self.ph_drive = data['external_ph_drive']
+        if 'external_vec_pot' in data:
+            self.ext_Apot_params = data['external_vec_pot']
     def check_consistency(self):
         # dyn. mode
         assert (len(self.dynamical_mode) == 3)
@@ -765,8 +767,8 @@ class real_time_MODEL_input(real_time_elec_input):
             self.ph_DOS_plot = data['ph_DOS_plot']
         if 'eph_parameters' in data:
             self.eph_params = data['eph_parameters']
-        if 'dipole_coeff' in data:
-            self.dipole_coeff = data['dipole_coeff']
+        if 'elec_momentum_params' in data:
+            self.elec_lm_params = data['elec_momentum_params']
 
 class Q_real_time_input(dynamical_data_input):
     # initialization
