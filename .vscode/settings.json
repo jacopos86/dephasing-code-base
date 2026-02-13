@@ -1,19 +1,11 @@
 {
   "python.autoComplete.extraPaths": [
-    "./pydephasing",         // Root of your project (if `pydephasing` is the main package)
-    "./pydephasing/quantum", // If `quantum` is a package used globally
-    "./pydephasing/common",  // Same for any other local packages you use
-    "./pydephasing/spin_model",
-    "./pydephasing/utilities"
+    "./pydephasing"         // Root of your project (if `pydephasing` is the main package)
   ],
   "python.analysis.extraPaths": [
-    "./pydephasing",
-    "./pydephasing/common",
-    "./pydephasing/quantum",
-    "./pydephasing/spin_model",
-    "./pydephasing/utilities"
+    "./pydephasing"
   ],
-  "python.defaultInterpreterPath": "./pydeph/bin/python",
+  "python.defaultInterpreterPath": "",
   "python.analysis.indexing": true,
   "python.analysis.cacheEnabled": true, // Enable Pylance cache
   "python.analysis.useLibraryCodeForTypes": true,

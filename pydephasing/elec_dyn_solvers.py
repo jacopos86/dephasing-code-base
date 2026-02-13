@@ -15,12 +15,14 @@ from pydephasing.electronic_hamiltonian import electronic_hamiltonian, model_ele
 from pydephasing.elec_dens_matr import elec_dmatr
 from pydephasing.elec_ph_inter import DeformationPotentialElectronPhonon
 from pydephasing.observables import ObservablesElectronicModel
-from pydephasing.elec_light_inter import ElectronLightCouplModel
+from pydephasing.p_mtxel import TwoBandsLinearMomentum
+from pydephasing.elec_light_inter import ElectronLightCouplTwoBandsModel
 from pydephasing.Ehrenfest_field import ehr_field
 from pydephasing.real_time.set_real_time_solver import set_real_time_electronic_solver
 from pydephasing.common.phys_constants import THz_to_ev
 from pydephasing.utilities.plot_functions import plot_td_Bq, plot_td_trace, plot_td_occup, plot_total_energy
 from pydephasing.real_time.external_ph_fields import set_up_phonon_drive
+from pydephasing.real_time.external_elec_fields import set_up_vector_potential
 
 #
 def solve_elec_model_dyn():
@@ -64,10 +66,28 @@ def solve_elec_model_dyn():
     rho_e.summary()
     # plot band structure
     He.plot_band_structure()
+    # ============================================================
+    # 2. Build MODEL electronic linear momentum
+    # ============================================================
+    elec_p = TwoBandsLinearMomentum(p.elec_lm_params)
+    # ============================================================
+    # 2A. Electric dipole interaction
+    # ============================================================
+    ext_Apot = set_up_vector_potential(p.ext_Apot_params)
+    print(ext_Apot)
+    exit()
+    # ============================================================
+    # 2B. Electric dipole interaction
+    # ============================================================
+    elc = ElectronLightCouplTwoBandsModel(
+        pe_k=elec_p.set_p_matrix(kgr),
+        ext_Apot = ext_Apot
+    )
+    exit()
     # phonons section
     if p.dynamical_mode[1] > 0:
         # ============================================================
-        # 2. Q grid && Model phonons (acoustic branch)
+        # 3. Q grid && Model phonons (acoustic branch)
         # ============================================================
         qgr = QGrid_1D(kgr)
         if mpi.rank == mpi.root:
@@ -115,13 +135,7 @@ def solve_elec_model_dyn():
     Observ = ObservablesElectronicModel(basis_set=None)
     Observ.set_Spin_operators(p.elec_bands, p.nkpt)
     # ============================================================
-    # 5. Electric dipole
-    # ============================================================
-    elc = ElectronLightCouplModel(
-        dipole_strengths=p.dipole_coeff
-    )
-    # ============================================================
-    # 6. Ready for non-Markovian propagation
+    # 5. Ready for non-Markovian propagation
     # ============================================================
     RT_solver = set_real_time_electronic_solver()
     RT_solver.summary()
@@ -134,7 +148,7 @@ def solve_elec_model_dyn():
         ph_drive = phdr
     )
     # ============================================================
-    # 7. print output + plot observables
+    # 6. print output + plot observables
     # ============================================================
     rho_e = out[0]
     ehr = out[1]

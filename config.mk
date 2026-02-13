@@ -43,7 +43,7 @@ PYDEPHASING_TESTING ?= 0
 #  TESTS dir.
 # ===================
 
-BUILD_TESTS ?= "1 2"
+BUILD_TESTS ?= 1 2
 TESTS_DIR := $(ROOT)/TESTS
 TESTS_12_TAR_FILE := $(ROOT)/EXAMPLES.tar.gz
 TESTS_3_TAR_FILE := $(ROOT)/TESTS_3.tar.gz
