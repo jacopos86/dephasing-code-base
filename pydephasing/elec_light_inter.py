@@ -8,10 +8,9 @@ from abc import ABC
 #
 
 class ElectronLightClass(ABC):
-    def __init__(self):
-        self.D = None
-
-
+    def __init__(self, pe_k, ext_Apot):
+        self.pe_k = pe_k
+        self.ext_Apot = ext_Apot
 
 #
 # ============================================================
@@ -19,8 +18,6 @@ class ElectronLightClass(ABC):
 # ============================================================
 #
 
-class ElectronLightCouplModel(ElectronLightClass):
-    def __init__(self, dipole_strengths):
-        super().__init__()
-        # dipole coeff.
-        self.dipole_coeff = dipole_strengths
+class ElectronLightCouplTwoBandsModel(ElectronLightClass):
+    def __init__(self, pe_k, ext_Apot):
+        super().__init__(pe_k, ext_Apot)
