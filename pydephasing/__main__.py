@@ -81,13 +81,10 @@ def run():
         if mpi.rank == mpi.root:
             log.info("\t " + p.sep)
             log.info("\n")
-    elif calc_type1 == "init_RT":
-        # parse input file
-        p.read_yml_data(yml_file)
     elif calc_type1 == "postproc":
         # post process output data from VASP
         pass
-    elif calc_type1 == "LR" or calc_type1 == "RT" or calc_type1 == "QUANTUM":
+    elif calc_type1 == "LR" or calc_type1 == "RT":
         co = parser.parse_args().co[0]
         if co == "energy-lw":
             energy_linewidth_driver(yml_file)
