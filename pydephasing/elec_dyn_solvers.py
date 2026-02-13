@@ -75,7 +75,7 @@ def solve_elec_model_dyn():
     # ============================================================
     ext_Apot = set_up_vector_potential(p.ext_Apot_params)
     print(ext_Apot)
-    exit()
+    #exit()
     # ============================================================
     # 2B. Electric dipole interaction
     # ============================================================
@@ -83,7 +83,7 @@ def solve_elec_model_dyn():
         pe_k=elec_p.set_p_matrix(kgr),
         ext_Apot = ext_Apot
     )
-    exit()
+    #exit()
     # phonons section
     if p.dynamical_mode[1] > 0:
         # ============================================================
@@ -114,7 +114,7 @@ def solve_elec_model_dyn():
         if mpi.rank == mpi.root:
             log.info("\t Deformation potential coupling computed")
         gql = eph.compute_gql(qgr, kgr, ph)
-        exit()
+        #exit()
         # ============================================================
         # 3B. Ehrenfest / phonon DM initialization
         # ============================================================
@@ -126,6 +126,7 @@ def solve_elec_model_dyn():
         # ============================================================
         phdr = set_up_phonon_drive(p.ph_drive, ph, qgr)
     else:
+        phdr = None
         gql = None
         ehr = None
         omega_q = None

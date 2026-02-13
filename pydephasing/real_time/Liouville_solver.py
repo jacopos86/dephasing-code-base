@@ -1,6 +1,6 @@
 import numpy as np
 from pydephasing.parallelization.petsc import *
-from pydephasing.real_time.real_time_solver_base import RealTimeSolver
+from pydephasing.real_time.real_time_solver_base import RealTimeSolver, ElecPhDynamicSolverBase
 from pydephasing.utilities.log import log
 from pydephasing.parallelization.mpi import mpi
 from mpi4py import MPI  ## AG may need to adjust later
