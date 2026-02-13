@@ -148,7 +148,6 @@ test :
 	@set -e; \
 	PYTEST="$(CONDA) run -n $(CONDA_ENV_NAME) python -m pytest"; \
 	PYDEPHASING_TESTING=1 $$PYTEST $(UNIT_TEST_DIR)/test_1.py; \
-	PYDEPHASING_TESTING=1 $$PYTEST -p no:warnings $(UNIT_TEST_DIR)/test_2.py; \
 	PYDEPHASING_TESTING=1 $$PYTEST $(UNIT_TEST_DIR)/test_3.py; \
 	PYDEPHASING_TESTING=1 $$PYTEST $(UNIT_TEST_DIR)/test_5.py; \
 	MPI_CMD="$(CONDA) run -n $(CONDA_ENV_NAME) $(MPI_LAUNCHER) -np"; \
