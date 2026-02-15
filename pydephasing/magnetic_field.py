@@ -1,5 +1,47 @@
 import numpy as np
 from math import *
+from dataclasses import dataclass
+from typing import Union, Optional, Dict
+from pydephasing.common.units import Q_, T
+
+@dataclass
+class MagneticField:
+    """
+    Data container for magnetic field.
+
+    Attributes:
+        B0: static field (Tesla) as np.ndarray (3,)
+        Bt_expr: optional dictionary with expression strings for time-dependent field
+        var: name of the variable in the expressions
+        unit: unit of B0 and Bt_expr (default Tesla)
+    """
+    B0: Union[np.ndarray, list]
+    unit : Union[str, object] = T
+    Bt_expr: Optional[Dict[str, str]] = None
+    var: str = 't'
+    # initialization
+    def __post_init__(self):
+        self.B0 = self._to_tesla(self.B0, self.unit)
+        self.unit = T
+        if self.B0.shape != (3,):
+            raise ValueError(f"B0 must be a 3-element vector, got shape {self.B0.shape}")
+        # Optional: ensure Bt_expr has correct keys
+        self.Bt_expr = self._set_Bt_expr(self.Bt_expr, self.var)
+    @staticmethod
+    def _to_tesla(array, unit) -> np.ndarray:
+        ''' convert array to Tesla ndarray'''
+        q = Q_(array, unit).to(T)
+        return np.asarray(q.magnitude, dtype=float)
+    @staticmethod
+    def _set_Bt_expr(Bt_expr: dict | None, var: str) -> dict | None:
+        if Bt_expr is None:
+            return None
+        return {
+            "expr_x": Bt_expr.get("expr_x", "0"),
+            "expr_y": Bt_expr.get("expr_y", "0"),
+            "expr_z": Bt_expr.get("expr_z", "0"),
+            "var":    Bt_expr.get("var", var)
+        }
 
 #
 #  magnetic field class
