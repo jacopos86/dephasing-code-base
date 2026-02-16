@@ -84,9 +84,8 @@ def solve_elec_model_dyn():
         pe_k=elec_p.set_p_matrix(kgr),
         ext_Apot = ext_Apot
     )
-    print(dir(elc))
     elc.initialize_P_light(He)
-    exit()
+    #exit()
     # phonons section
     if p.dynamical_mode[1] > 0:
         # ============================================================
@@ -150,7 +149,7 @@ def solve_elec_model_dyn():
         gql=gql,
         omega_q = omega_q,
         ph_drive = phdr,
-        elec_light = elec,
+        elec_light = elc,
     )
     # ============================================================
     # 6. print output + plot observables

@@ -189,11 +189,11 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         L.assemble()
         return L
 
-    def PETScLiouvillian(self, He):
+    def PETScLiouvillian(self, H0):
 
-        local_H = He.H0.getDiagonalBlock()
+        local_H = H0.getDiagonalBlock()
 
-        n_size = He.nkpt * He.nspin
+        n_size = self._nkpt * self._nspin
         nbnd = self._nbnd
         block_size = nbnd * nbnd  # (nBand x nBand flattened)
         global_dim = n_size * block_size
@@ -208,17 +208,17 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
 
         rstart, rend = L.getOwnershipRange()
         block_size_L = L.getBlockSize()
-        block_size_H = He.H0.getBlockSize()
+        block_size_H = H0.getBlockSize()
         
-        h_start, _ = He.H0.getOwnershipRange()
+        h_start, _ = H0.getOwnershipRange()
         # Iterate only over the systems assigned to this rank
         first = rstart // block_size_L
         last = rend // block_size_L
 
         I = np.eye(nbnd, dtype=complex)
         for i in range(first, last):
-            ik = i // He.nspin
-            isp = i % He.nspin
+            ik = i // self._nspin
+            isp = i % self._nspin
             
             # Get Hamiltonian on this rank from global index
             h_i_global = np.arange(i * block_size_H, (i + 1) * block_size_H, dtype=np.int32)
@@ -242,14 +242,25 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
     def _rhs_linear(self, ts, t, y, ydot):
         self.L.mult(y, ydot)
     # --------------------------------------------------
+    # RHS callback update light (explicit solvers)
+    # --------------------------------------------------
+    def _rhs_linear_wlight(self, ts, t, y, ydot):
+        self.P.update_P_light(t)
+        self.L.copy(self.LP, structure=PETSc.Mat.Structure.SAME_NONZERO_PATTERN)
+        self.LP.axpy(1.0, P, structure=PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
+        self.LP.mult(y, ydot)
+    # --------------------------------------------------
     # Attach linear ODE to TS
     # --------------------------------------------------
-    def _initialize_linear_ODE_solver(self, y):
+    def _initialize_linear_ODE_solver(self, y,light=False):
         # reset solver first
         self._reset_ts(y)
         self.ts.setProblemType(PETSc.TS.ProblemType.LINEAR)
         if self.solver_type in ("RK4", "RK45", "EULER"):
-            self.ts.setRHSFunction(self._rhs_linear)
+            if light:
+                self.ts.setRHSFunction(self._rhs_linear)
+            else:
+                self.ts.setRHSFunction(self._rhs_linear_wlight)
         elif self.solver_type == "CN":
             self.ts.setRHSJacobian(self.L, self.L)
     # ---------------------------------------------
@@ -275,19 +286,25 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         self._nbnd = He.nbnd
         self._rho_e = rho_e
         # check variables consistency
-        nkpt = He.nkpt
-        nspin= He.nspin
+        self._nkpt = He.nkpt
+        self._nspin= He.nspin
         assert self._rho_e.nbnd == self._nbnd
-        assert self._rho_e.nkpt == nkpt
-        assert self._rho_e.nspin == nspin
+        assert self._rho_e.nkpt == self._nkpt
+        assert self._rho_e.nspin == self._nspin
         # set time dependent object
         self._rho_e.init_td_arrays(self.nsteps, self.save_every)
         # iterate over k / spin
-        self.L = self.PETScLiouvillian(He)
+        self.L = self.PETScLiouvillian(He.H0)
         y = self.L.createVecRight()
         self._rho_e.rho.getDiagonal(y)
         # set propagator
-        self._initialize_linear_ODE_solver(y)
+        if kwargs['elec_light'] is not None:
+            self.elc = kwargs['elec_light']
+            self.P = self.PETScLiouvillian(self.elc.P)
+            self.LP = self.L.duplicate(copy=True)
+            self._initialize_linear_ODE_solver(y,light=True)
+        else:
+            self._initialize_linear_ODE_solver(y)
         # attach monitor for storing rho and trace
         self.ts.setMonitor(self.monitor)
         #  solve dynamics
