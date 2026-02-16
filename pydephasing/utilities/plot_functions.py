@@ -243,20 +243,31 @@ def plot_A_pulse(tgr, A_t):
     )
 
 def plot_total_energy(evol_params, Eph_t, Ee_t, Eeph_t):
+    # account for absent dynamics
+    Eph_t = Eph_t if Eph_t is not None else np.array([0])
+    Ee_t = Ee_t if Ee_t is not None else np.array([0])
+    Eeph_t= Eeph_t if Eeph_t is not None else np.array([0])
     # input parameters
     dt = evol_params.get("time_step")                # ps
     save_every = evol_params.get("save_every")
-    nt_save = Eph_t.shape[0]
+    # get longest length of plotting (should be 1 if no dynamics)
+    nt_save = 0
+    for i in [Eph_t, Ee_t, Eeph_t]:
+        nt_save = len(i) if len(i) > nt_save else nt_save
     # --- correct physical time axis ---
     time = dt * save_every * np.arange(nt_save)
     # subplots
     fig, ax = plt.subplots()
+    
     Etot_t0 = Eph_t[0]+Ee_t[0]+Eeph_t[0]
     Etot_t = Eph_t + Ee_t + Eeph_t
-    ax.plot(time, Eph_t-Eph_t[0], label=r"ph. energy")
-    ax.plot(time, Ee_t-Ee_t[0], label=r"electronic energy")
-    ax.plot(time, Eeph_t-Eph_t[0], label=r"e-ph energy")
-    ax.plot(time, Etot_t-Etot_t0, label=r"total energy")
+    if Eph_t.shape != (1,):
+        ax.plot(time, Eph_t-Eph_t[0], label=r"ph. energy")
+    if Ee_t.shape != (1,):
+        ax.plot(time, Ee_t-Ee_t[0], label=r"electronic energy")
+    if Eeph_t.shape != (1,):
+        ax.plot(time, Eeph_t-Eph_t[0], label=r"e-ph energy")
+    ax.plot(time, Etot_t-Etot_t0, ls='--', label=r"total energy")
     ax.set_xlabel("time (ps)")
     ax.set_ylabel(r"Energy-Energy(0) (eV)")
     ax.legend()

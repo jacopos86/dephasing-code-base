@@ -154,16 +154,14 @@ def solve_elec_model_dyn():
     rho_e = out[0]
     ehr = out[1]
     print(rho_e.traces[1,0,:], rho_e.traces[0,0,:])
-    if ehr is None:
-        print("*"*20 + " ehr is None")
-    else:
-        print(ehr.sum_Bqt[:])
     # compute energy
     Eph_t, Ee_t, Eeph_t = Observ.compute_system_energies(p.evol_params, rho_e, ehr, He, omega_q, gql)
     if mpi.rank == mpi.root:
-        plot_td_Bq(p.evol_params, ehr.Bq_t)
-        plot_td_trace(p.evol_params, rho_e.traces)
-        plot_td_occup(p.evol_params, rho_e.rho_t)
+        if Eph_t is not None:
+            plot_td_Bq(p.evol_params, ehr.Bq_t)
+        if Ee_t is not None:
+            plot_td_trace(p.evol_params, rho_e.traces)
+            plot_td_occup(p.evol_params, rho_e.rho_t)
         plot_total_energy(p.evol_params, Eph_t, Ee_t, Eeph_t)
     He.clean_up()
 
