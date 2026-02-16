@@ -292,7 +292,8 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         self.ts.setMonitor(self.monitor)
         #  solve dynamics
         self.ts.solve(y)
-        return self._rho_e
+        # Return list of propogated quantities 
+        return [self._rho_e, kwargs["ehr_field"]]
     # summary mode
     def summary(self):
         if mpi.rank == mpi.root:
