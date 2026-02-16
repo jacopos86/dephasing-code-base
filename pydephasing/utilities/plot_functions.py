@@ -197,7 +197,7 @@ def plot_td_occup(evol_params, rho_t):
     fig, ax = plt.subplots()
     for ib1 in range(nb):
         for ib2 in range(ib1, nb):
-            ax.plot(time, rh[ib1,ib2,:]-rh[ib1,ib2,0], label=fr"$\rho{ib1}{ib2}")
+            ax.plot(time, rh[ib1,ib2,:]-rh[ib1,ib2,0], label=r"$\rho_{"+f"{ib1}{ib2}"+"}$")
     ax.set_xlabel("time (ps)")
     ax.set_ylabel(r"$\rho$")
     ax.legend()
