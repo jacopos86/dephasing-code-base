@@ -113,6 +113,7 @@ class ObservablesElectronicModel(Observables):
         # time
         dt = evol_params.get("time_step")                # ps
         save_every = evol_params.get("save_every")
+        nt = evol_params.get("num_steps") // save_every + 1
         calc_ph = True
         calc_e = True
         # Bq
@@ -131,6 +132,7 @@ class ObservablesElectronicModel(Observables):
             nsp = He.nspin
             wk = np.ones(nk) / nk
             rho_t = rho_e.rho_t
+            _, _, nt, _, _ = rho_t.shape
         else:
             calc_e = False
         calc_eph = calc_e and calc_ph
