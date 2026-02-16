@@ -79,11 +79,14 @@ def solve_elec_model_dyn():
     # ============================================================
     # 2B. Electric dipole interaction
     # ============================================================
+    print(elec_p.set_p_matrix(kgr).shape)
     elc = ElectronLightCouplTwoBandsModel(
         pe_k=elec_p.set_p_matrix(kgr),
         ext_Apot = ext_Apot
     )
-    #exit()
+    print(dir(elc))
+    elc.initialize_P_light(He)
+    exit()
     # phonons section
     if p.dynamical_mode[1] > 0:
         # ============================================================
@@ -146,7 +149,8 @@ def solve_elec_model_dyn():
         ehr_field=ehr,
         gql=gql,
         omega_q = omega_q,
-        ph_drive = phdr
+        ph_drive = phdr,
+        elec_light = elec,
     )
     # ============================================================
     # 6. print output + plot observables
