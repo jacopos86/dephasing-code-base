@@ -74,12 +74,11 @@ def solve_elec_model_dyn():
     # 2A. Electric dipole interaction
     # ============================================================
     ext_Apot = set_up_vector_potential(p.ext_Apot_params)
-    print(ext_Apot)
+    #print(ext_Apot)
     #exit()
     # ============================================================
     # 2B. Electric dipole interaction
     # ============================================================
-    print(elec_p.set_p_matrix(kgr).shape)
     elc = ElectronLightCouplTwoBandsModel(
         pe_k=elec_p.set_p_matrix(kgr),
         ext_Apot = ext_Apot
@@ -156,7 +155,7 @@ def solve_elec_model_dyn():
     # ============================================================
     rho_e = out[0]
     ehr = out[1]
-    print(rho_e.traces[1,0,:], rho_e.traces[0,0,:])
+    #print(rho_e.traces[1,0,:], rho_e.traces[0,0,:])
     # compute energy
     Eph_t, Ee_t, Eeph_t = Observ.compute_system_energies(p.evol_params, rho_e, ehr, He, omega_q, gql)
     if mpi.rank == mpi.root:

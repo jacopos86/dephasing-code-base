@@ -236,6 +236,47 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         L.assemblyEnd()
         return L
 
+    def update_PETScLiouvillian(self, H0, L):
+
+        local_H = H0.getDiagonalBlock()
+
+        n_size = self._nkpt * self._nspin
+        nbnd = self._nbnd
+        block_size = nbnd * nbnd  # (nBand x nBand flattened)
+        global_dim = n_size * block_size
+
+        L.zeroEntries()
+
+        rstart, rend = L.getOwnershipRange()
+        block_size_L = L.getBlockSize()
+        block_size_H = H0.getBlockSize()
+        
+        h_start, _ = H0.getOwnershipRange()
+        # Iterate only over the systems assigned to this rank
+        first = rstart // block_size_L
+        last = rend // block_size_L
+
+        I = np.eye(nbnd, dtype=complex)
+        for i in range(first, last):
+            ik = i // self._nspin
+            isp = i % self._nspin
+            
+            # Get Hamiltonian on this rank from global index
+            h_i_global = np.arange(i * block_size_H, (i + 1) * block_size_H, dtype=np.int32)
+            h_i_local = h_i_global - h_start
+            Hk = local_H.getValues(h_i_local, h_i_local).reshape(block_size_H, block_size_H)
+            # Compute the Liouvillian 
+            # L*rho = -i/hbar (H*rho - rho*H)
+            L_np = -1j / hbar * (np.kron(Hk, I) - np.kron(I, Hk.T))
+            
+            # Insert the block into the global matrix
+            L.setValuesBlocked([i], [i], L_np.flatten(), addv=PETSc.InsertMode.INSERT_VALUES)
+
+
+        L.assemblyBegin()
+        L.assemblyEnd()
+        return
+
     # --------------------------------------------------
     # RHS callback (explicit solvers)
     # --------------------------------------------------
@@ -245,32 +286,8 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
     # RHS callback update light (explicit solvers)
     # --------------------------------------------------
     def _rhs_linear_wlight(self, ts, t, y, ydot):
-        #log.info(f"\t AG Execute Elec. Light t= {t}")
         self.elc.update_P_light(t)
-        self.P = self.PETScLiouvillian(self.elc.P)
-        #self.L.copy(self.LP, structure=PETSc.Mat.Structure.SAME_NONZERO_PATTERN)
-        #self.LP.axpy(1.0, self.P, structure=PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
-        #if t > 1:
-        #    viewer = PETSc.Viewer().createASCII('LP.txt', mode='w')
-        #    viewer.pushFormat(PETSc.Viewer.Format.ASCII_MATLAB) # Readable text format
-        #    self.LP.view(viewer)
-        #    viewer.popFormat()
-        #    viewer.destroy()
-
-        #    viewer = PETSc.Viewer().createASCII('L.txt', mode='w')
-        #    viewer.pushFormat(PETSc.Viewer.Format.ASCII_MATLAB) # Readable text format
-        #    self.L.view(viewer)
-        #    viewer.popFormat()
-        #    viewer.destroy()
-        #    viewer = PETSc.Viewer().createASCII('P.txt', mode='w')
-        #    viewer.pushFormat(PETSc.Viewer.Format.ASCII_MATLAB) # Readable text format
-        #    self.elc.P.view(viewer)
-        #    viewer.popFormat()
-        #    viewer.destroy()
-        #    exit()
-
-        #self.LP.mult(y, ydot)
-
+        self.update_PETScLiouvillian(self.elc.P, self.P)
         self.L.mult(y, ydot)
         self.P.mult(y, ydot)
     # --------------------------------------------------

@@ -30,6 +30,24 @@ def plot_elec_struct(Eks, mu, Ylim=[-0.3, 0.5]):
     plt.savefig(f"{p.write_dir}/Electronic_bandstructure.png",dpi=300,bbox_inches="tight" )
     plt.show()
 
+def plot_elec_struct_diff(Eks, mu, Ylim=[-0.3, 0.5]):
+    for i in np.arange(10):
+        hw = 2.8 + 2*i/100
+        plt.figure(figsize=(8,5))
+        for isp in range(Eks.shape[2]):
+            dE = np.abs(Eks[0, :, isp]-Eks[1, :, isp]) - hw
+            plt.plot(range(Eks.shape[1]),np.abs(dE) , 'k.', markersize=2)
+        plt.axhline(0, color='gray', lw=1.5)
+        plt.yscale('log')
+        plt.ylabel("E - VBM [eV]")
+        plt.xlabel("k-point index")
+        plt.legend()
+        plt.title("KS Band Structure (shifted to VBM)")
+        plt.tight_layout()
+        plt.savefig(f"./dE/{hw}-dE_bandstructure.png",dpi=300,bbox_inches="tight" )
+        plt.close()
+    #plt.show()
+
 def plot_wan_struct(Ew, Eks, mu, n_interp=10, Ylim=[-0.3, 0.5]):
     plt.figure(figsize=(8,5))
     for ib in range(Eks.shape[1]):

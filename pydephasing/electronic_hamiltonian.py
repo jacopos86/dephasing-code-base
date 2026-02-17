@@ -11,7 +11,7 @@ from pydephasing.utilities.log import log
 from pydephasing.set_param_object import p
 from pydephasing.wannier_interface.wannier import Wannier
 from pydephasing.common.phys_constants import hartree2ev, hbar, me
-from pydephasing.utilities.plot_functions import plot_elec_struct
+from pydephasing.utilities.plot_functions import plot_elec_struct, plot_elec_struct_diff # AG
 
 #
 #   This module defines
@@ -69,6 +69,7 @@ class AbstractElectronicHamiltonian(ABC):
             Ew = None
         if mpi.rank == mpi.root:
             plot_elec_struct(self.enk, self.mu, Ylim=Ew)
+            #plot_elec_struct_diff(self.enk, self.mu, Ylim=Ew) # AG
         mpi.comm.Barrier()
     # ==========================================================
     #   DEBUG / INFO
@@ -214,7 +215,6 @@ class model_electronic_hamiltonian(AbstractElectronicHamiltonian):
             isp = i % self.nspin
             block_offset = i * block_size
 
-            #for ib in range(self.nbnd):
             # diagonal Hamiltonian
             H_np = np.diag(self.enk[:, ik, isp])
             self.H0.setValuesBlocked([i], [i], H_np)
