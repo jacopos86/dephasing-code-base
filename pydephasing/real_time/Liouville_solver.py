@@ -245,10 +245,34 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
     # RHS callback update light (explicit solvers)
     # --------------------------------------------------
     def _rhs_linear_wlight(self, ts, t, y, ydot):
-        self.P.update_P_light(t)
-        self.L.copy(self.LP, structure=PETSc.Mat.Structure.SAME_NONZERO_PATTERN)
-        self.LP.axpy(1.0, P, structure=PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
-        self.LP.mult(y, ydot)
+        #log.info(f"\t AG Execute Elec. Light t= {t}")
+        self.elc.update_P_light(t)
+        self.P = self.PETScLiouvillian(self.elc.P)
+        #self.L.copy(self.LP, structure=PETSc.Mat.Structure.SAME_NONZERO_PATTERN)
+        #self.LP.axpy(1.0, self.P, structure=PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
+        #if t > 1:
+        #    viewer = PETSc.Viewer().createASCII('LP.txt', mode='w')
+        #    viewer.pushFormat(PETSc.Viewer.Format.ASCII_MATLAB) # Readable text format
+        #    self.LP.view(viewer)
+        #    viewer.popFormat()
+        #    viewer.destroy()
+
+        #    viewer = PETSc.Viewer().createASCII('L.txt', mode='w')
+        #    viewer.pushFormat(PETSc.Viewer.Format.ASCII_MATLAB) # Readable text format
+        #    self.L.view(viewer)
+        #    viewer.popFormat()
+        #    viewer.destroy()
+        #    viewer = PETSc.Viewer().createASCII('P.txt', mode='w')
+        #    viewer.pushFormat(PETSc.Viewer.Format.ASCII_MATLAB) # Readable text format
+        #    self.elc.P.view(viewer)
+        #    viewer.popFormat()
+        #    viewer.destroy()
+        #    exit()
+
+        #self.LP.mult(y, ydot)
+
+        self.L.mult(y, ydot)
+        self.P.mult(y, ydot)
     # --------------------------------------------------
     # Attach linear ODE to TS
     # --------------------------------------------------
@@ -258,9 +282,10 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         self.ts.setProblemType(PETSc.TS.ProblemType.LINEAR)
         if self.solver_type in ("RK4", "RK45", "EULER"):
             if light:
-                self.ts.setRHSFunction(self._rhs_linear)
-            else:
+                log.info(f"\t AG Setting Elec. Light")
                 self.ts.setRHSFunction(self._rhs_linear_wlight)
+            else:
+                self.ts.setRHSFunction(self._rhs_linear)
         elif self.solver_type == "CN":
             self.ts.setRHSJacobian(self.L, self.L)
     # ---------------------------------------------
@@ -299,9 +324,10 @@ class LiouvilleSolverElectronic(ElecPhDynamicSolverBase):
         self._rho_e.rho.getDiagonal(y)
         # set propagator
         if kwargs['elec_light'] is not None:
+
             self.elc = kwargs['elec_light']
             self.P = self.PETScLiouvillian(self.elc.P)
-            self.LP = self.L.duplicate(copy=True)
+            #self.LP = self.L.duplicate(copy=True)
             self._initialize_linear_ODE_solver(y,light=True)
         else:
             self._initialize_linear_ODE_solver(y)
