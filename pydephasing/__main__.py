@@ -91,7 +91,11 @@ def run():
         elif co == "spin-qubit":
             spin_qubit_driver(yml_file)
         elif co == "elec-sys":
+            
+            PETSc.Log.begin()
+            viewer = PETSc.Viewer().createASCII('petsc_profile.log', comm=PETSc.COMM_WORLD) 
             elec_system_driver(yml_file)
+            PETSc.Log.view(viewer)
         else:
             if mpi.rank == mpi.root:
                 log.info("\n")
